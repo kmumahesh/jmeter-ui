@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["spikes/gpui-spike", "spikes/zed-ui-spike", "crates/jmx-model", "crates/jvm-runtime", "crates/plan-core", "crates/shell-core", "crates/app"]
+
+[workspace.package]
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+# GPUI comes from the Zed repo at tag v1.24.2 (the crates.io `gpui` 0.2.2 is an older split without `gpui_platform`).
+# Patches below are copied from Zed's workspace Cargo.toml; only the ones our dependency graph needs.
+[patch.crates-io]
+async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd71e4e94fbda54ce6302444de14f4d190e" }
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }

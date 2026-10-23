@@ -1,0 +1,5 @@
+target/
+jmeter.log
+tools/jmeter-catalog/out/
+*.jmx.bak
+*.jmx.tmp
