@@ -130,6 +130,11 @@ fn stored_run(root: &Path, plan: &Path, second: u32, rows: u32, outcome: Outcome
     dir
 }
 
+/// The real path, so that a short Windows name (`RUNNER~1`) and the long name compare equal.
+fn canon(p: &Path) -> PathBuf {
+    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
+}
+
 fn write(dir: &Path, meta: &runs::RunMeta) {
     runs::write_meta(dir, meta).unwrap();
 }
@@ -408,7 +413,7 @@ fn clicking_a_stored_run_shows_its_numbers_and_charts(cx: &mut TestAppContext) {
     assert_eq!(st["run"]["samples"], 1000);
     assert_eq!(st["run"]["errors"], 100);
     assert_eq!(st["run"]["labels"], 2);
-    assert_eq!(st["run"]["dir"].as_str().unwrap(), dir.to_string_lossy());
+    assert_eq!(canon(Path::new(st["run"]["dir"].as_str().unwrap())), canon(&dir));
     assert_eq!(st["bottom_tab"], "Run");
     for sel in ["run-kpi-samples", "run-kpi-rate", "run-kpi-avg", "run-kpi-p95", "run-kpi-errors", "run-kpi-users", "run-chart-response", "run-chart-rate", "run-chart-errors", "run-chart-users", "run-files", "run-phase"] {
         assert!(app.has(sel), "{sel}");
@@ -590,7 +595,7 @@ fn f5_runs_the_saved_plan_and_shows_the_live_numbers(cx: &mut TestAppContext) {
     // The plan file is untouched, and the run is in its own folder under runs next to it.
     assert_eq!(std::fs::read_to_string(&s.plan).unwrap(), before);
     let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
-    assert_eq!(dir.parent().unwrap(), s.dir.join("runs"));
+    assert_eq!(canon(dir.parent().unwrap()), canon(&s.dir.join("runs")));
     assert!(dir.join("results.jtl").is_file() && dir.join("jmeter.log").is_file() && dir.join("plan-as-run.jmx").is_file() && dir.join("run.json").is_file());
     let meta = runs::read_meta(&dir).unwrap();
     assert_eq!((meta.outcome, meta.samples, meta.errors), (Outcome::Finished, 30, 10));
@@ -670,7 +675,7 @@ fn the_chosen_folder_gets_a_runs_folder_with_a_folder_for_each_run(cx: &mut Test
     app.keys("f5");
     let st = wait_run(&mut app, Duration::from_secs(120));
     let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
-    assert_eq!(dir.parent().unwrap(), shared.join("runs"), "inside the runs folder of the chosen folder");
+    assert_eq!(canon(dir.parent().unwrap()), canon(&shared.join("runs")), "inside the runs folder of the chosen folder");
     assert!(dir.join("results.jtl").is_file());
     assert!(!s.dir.join("runs").exists(), "nothing was written next to the plan");
     assert_eq!(st["run"]["samples"], 3);
@@ -687,7 +692,7 @@ fn only_the_newest_runs_are_kept_after_a_run_and_their_files_stay(cx: &mut TestA
     let new = PathBuf::from(st["run"]["dir"].as_str().unwrap());
     let left = run_dirs(&root);
     assert_eq!(left.len(), 3, "{left:?}");
-    assert!(left.contains(&new), "the new run is kept");
+    assert!(left.iter().any(|l| canon(l) == canon(&new)), "the new run is kept");
     assert!(!olds[0].exists() && !olds[1].exists(), "the oldest two were removed");
     assert!(olds[2].join("results.jtl").exists() && olds[3].join("jmeter.log").exists(), "kept runs keep all their files");
     assert_eq!(st["history"].as_array().unwrap().len(), 3);

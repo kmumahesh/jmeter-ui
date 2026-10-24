@@ -231,9 +231,11 @@ pub fn read_meta(dir: &Path) -> Option<RunMeta> {
     (meta.app == APP_MARK).then_some(meta)
 }
 
-fn same_file(a: &str, b: &Path) -> bool {
-    let norm = |s: &str| s.replace('\\', "/").trim_start_matches("//?/").to_lowercase();
-    norm(a) == norm(&b.to_string_lossy())
+/// A path as one comparable text: the real path when the file exists (so a short Windows name such as
+/// `RUNNER~1` and the long name match), otherwise the path as written; slashes and case are ignored.
+fn path_key(p: &str) -> String {
+    let real = std::fs::canonicalize(p).map(|c| c.to_string_lossy().into_owned()).unwrap_or_else(|_| p.to_string());
+    real.replace('\\', "/").trim_start_matches("//?/").to_lowercase()
 }
 
 fn is_real_dir(p: &Path) -> bool {
@@ -243,12 +245,22 @@ fn is_real_dir(p: &Path) -> bool {
 /// The runs in `root`, newest first. With `plan`, only the runs of that plan.
 pub fn list_runs(root: &Path, plan: Option<&Path>) -> Vec<RunEntry> {
     let Ok(rd) = std::fs::read_dir(root) else { return Vec::new() };
+    let want = plan.map(|p| path_key(&p.to_string_lossy()));
+    let mut last: Option<(String, String)> = None; // plan path as stored, and its key: runs of one plan share it
     let mut out: Vec<RunEntry> = rd
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| is_real_dir(p))
         .filter_map(|dir| read_meta(&dir).map(|meta| RunEntry { dir, meta }))
-        .filter(|r| plan.is_none_or(|p| same_file(&r.meta.plan_path, p)))
+        .filter(|r| match &want {
+            None => true,
+            Some(w) => {
+                if last.as_ref().is_none_or(|(stored, _)| *stored != r.meta.plan_path) {
+                    last = Some((r.meta.plan_path.clone(), path_key(&r.meta.plan_path)));
+                }
+                last.as_ref().is_some_and(|(_, k)| k == w)
+            }
+        })
         .collect();
     out.sort_by(|a, b| b.meta.started_ms.cmp(&a.meta.started_ms).then_with(|| b.dir.cmp(&a.dir)));
     out
@@ -339,6 +351,22 @@ mod tests {
         assert_eq!(Place::from_setting(true, None), Place::PlanFolder);
         assert_eq!(Place::from_setting(true, Some("  ")), Place::PlanFolder);
         assert_eq!(Place::from_setting(true, Some("D:/x")), Place::Folder("D:/x".into()));
+    }
+
+    #[test]
+    fn runs_of_a_plan_are_found_however_the_plan_path_is_spelled() {
+        let d = dir("spelling");
+        let plan = d.join("shop.jmx");
+        std::fs::write(&plan, "x").unwrap();
+        let root = d.join("runs");
+        // Stored with one spelling of the path (a detour through a folder, as a short Windows name would be).
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        let detour = d.join("sub").join("..").join("shop.jmx");
+        new_run(&root, &detour, RunKind::Run, at(1)).unwrap();
+        assert_eq!(list_runs(&root, Some(&plan)).len(), 1, "found with the plain path");
+        assert_eq!(list_runs(&root, Some(&detour)).len(), 1);
+        assert_eq!(list_runs(&root, Some(&d.join("other.jmx"))).len(), 0, "another plan is not matched");
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]
