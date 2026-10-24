@@ -144,3 +144,6 @@ These were given by the user during the project and were removed from the other 
 7. Before building something large, show the plan or a sample and get the user's confirmation (as done for the mockups, the test document and its summary).
 8. Test both the inner logic and the user interface itself for every feature (unit tests, whole-window tests, and the real-window script).
 9. Keep memory notes in `C:\Users\Mahesh\.claude\projects\C--code-work-jmeter-ui\memory\` current: `project-jmeter-ui-decisions.md` for status and `feedback-*.md` for rules like these.
+
+## D25. Line endings (2026-10-24)
+A `.gitattributes` file sets the rules in the repository, the way Microsoft repositories do: `* text=auto` with LF stored for text, LF forced for shell scripts, CRLF forced for PowerShell and batch scripts, and fonts and archives marked binary. The result no longer depends on each contributor's `core.autocrlf` setting.
