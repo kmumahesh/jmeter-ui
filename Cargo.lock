@@ -2563,6 +2563,7 @@ name = "jmeter-ui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "gpui",
  "gpui_platform",
  "jvm-runtime",
@@ -2637,8 +2638,12 @@ name = "jvm-runtime"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "csv",
  "jmx-model",
+ "serde",
+ "serde_json",
+ "windows-sys",
 ]
 
 [[package]]
@@ -3680,6 +3685,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "jmx-model",
+ "jvm-runtime",
  "nucleo-matcher",
 ]
 

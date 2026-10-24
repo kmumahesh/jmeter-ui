@@ -166,6 +166,12 @@ impl EditablePlan {
         Ok(e)
     }
 
+    /// A copy of the plan as it is now, with no undo history, for making a changed plan to run without
+    /// touching this one. Elements keep their ids.
+    pub fn fork(&self) -> EditablePlan {
+        EditablePlan { doc: self.doc.clone(), plan: self.plan.clone(), undo: Vec::new(), redo: Vec::new(), saved_at: Some(0) }
+    }
+
     pub fn plan(&self) -> &Arc<Plan> {
         &self.plan
     }

@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      rust-dependencies:
+        patterns: ["*"]
+    ignore:
+      # GPUI and Zed's crates are pinned to one commit on purpose.
+      - dependency-name: "gpui*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

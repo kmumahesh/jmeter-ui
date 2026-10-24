@@ -44,6 +44,11 @@ pub const HEAP_RANGE_MB: (u32, u32) = (64, 65_536);
 pub const SUMMARY_INTERVAL_RANGE: (u32, u32) = (1, 60);
 
 pub const MAX_RECENT: usize = 10;
+/// How many runs of a plan are kept (the setting and its limits).
+pub const RUNS_KEEP_RANGE: (u32, u32) = (1, 1000);
+pub const DEFAULT_RUNS_KEEP: u32 = 10;
+/// Most plans remembered as approved to run their scripts.
+pub const MAX_APPROVED: usize = 1000;
 pub const SIDEBAR_RANGE: (f32, f32) = (180.0, 600.0);
 pub const INSPECTOR_RANGE: (f32, f32) = (220.0, 600.0);
 pub const BOTTOM_RANGE: (f32, f32) = (120.0, 700.0);
@@ -71,6 +76,14 @@ pub struct Settings {
     pub heap_mb: u32,
     /// Seconds between live summary lines while a run is going.
     pub summary_interval_secs: u32,
+    /// Run files go in a folder chosen below (`true`) or next to the `.jmx` file (`false`).
+    pub runs_custom: bool,
+    /// The folder chosen for run files; the app keeps them in a `runs` folder inside it.
+    pub runs_folder: Option<String>,
+    /// How many runs of each plan are kept.
+    pub runs_keep: u32,
+    /// Plans the user has agreed to run although they contain scripts, by file path.
+    pub script_approved: Vec<String>,
 }
 
 impl Default for Settings {
@@ -90,6 +103,10 @@ impl Default for Settings {
             startup: Startup::Welcome,
             heap_mb: 1024,
             summary_interval_secs: 1,
+            runs_custom: false,
+            runs_folder: None,
+            runs_keep: DEFAULT_RUNS_KEEP,
+            script_approved: Vec::new(),
         }
     }
 }
@@ -110,6 +127,28 @@ impl Settings {
         self.recent_files.truncate(MAX_RECENT);
         self.heap_mb = self.heap_mb.clamp(HEAP_RANGE_MB.0, HEAP_RANGE_MB.1);
         self.summary_interval_secs = self.summary_interval_secs.clamp(SUMMARY_INTERVAL_RANGE.0, SUMMARY_INTERVAL_RANGE.1);
+        self.runs_keep = self.runs_keep.clamp(RUNS_KEEP_RANGE.0, RUNS_KEEP_RANGE.1);
+        if self.runs_folder.as_deref().is_some_and(|f| f.trim().is_empty()) {
+            self.runs_folder = None;
+        }
+        self.script_approved.truncate(MAX_APPROVED);
+    }
+
+    /// Where run files go for the settings as they are.
+    pub fn runs_place(&self) -> (bool, Option<&str>) {
+        (self.runs_custom, self.runs_folder.as_deref())
+    }
+
+    /// Has the user agreed to run this plan although it contains scripts?
+    pub fn script_approved_for(&self, plan: &str) -> bool {
+        self.script_approved.iter().any(|p| same_path(p, plan))
+    }
+
+    pub fn approve_scripts(&mut self, plan: &str) {
+        if !self.script_approved_for(plan) {
+            self.script_approved.push(plan.to_string());
+            self.script_approved.truncate(MAX_APPROVED);
+        }
     }
 
     /// Put `path` at the front of the recent list, removing an earlier copy.
@@ -151,7 +190,8 @@ pub fn load(path: &Path) -> Loaded {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Loaded { settings: Settings::default(), notice: None },
         Err(e) => return Loaded { settings: Settings::default(), notice: Some(format!("Could not read settings ({e}). Using defaults.")) },
     };
-    match serde_json::from_str::<Settings>(&text) {
+    // Editors on Windows put a byte order mark at the start of a file; it is not part of the JSON.
+    match serde_json::from_str::<Settings>(text.trim_start_matches('\u{feff}')) {
         Ok(mut s) => {
             s.sanitize();
             Loaded { settings: s, notice: None }
@@ -269,8 +309,7 @@ mod tests {
         assert_eq!(s.inspector_width, INSPECTOR_RANGE.1);
         assert_eq!(s.bottom_height, BOTTOM_RANGE.0);
         assert_eq!((s.window.width, s.window.height), WINDOW_MIN);
-        let mut bad = Settings::default();
-        bad.sidebar_width = f32::NAN;
+        let mut bad = Settings { sidebar_width: f32::NAN, ..Settings::default() };
         bad.sanitize();
         assert_eq!(bad.sidebar_width, Settings::default().sidebar_width);
     }
@@ -288,6 +327,69 @@ mod tests {
         assert_eq!(s.recent_files[0], "c:\\P\\10.JMX");
         s.remove_recent("C:/p/14.jmx");
         assert!(!s.recent_files.iter().any(|p| p.ends_with("14.jmx")));
+    }
+
+    #[test]
+    fn a_settings_file_saved_with_a_byte_order_mark_is_read() {
+        let dir = temp_dir("bom");
+        let p = dir.join("settings.json");
+        std::fs::write(&p, "\u{feff}{\"heap_mb\": 4096, \"runs_keep\": 7}").unwrap();
+        let l = load(&p);
+        assert!(l.notice.is_none(), "{:?}", l.notice);
+        assert_eq!((l.settings.heap_mb, l.settings.runs_keep), (4096, 7));
+        assert!(p.exists() && !p.with_extension("json.bak").exists(), "the file was not set aside");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn run_history_defaults_to_the_plan_folder_and_ten_runs() {
+        let d = Settings::default();
+        assert_eq!((d.runs_custom, d.runs_folder.clone(), d.runs_keep), (false, None, 10));
+        assert!(d.script_approved.is_empty());
+    }
+
+    #[test]
+    fn older_files_without_run_history_settings_still_load() {
+        let dir = temp_dir("old-runs");
+        let p = dir.join("settings.json");
+        std::fs::write(&p, r#"{"theme":"dark","heap_mb":2048}"#).unwrap();
+        let l = load(&p);
+        assert!(l.notice.is_none());
+        assert_eq!((l.settings.runs_custom, l.settings.runs_keep), (false, 10));
+        assert_eq!(l.settings.heap_mb, 2048);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn run_history_settings_round_trip_and_are_clamped() {
+        let dir = temp_dir("runs-round");
+        let p = dir.join("settings.json");
+        let s = Settings { runs_custom: true, runs_folder: Some("D:/all-runs".into()), runs_keep: 25, ..Settings::default() };
+        save(&p, &s).unwrap();
+        assert_eq!(load(&p).settings, s);
+        let mut wild = Settings { runs_keep: 0, runs_folder: Some("   ".into()), ..Settings::default() };
+        wild.sanitize();
+        assert_eq!((wild.runs_keep, wild.runs_folder), (1, None));
+        let mut huge = Settings { runs_keep: 1_000_000, ..Settings::default() };
+        huge.sanitize();
+        assert_eq!(huge.runs_keep, 1000);
+        assert_eq!(Settings { runs_custom: true, runs_folder: Some("X".into()), ..Settings::default() }.runs_place(), (true, Some("X")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn script_approval_is_remembered_per_plan_file_and_ignores_case_and_slashes() {
+        let mut s = Settings::default();
+        assert!(!s.script_approved_for("C:/work/shop.jmx"));
+        s.approve_scripts("C:/work/shop.jmx");
+        s.approve_scripts(r"c:\WORK\shop.jmx");
+        assert_eq!(s.script_approved.len(), 1, "the same file twice is one entry");
+        assert!(s.script_approved_for(r"C:\Work\Shop.jmx"));
+        assert!(!s.script_approved_for("C:/work/other.jmx"));
+        for i in 0..MAX_APPROVED + 50 {
+            s.approve_scripts(&format!("C:/p/{i}.jmx"));
+        }
+        assert!(s.script_approved.len() <= MAX_APPROVED);
     }
 
     #[test]

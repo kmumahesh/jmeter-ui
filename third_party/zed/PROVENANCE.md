@@ -20,7 +20,7 @@ Pinned by git revision in the workspace `Cargo.toml` files.
 
 Before copying any other file, add a row here.
 
-## Added during M1
+## Added while building the shell
 Dependencies (git, same pinned revision): `menu` (GPL-3.0-or-later) for the menu action names used to bind keyboard navigation in Zed's `ContextMenu`.
 
 Copied assets: 41 SVG icons from `assets/icons/` (Lucide, ISC, and Zed's own set; `assets/icons/LICENSES` is kept with them). The list is whatever is in `assets/icons/*.svg` at the top level; `assets/icons/jm/` holds icons drawn for this project.

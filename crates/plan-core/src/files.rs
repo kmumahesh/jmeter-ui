@@ -15,14 +15,36 @@ pub fn recovery_path(plan: &Path) -> PathBuf {
     plan.with_file_name(name)
 }
 
+/// The largest plan or recovery file that is opened. Real plans are well under a few megabytes; the limit
+/// keeps a wrong or hostile file from using all the memory.
+pub const MAX_PLAN_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Read a text file, refusing one that is too large.
+pub fn read_text(path: &Path) -> io::Result<String> {
+    let len = std::fs::metadata(path)?.len();
+    if len > MAX_PLAN_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("the file is {} MB; plans larger than {} MB are not opened", len / (1024 * 1024), MAX_PLAN_BYTES / (1024 * 1024)),
+        ));
+    }
+    std::fs::read_to_string(path)
+}
+
 /// Write `text` so that a crash half way never leaves a half-written file: the text goes to a temporary
-/// file in the same folder, which then replaces `path`.
+/// file in the same folder, which then replaces `path`. A plan that is a link is written through the link,
+/// and a leftover temporary file (or a link in its place) is never followed.
 pub fn write_atomic(path: &Path, text: &str) -> io::Result<()> {
-    let mut name = path.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    let target = if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) { std::fs::canonicalize(path)? } else { path.to_path_buf() };
+    let mut name = target.file_name().map(|n| n.to_os_string()).unwrap_or_default();
     name.push(".tmp");
-    let tmp = path.with_file_name(name);
-    std::fs::write(&tmp, text)?;
-    std::fs::rename(&tmp, path).inspect_err(|_| {
+    let tmp = target.with_file_name(name);
+    let _ = std::fs::remove_file(&tmp); // removes a link itself, not what it points to
+    let written = std::fs::OpenOptions::new().write(true).create_new(true).open(&tmp).and_then(|mut f| {
+        io::Write::write_all(&mut f, text.as_bytes())?;
+        f.sync_all()
+    });
+    written.and_then(|()| std::fs::rename(&tmp, &target)).inspect_err(|_| {
         let _ = std::fs::remove_file(&tmp);
     })
 }
@@ -55,8 +77,8 @@ pub struct Recovery {
 /// The recovery copy for `plan`, if there is one that differs from the saved file.
 pub fn find_recovery(plan: &Path) -> Option<Recovery> {
     let path = recovery_path(plan);
-    let text = std::fs::read_to_string(&path).ok()?;
-    if std::fs::read_to_string(plan).is_ok_and(|saved| saved == text) {
+    let text = read_text(&path).ok()?;
+    if read_text(plan).is_ok_and(|saved| saved == text) {
         discard_recovery(plan); // identical to the file: nothing to recover
         return None;
     }

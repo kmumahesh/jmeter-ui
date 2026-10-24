@@ -12,6 +12,7 @@ param(
 
 . "$PSScriptRoot\ui-lib.ps1"
 $ErrorActionPreference = "Stop"
+$clock = [System.Diagnostics.Stopwatch]::StartNew()
 $Exe = (Resolve-Path $Exe).Path
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
@@ -288,7 +289,115 @@ Check "Don't Save quits" ($p.HasExited) ""
 Check "and removes the recovery copy" (-not (Test-Path "$work.bak")) ""
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "11. Running: F5, live numbers, history, Validate, Send once"
+$jmHome = Join-Path $env:USERPROFILE "Downloads\apache-jmeter-5.6.3"
+if (-not (Test-Path "$jmHome\bin\ApacheJMeter.jar") -or -not (Get-Command java -ErrorAction SilentlyContinue)) {
+    Write-Host "  (skipped: Java or JMeter is not installed)"
+} else {
+    $r = New-Run "running"
+    # A small web server on a free local port; it answers 500 for /fail and 200 for the rest.
+    $portFile = "$($r.Dir)\port.txt"
+    $server = Start-Job -ArgumentList $portFile -ScriptBlock {
+        param($portFile)
+        $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+        $l.Start()
+        Set-Content $portFile ($l.LocalEndpoint.Port)
+        while ($true) {
+            $c = $l.AcceptTcpClient()
+            try {
+                $st = $c.GetStream(); $buf = New-Object byte[] 8192; $n = $st.Read($buf, 0, 8192)
+                $req = [System.Text.Encoding]::ASCII.GetString($buf, 0, $n)
+                $status = if ($req -match "^GET /fail") { "500 Internal Server Error" } else { "200 OK" }
+                $resp = [System.Text.Encoding]::ASCII.GetBytes("HTTP/1.1 $status`r`nContent-Length: 2`r`nConnection: close`r`n`r`nok")
+                $st.Write($resp, 0, $resp.Length)
+            } catch {} finally { $c.Close() }
+        }
+    }
+    $p = $null
+    try {
+    $deadline = (Get-Date).AddSeconds(10)
+    while (-not (Test-Path $portFile) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    $port = [int](Get-Content $portFile -Raw)
+    function Sampler([string]$name, [string]$path) {
+        return @"
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="$name" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp>
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">$port</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">$path</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
+"@
+    }
+    $planText = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree>
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Shop" enabled="true"><boolProp name="TestPlan.functional_mode">false</boolProp><elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp></TestPlan>
+<hashTree>
+  <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Users" enabled="true">
+    <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+    <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">3</stringProp></elementProp>
+    <stringProp name="ThreadGroup.num_threads">2</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp>
+  </ThreadGroup>
+  <hashTree>
+$(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
+</hashTree></hashTree></jmeterTestPlan>
+"@
+    $shop = "$($r.Dir)\shop.jmx"
+    [System.IO.File]::WriteAllText($shop, $planText)
+    $before = Get-Content $shop -Raw
+    Set-Content $r.Settings (@{ jmeter_home = $jmHome } | ConvertTo-Json) -Encoding UTF8
+    $p = Start-Ui $Exe @($shop, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark")
+    $deadline = (Get-Date).AddSeconds(30)
+    do { Start-Sleep -Milliseconds 500; $s = Get-State $r.State } while (-not $s.runtime_ready -and (Get-Date) -lt $deadline)
+    Check "Java and JMeter are found in the background" ($s.runtime_ready -eq $true) "java = $($s.java), jmeter = $($s.jmeter)"
+
+    function Wait-RunEnd([string]$state, [int]$seconds = 90) {
+        $until = (Get-Date).AddSeconds($seconds)
+        do { Start-Sleep -Milliseconds 500; $x = Get-Content $state -Raw | ConvertFrom-Json } while ($x.run -and @("Starting", "Running", "Stopping") -contains $x.run.phase -and (Get-Date) -lt $until)
+        return $x
+    }
+
+    Send-Keys "{F5}"
+    Start-Sleep -Milliseconds 800
+    $s = Get-State $r.State
+    Check "F5 starts the run and opens the lower panel on the Run tab" ($s.run -and $s.bottom -eq $true -and $s.bottom_tab -eq "Run") "run = $($s.run | ConvertTo-Json -Compress)"
+    Save-Shot $p "$($r.Dir)\run-started.png"
+    $s = Wait-RunEnd $r.State
+    Save-Shot $p "$($r.Dir)\run-finished.png"
+    Check "the run finishes" ($s.run.phase -eq "Finished") "phase = $($s.run.phase); error = $($s.run.error)"
+    Check "all 12 samples were counted, 6 of them errors" ($s.run.samples -eq 12 -and $s.run.errors -eq 6) "samples = $($s.run.samples), errors = $($s.run.errors)"
+    Check "the plan file was not changed by the run" ((Get-Content $shop -Raw) -eq $before) ""
+    $dir = $s.run.dir
+    Check "the run has its own folder inside runs next to the plan" ((Split-Path $dir -Parent) -eq "$($r.Dir)\runs") "dir = $dir"
+    Check "with results, log, the plan as run and run.json" ((Test-Path "$dir\results.jtl") -and (Test-Path "$dir\jmeter.log") -and (Test-Path "$dir\plan-as-run.jmx") -and (Test-Path "$dir\run.json")) ""
+    Check "the history lists the run" ($s.history.Count -eq 1 -and $s.history[0].outcome -eq "Finished") ""
+
+    Send-Keys "^{F5}"
+    $s = Wait-RunEnd $r.State
+    Check "Ctrl+F5 validates: one user once, so each request once" ($s.run.kind -eq "Validate" -and $s.run.samples -eq 2) "kind = $($s.run.kind), samples = $($s.run.samples)"
+
+    Send-Keys "^p"
+    Send-Query "home" $r.State
+    Send-Keys "{ENTER}"
+    Send-Keys "{F6}"
+    $s = Wait-RunEnd $r.State
+    Check "F6 sends the selected request once" ($s.run.kind -eq "Send once" -and $s.run.samples -eq 1) "kind = $($s.run.kind), samples = $($s.run.samples)"
+    Check "all three runs are in the history" ($s.history.Count -eq 3) "count = $($s.history.Count)"
+    Save-Shot $p "$($r.Dir)\run-history.png"
+
+    } finally {
+        # Whatever happened above, leave nothing running.
+        if ($p) { Stop-Ui $p }
+        Stop-Job $server -ErrorAction SilentlyContinue; Remove-Job $server -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"
+Write-Host ("Total time: {0:N1} s" -f $clock.Elapsed.TotalSeconds)
 if ($script:Failures -gt 0) { exit 1 }

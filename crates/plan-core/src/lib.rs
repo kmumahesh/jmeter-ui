@@ -1,6 +1,7 @@
 //! The test plan as the app sees it: element kinds, what can go where, the tree and its state.
 
 pub mod catalog;
+pub mod derive;
 pub mod edit;
 pub mod files;
 pub mod forms;
@@ -8,6 +9,7 @@ pub mod fuzzy;
 pub mod model;
 pub mod problems;
 pub mod rules;
+pub mod scripts;
 pub mod scope;
 pub mod search;
 pub mod templates;

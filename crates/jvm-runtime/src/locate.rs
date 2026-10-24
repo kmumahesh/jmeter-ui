@@ -52,12 +52,30 @@ pub fn find_java(explicit: Option<&Path>) -> Result<JavaInfo> {
 }
 
 fn probe_java(path: &Path) -> Result<JavaInfo> {
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if matches!(ext.as_str(), "bat" | "cmd" | "com" | "ps1" | "vbs" | "js") {
+        bail!("{} is a script, not a Java program", path.display());
+    }
     let out = quiet(Command::new(path).arg("-version")).output().with_context(|| format!("cannot run {}", path.display()))?;
     // `java -version` prints to stderr.
     let text = String::from_utf8_lossy(&out.stderr).to_string();
     let first = text.lines().next().unwrap_or("").trim().to_string();
     let major = parse_java_major(&first).with_context(|| format!("cannot read the Java version from: {first:?}"))?;
-    Ok(JavaInfo { path: path.to_path_buf(), version_line: first, major })
+    Ok(JavaInfo { path: resolve_on_path(path), version_line: first, major })
+}
+
+/// The full path of a program given by a bare name such as `java.exe`, found on `PATH`; any other path is
+/// returned as it is.
+pub fn resolve_on_path(program: &Path) -> PathBuf {
+    if program.components().count() != 1 {
+        return program.to_path_buf();
+    }
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+        .map(|d| d.join(program))
+        .find(|c| c.is_file())
+        .unwrap_or_else(|| program.to_path_buf())
 }
 
 pub fn parse_java_major(line: &str) -> Option<u32> {
@@ -100,5 +118,21 @@ mod tests {
         assert_eq!(parse_java_major(r#"java version "1.8.0_391""#), Some(8));
         assert_eq!(parse_java_major(r#"openjdk version "17" 2021-09-14"#), Some(17));
         assert_eq!(parse_java_major("garbage"), None);
+    }
+
+    #[test]
+    fn a_script_is_never_used_as_java() {
+        for name in ["java.bat", "java.CMD", "x/java.ps1", "java.vbs"] {
+            let err = probe_java(Path::new(name)).unwrap_err().to_string();
+            assert!(err.contains("not a Java program"), "{name}: {err}");
+        }
+    }
+
+    #[test]
+    fn a_bare_program_name_is_found_on_the_path_and_other_paths_are_kept() {
+        assert_eq!(resolve_on_path(Path::new("C:/x/java.exe")), Path::new("C:/x/java.exe"));
+        assert_eq!(resolve_on_path(Path::new("no-such-program-anywhere.exe")), Path::new("no-such-program-anywhere.exe"));
+        let found = resolve_on_path(Path::new(if cfg!(windows) { "cmd.exe" } else { "sh" }));
+        assert!(found.is_absolute() && found.is_file(), "{found:?}");
     }
 }

@@ -2,7 +2,7 @@
 
 A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx` plans and runs JMeter in non-GUI mode; it does not reimplement the load engine.
 
-Status: M2 done (open, edit and save plans). Running plans and results come next. See `docs/PROGRESS.md` and `docs/DECISIONS.md`.
+Status: open, edit, save, run and watch plans, with run history. The results viewer comes next. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
 
 Licence: GPL-3.0-or-later (`LICENSE`). Third-party code is listed in `third_party/zed/PROVENANCE.md`.
 
@@ -30,10 +30,16 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Plugin elements are kept and shown (generic form) | ✅ |
 | Dark, light and follow-system themes, resizable panels, remembered window size | ✅ |
 | Settings: Java and JMeter locations (checked), heap size, summary interval, startup behaviour | ✅ |
-| Run a plan in non-GUI mode, stop it, run copies of the plan | ⬜ |
-| Validate a plan, send a single request once | ⬜ |
-| Live results while running (counts, errors, response times) and charts | ⬜ |
-| Result listeners: View Results Tree, Summary and Aggregate Report, tables and graphs | ⬜ |
+| Settings for run history: next to the `.jmx` file or a chosen folder (chooser button, not typed), how many runs to keep | ✅ |
+| Run a plan in non-GUI mode with F5: it asks to save first and runs the saved file; stop it gracefully, at once, or by force | ✅ |
+| Validate a plan (one user, once, no timers) and send one selected request once | ✅ |
+| Live results while running: samples, throughput, average and 95th percentile, errors, users, charts, failed requests and a table per request | ✅ |
+| Run history: every run in its own folder under `runs`, next to the `.jmx` or in a chosen folder, the last 10 kept per plan, earlier runs viewable again, a command to clear the shared folder | ✅ |
+| Warning before the first run of a plan that contains scripts (asked once per plan file) | ✅ |
+| Safe running: nothing typed anywhere can be added to the JMeter command line, the stop port answers this machine only, JMeter never outlives the app (even after a crash), runaway output and hostile result files are bounded | ✅ |
+| Safe with hostile files: plans are read without ever fetching or reading other files, absurd nesting and sizes are refused, text typed into any box stays text, saving never writes to a file it should not | ✅ |
+| Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources | ✅ |
+| Result listeners as in JMeter: View Results Tree with request and response, Aggregate Report, graphs over time | ⬜ |
 | Open saved result files (`.jtl`), compare two runs | ⬜ |
 | Open the generated HTML dashboard report | ⬜ |
 | Multi-line editor for scripts and request bodies, with syntax highlighting | ⬜ |
@@ -47,6 +53,9 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Properties editor (`user.properties`, `-J` options), log viewer | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
 | File pickers for CSV, include and script files | ⬜ |
+| Opening the HTML dashboard report only as a local file, with its own security check (arrives with the report viewer) | ⬜ |
+| Security review before every release (see `docs/PROGRESS.md`) | ⬜ |
+| Project concept: group plans, their run history and shared settings (a future idea, not planned yet) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | macOS and Linux builds | ⬜ |
 
@@ -59,7 +68,15 @@ Rust stable, Visual Studio 2022 C++ build tools, and the Windows 10/11 SDK. Java
 
 ## Test
     cargo test --workspace --exclude gpui-spike --exclude zed-ui-spike
+    powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1 [-Smoke]    # everything, with each part timed in docs\TEST-TIMINGS.md
     powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1      # real-window test; build first with cargo build -p jmeter-ui
+
+Dependency checks (install once with `cargo install --locked cargo-audit cargo-deny`):
+
+    cargo audit
+    cargo deny check
+
+The tests that run the real JMeter against a small local web server (about 60 of them, each run taking 5 to 10 seconds) skip themselves when Java or JMeter is missing.
 
 Set `JMX_CORPUS` to a list of folders of `.jmx` files to run the catalog, add-rule and random-edit checks against more plans. Set `JMETER_HOME` to use a JMeter install other than `~/Downloads/apache-jmeter-5.6.3` for the test that loads a plan with every element in real JMeter.
 
@@ -70,4 +87,4 @@ Set `JMX_CORPUS` to a list of folders of `.jmx` files to run the catalog, add-ru
 - `crates/jvm-runtime`: finds Java and JMeter, runs plans, reads results
 - `crates/app`: the window
 - `tools/jmeter-catalog`: regenerates the element templates from a JMeter install
-- `spikes/`: the M0 experiments
+- `spikes/`: the first experiments

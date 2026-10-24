@@ -51,6 +51,18 @@ fn a_file_that_is_not_a_plan_shows_an_error(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn a_hostile_plan_is_refused_with_a_message_and_no_tab(cx: &mut TestAppContext) {
+    // Nested far deeper than any real plan, and a document type definition that points at another file.
+    let d = temp_dir("hostile");
+    let deep = d.join("deep.jmx");
+    std::fs::write(&deep, format!("{}{}", "<hashTree>".repeat(5000), "</hashTree>".repeat(5000))).unwrap();
+    let mut app = start(cx, Some(deep), None);
+    assert!(app.state()["plan"].is_null());
+    assert!(app.tabs().is_empty());
+    assert!(app.state()["notice"].as_str().unwrap().contains("deep.jmx"));
+}
+
+#[gpui::test]
 fn opening_adds_to_recent_files_and_failures_remove_them(cx: &mut TestAppContext) {
     let d = temp_dir("recent");
     let sp = d.join("settings.json");
@@ -264,7 +276,7 @@ fn unavailable_commands_do_nothing_when_chosen(cx: &mut TestAppContext) {
     let mut app = start(cx, Some(fixture(WEB)), None);
     app.keys("ctrl-k");
     app.input(">stop run");
-    assert_eq!(app.palette_titles(), ["Stop Run"]);
+    assert_eq!(app.palette_titles(), ["Stop Run", "Stop Run Now"], "the exact match comes first");
     app.keys("enter");
     assert!(app.palette_open(), "the palette stays open when the command is unavailable");
 }
@@ -694,9 +706,7 @@ fn the_startup_combo_saves_its_choice(cx: &mut TestAppContext) {
 fn startup_can_reopen_the_last_plan(cx: &mut TestAppContext) {
     let d = temp_dir("startup-last");
     let sp = d.join("settings.json");
-    let mut s = Settings::default();
-    s.startup = settings::Startup::LastPlan;
-    s.recent_files = vec![fixture(WEB).canonicalize().unwrap().to_string_lossy().trim_start_matches(r"\?\").to_string()];
+    let s = Settings { startup: settings::Startup::LastPlan, recent_files: vec![fixture(WEB).canonicalize().unwrap().to_string_lossy().trim_start_matches(r"\?\").to_string()], ..Settings::default() };
     settings::save(&sp, &s).unwrap();
     let mut app = start(cx, None, Some(sp));
     assert_eq!(app.state()["elements"], 23);
@@ -707,9 +717,7 @@ fn startup_can_reopen_the_last_plan(cx: &mut TestAppContext) {
 fn startup_skips_a_last_plan_that_no_longer_exists(cx: &mut TestAppContext) {
     let d = temp_dir("startup-gone");
     let sp = d.join("settings.json");
-    let mut s = Settings::default();
-    s.startup = settings::Startup::LastPlan;
-    s.recent_files = vec!["Z:/gone/plan.jmx".into()];
+    let s = Settings { startup: settings::Startup::LastPlan, recent_files: vec!["Z:/gone/plan.jmx".into()], ..Settings::default() };
     settings::save(&sp, &s).unwrap();
     let mut app = start(cx, None, Some(sp));
     assert!(app.state()["plan"].is_null());
@@ -720,9 +728,7 @@ fn startup_skips_a_last_plan_that_no_longer_exists(cx: &mut TestAppContext) {
 fn a_plan_on_the_command_line_wins_over_the_startup_setting(cx: &mut TestAppContext) {
     let d = temp_dir("startup-cli");
     let sp = d.join("settings.json");
-    let mut s = Settings::default();
-    s.startup = settings::Startup::LastPlan;
-    s.recent_files = vec![fixture("Test.jmx").to_string_lossy().to_string()];
+    let s = Settings { startup: settings::Startup::LastPlan, recent_files: vec![fixture("Test.jmx").to_string_lossy().to_string()], ..Settings::default() };
     settings::save(&sp, &s).unwrap();
     let mut app = start(cx, Some(fixture(WEB)), Some(sp));
     assert_eq!(app.tabs(), [WEB]);
@@ -732,8 +738,7 @@ fn a_plan_on_the_command_line_wins_over_the_startup_setting(cx: &mut TestAppCont
 fn welcome_screen_stays_when_startup_is_welcome(cx: &mut TestAppContext) {
     let d = temp_dir("startup-welcome");
     let sp = d.join("settings.json");
-    let mut s = Settings::default();
-    s.recent_files = vec![fixture(WEB).to_string_lossy().to_string()];
+    let s = Settings { recent_files: vec![fixture(WEB).to_string_lossy().to_string()], ..Settings::default() };
     settings::save(&sp, &s).unwrap();
     let mut app = start(cx, None, Some(sp));
     assert!(app.state()["plan"].is_null());

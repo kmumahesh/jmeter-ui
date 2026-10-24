@@ -188,6 +188,10 @@ impl Element {
     }
 }
 
+/// How deep elements may be nested. Real plans stay well under 100 levels; the limit keeps a hostile file
+/// from overflowing the stack when the tree is walked, written or dropped.
+pub const MAX_DEPTH: usize = 500;
+
 impl Document {
     pub fn parse(src: &str) -> Result<Document> {
         let mut reader = Reader::from_str(src);
@@ -204,6 +208,9 @@ impl Document {
             match ev {
                 Event::Eof => break,
                 Event::Start(e) => {
+                    if stack.len() >= MAX_DEPTH {
+                        bail!("elements are nested more than {MAX_DEPTH} levels deep near byte {}", reader.buffer_position());
+                    }
                     stack.push(element_from_start(&e, raw, false)?);
                 }
                 Event::Empty(e) => {

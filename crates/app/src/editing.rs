@@ -14,7 +14,7 @@ pub const AUTOSAVE_DELAY: Duration = Duration::from_secs(3);
 
 /// Read a plan file for editing, with errors that name the file.
 pub fn read_plan(path: &Path) -> anyhow::Result<EditablePlan> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let text = plan_core::files::read_text(path).with_context(|| format!("cannot read {}", path.display()))?;
     EditablePlan::open(&text).with_context(|| format!("cannot open {} as a JMeter plan", path.display()))
 }
 
@@ -104,6 +104,7 @@ impl Shell {
         self.workspace.open_tab(TabKind::Plan(id), &title);
         self.workspace.set_dirty(TabKind::Plan(id), dirty);
         self.active_plan = Some(id);
+        self.refresh_history();
         self.settings.push_recent(&display_path(&abs));
         self.save_settings();
         let msg = if dirty { format!("Opened {title} with your unsaved changes: {n} elements") } else { format!("Opened {title}: {n} elements") };
@@ -487,6 +488,11 @@ impl Shell {
 
     /// Whether the window may close now. If plans have unsaved changes, asks first and returns false.
     pub fn request_quit(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.run_in_progress() {
+            self.dialog = Some(Dialog::QuitRunning);
+            cx.notify();
+            return false;
+        }
         let dirty = self.dirty_plans();
         if dirty.is_empty() {
             return true;

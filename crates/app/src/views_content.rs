@@ -10,7 +10,7 @@ use plan_core::{Category, catalog, rules};
 use shell_core::actions::Action;
 use shell_core::layout::{Tab, TabKind};
 use shell_core::settings::ThemeChoice;
-use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, IconButton, IconName, IconSize, Tooltip};
+use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, IconButton, IconName, IconSize, Tooltip};
 
 impl Shell {
     pub(crate) fn tab_content(&self, tab: &Tab, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -136,6 +136,8 @@ impl Shell {
         let interval_error = f.summary_secs.read(cx).problem().map(|e| e.message());
         div()
             .id("settings")
+            .size_full()
+            .overflow_y_scroll()
             .p(px(24.))
             .flex()
             .flex_col()
@@ -165,9 +167,85 @@ impl Shell {
                     .child(java_line)
                     .child(jmeter_line),
             )
+            .child(self.runs_settings_section(cx))
             .child(
                 div().flex().flex_col().gap(px(4.)).child(heading("SETTINGS FILE")).child(
                     div().font_family(MONO_FONT).text_size(px(11.5)).text_color(p.muted).child(self.settings_path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| "Not saved (no settings path)".into())),
+                ),
+            )
+            .into_any_element()
+    }
+
+    /// Settings > Run history: where run files go, how many runs are kept, and clearing the shared folder.
+    fn runs_settings_section(&self, cx: &mut Context<Self>) -> AnyElement {
+        let p = theme::palette(cx);
+        let Some(f) = &self.settings_fields else { return div().into_any_element() };
+        let custom = self.settings.runs_custom;
+        let heading = |t: &str| div().text_size(px(11.)).font_family(MONO_FONT).text_color(p.muted).child(t.to_string());
+        let seg = |id: &'static str, label: &'static str, on: bool, custom_choice: bool, cx: &mut Context<Self>| {
+            div().debug_selector(move || id.to_string()).child(
+                Button::new(id, label)
+                    .style(if on { ButtonStyle::Filled } else { ButtonStyle::Subtle })
+                    .size(ButtonSize::Default)
+                    .on_click(cx.listener(move |this, _, _, cx| this.set_runs_custom(custom_choice, cx))),
+            )
+        };
+        let folder = self.settings.runs_folder.clone();
+        let shown = self.shared_runs_root().map(|r| r.display().to_string());
+        let keep_error = f.runs_keep.read(cx).problem().map(|e| e.message());
+        div()
+            .id("settings-runs")
+            .debug_selector(|| "settings-runs".to_string())
+            .flex()
+            .flex_col()
+            .gap(px(10.))
+            .child(heading("RUN HISTORY"))
+            .child(div().text_color(p.muted).text_size(px(12.5)).child("Every run gets its own folder inside a folder named runs, with its results, log and the plan it ran. Pick where that runs folder goes."))
+            .child(div().flex().gap(px(6.)).child(seg("runs-plan-folder", "Same folder as the .jmx file", !custom, false, cx)).child(seg("runs-custom-folder", "Custom folder", custom, true, cx)))
+            .when(custom, |d| {
+                d.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .child(
+                            div()
+                                .id("runs-folder-path")
+                                .debug_selector(|| "runs-folder-path".to_string())
+                                .flex_1()
+                                .px(px(8.))
+                                .py(px(5.))
+                                .rounded(px(5.))
+                                .border_1()
+                                .border_color(p.line)
+                                .bg(p.panel2)
+                                .font_family(MONO_FONT)
+                                .text_size(px(11.5))
+                                .text_color(if folder.is_some() { p.fg } else { p.muted })
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .child(folder.clone().unwrap_or_else(|| "No folder chosen: runs go next to the .jmx file until you choose one".into())),
+                        )
+                        .child(div().debug_selector(|| "runs-choose-folder".to_string()).child(Button::new("runs-choose-folder", "Choose folder\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.choose_runs_folder(window, cx, None))))),
+                )
+                .child(div().text_color(p.muted).text_size(px(12.)).child(match &shown {
+                    Some(r) => format!("Run files are kept in {r}, shared by all plans."),
+                    None => "Run files are kept next to each .jmx file.".to_string(),
+                }))
+            })
+            .when(!custom, |d| d.child(div().text_color(p.muted).text_size(px(12.)).child("Run files are kept in a runs folder next to each .jmx file.")))
+            .child(
+                div().flex().items_start().gap(px(16.)).child(div().w(px(200.)).flex().flex_col().gap(px(4.)).child(div().text_size(px(12.)).text_color(p.muted).child("Keep the last runs of each plan")).child(div().debug_selector(|| "settings-runs-keep".to_string()).child(f.runs_keep.clone())).child(div().h(px(16.)).text_size(px(11.5)).text_color(p.err).child(keep_error.unwrap_or_default()))),
+            )
+            .child(
+                div().flex().gap(px(8.)).child(
+                    div().debug_selector(|| "runs-clear".to_string()).child(
+                        Button::new("runs-clear", "Clear runs folder\u{2026}")
+                            .style(ButtonStyle::Subtle)
+                            .disabled(!Action::ClearRunsFolder.availability(&self.context()).is_enabled())
+                            .tooltip(Tooltip::text("Removes the runs in the custom folder only; runs next to a .jmx file are never touched"))
+                            .on_click(cx.listener(|this, _, window, cx| this.perform(Action::ClearRunsFolder, window, cx))),
+                    ),
                 ),
             )
             .into_any_element()
@@ -325,6 +403,7 @@ impl Shell {
             let active = self.bottom_tab == which;
             div()
                 .id(id)
+                .debug_selector(move || id.to_string())
                 .px(px(12.))
                 .py(px(6.))
                 .text_size(px(12.5))
@@ -333,20 +412,16 @@ impl Shell {
                 .when(!active, |d| d.text_color(p.muted).hover(|d| d.text_color(p.fg)))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.bottom_tab = which;
+                    if which == BottomTab::History {
+                        this.refresh_history();
+                    }
                     cx.notify();
                 }))
                 .child(label)
         };
         let content: AnyElement = match self.bottom_tab {
-            BottomTab::Output => div()
-                .p(px(16.))
-                .flex()
-                .flex_col()
-                .gap(px(4.))
-                .text_color(p.muted)
-                .child(div().text_color(p.fg).child("No runs yet"))
-                .child("Run results, live charts and failed samples will appear here. Running plans arrives in a later release.")
-                .into_any_element(),
+            BottomTab::Run => self.run_view(cx),
+            BottomTab::History => self.history_view(cx),
             BottomTab::Problems => {
                 if problems.is_empty() {
                     div().p(px(16.)).text_color(p.muted).child(if self.plan().is_some() { "No problems found in this plan." } else { "Open a plan to check it." }).into_any_element()
@@ -396,7 +471,8 @@ impl Shell {
                     .items_center()
                     .border_b_1()
                     .border_color(p.line)
-                    .child(tab("bottom-output", "Output".into(), BottomTab::Output, cx))
+                    .child(tab("bottom-run", "Run".into(), BottomTab::Run, cx))
+                    .child(tab("bottom-history", format!("History{}", if self.history_entries().is_empty() { String::new() } else { format!(" ({})", self.history_entries().len()) }), BottomTab::History, cx))
                     .child(tab("bottom-problems", format!("Problems{}", if problems.is_empty() { String::new() } else { format!(" ({})", problems.len()) }), BottomTab::Problems, cx))
                     .child(div().flex_1())
                     .child(
@@ -406,7 +482,7 @@ impl Shell {
                             .on_click(cx.listener(|this, _, window, cx| this.perform(Action::ToggleBottomPanel, window, cx))),
                     ),
             )
-            .child(div().id("bottom-content").flex_1().min_h_0().overflow_y_scroll().child(content))
+            .child(div().id("bottom-content").flex_1().min_h_0().when(self.bottom_tab != BottomTab::Run, |d| d.overflow_y_scroll()).child(content))
     }
 
     // ---- status bar ----
@@ -414,9 +490,10 @@ impl Shell {
     pub(crate) fn status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(cx);
         let warnings = self.plan().map(|lp| lp.plan_notes().iter().filter(|x| x.level == Level::Warning).count()).unwrap_or(0);
-        let left = match &self.notice {
-            Some(n) => format!("{} {}", if n.severity == Severity::Error { "\u{26a0}" } else { "\u{25cf}" }, n.text),
-            None => "\u{25cf} Ready".to_string(),
+        let left = match (&self.notice, &self.run) {
+            (Some(n), _) => format!("{} {}", if n.severity == Severity::Error { "\u{26a0}" } else { "\u{25cf}" }, n.text),
+            (None, Some(r)) if r.phase.active() => format!("\u{25b6} {} {}: {} samples, {}", r.kind.label(), r.phase.label().to_lowercase(), crate::views_run::thousands(r.live.total().count), crate::views_run::clock(r.elapsed().as_secs())),
+            (None, _) => "\u{25cf} Ready".to_string(),
         };
         let runtime = match (&self.runtime.java, &self.runtime.jmeter) {
             (Some(j), Some(m)) => format!("{} \u{b7} JMeter {m}", short_java(j)),
@@ -512,6 +589,40 @@ impl Shell {
                 ),
                 vec![("dialog-recover", "Recover Changes", true), ("dialog-discard-recovery", "Discard Them", false)],
             ),
+            Some(Dialog::SaveToRun { kind, .. }) => (
+                "Save before running?".to_string(),
+                format!("A run uses the saved file, and this plan has unsaved changes. Save it and {}?", match kind {
+                    jvm_runtime::runs::RunKind::Run => "run it",
+                    jvm_runtime::runs::RunKind::Validate => "validate it",
+                    jvm_runtime::runs::RunKind::SendOnce => "send the request",
+                }),
+                vec![("dialog-save-run", "Save and Run", true), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::Scripts { text, .. }) => (
+                "This plan can run code".to_string(),
+                format!("{text} Run it only if you trust where this plan came from. You are asked once for each plan file."),
+                vec![("dialog-run-scripts", "Run Anyway", true), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::RunsPlace { message, .. }) => (
+                "Where should run files go?".to_string(),
+                format!("{message}. Run files are kept in a runs folder, next to the .jmx file or in a folder you choose."),
+                vec![("dialog-use-plan-folder", "Use the .jmx Folder", true), ("dialog-choose-folder", "Choose Folder\u{2026}", false), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::ClearRuns { root, count }) => (
+                "Clear the runs folder?".to_string(),
+                format!("This removes {count} run{} (results, logs and reports) from {}. Other files in it are left alone.", if *count == 1 { "" } else { "s" }, root.display()),
+                vec![("dialog-clear-runs", "Clear Runs", true), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::DeleteRun { name, .. }) => (
+                "Remove this run?".to_string(),
+                format!("This removes {name} with its results, log and reports."),
+                vec![("dialog-delete-run", "Remove Run", true), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::QuitRunning) => (
+                "A run is going".to_string(),
+                "Quitting stops the run. Its results so far are kept in the run folder.".to_string(),
+                vec![("dialog-stop-quit", "Stop and Quit", true), ("dialog-cancel", "Cancel", false)],
+            ),
             None => (String::new(), String::new(), Vec::new()),
         };
         let buttons = buttons.into_iter().map(|(id, label, primary)| {
@@ -522,6 +633,13 @@ impl Shell {
                 "dialog-reload" => this.dialog_reload(window, cx),
                 "dialog-recover" => this.resolve_recovery(true, window, cx),
                 "dialog-discard-recovery" => this.resolve_recovery(false, window, cx),
+                "dialog-save-run" => this.dialog_save_and_run(window, cx),
+                "dialog-run-scripts" => this.dialog_run_scripts(window, cx),
+                "dialog-use-plan-folder" => this.dialog_use_plan_folder(window, cx),
+                "dialog-choose-folder" => this.dialog_choose_runs_folder(window, cx),
+                "dialog-clear-runs" => this.dialog_clear_runs(window, cx),
+                "dialog-delete-run" => this.dialog_delete_run(window, cx),
+                "dialog-stop-quit" => this.dialog_stop_and_quit(window, cx),
                 _ => this.dialog_cancel(cx),
             })))
         });

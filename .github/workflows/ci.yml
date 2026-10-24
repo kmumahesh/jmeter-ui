@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # New advisories appear without any change to the code, so check every week too.
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Build, test, clippy (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --locked -p jmeter-ui
+      - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
+      - run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
+
+  supply-chain:
+    name: Advisories, licences, sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Runs `cargo deny check`: known vulnerabilities, allowed licences, allowed code sources (deny.toml).
+      - uses: EmbarkStudios/cargo-deny-action@v2

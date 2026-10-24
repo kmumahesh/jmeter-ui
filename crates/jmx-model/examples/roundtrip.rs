@@ -79,7 +79,7 @@ fn main() {
     println!("elements in plan trees: {elements}  total size: {} KB  time: {:?}", total_bytes / 1024, t0.elapsed());
     println!("plugin/custom class tags found: {} distinct", plugin_tags.len());
     let mut v: Vec<_> = plugin_tags.into_iter().collect();
-    v.sort_by(|a, b| b.1.cmp(&a.1));
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
     for (t, n) in v.iter().take(12) {
         println!("  {n:4}  {t}")
     }

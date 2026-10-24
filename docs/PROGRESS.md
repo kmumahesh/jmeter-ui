@@ -1,15 +1,15 @@
 # Progress
 
-## M0 spikes (finished 2026-10-18)
-All five passed. Details are in the spike sections of the plan page and `docs/DECISIONS.md` (D7 to D10). Spike code stays in `spikes/` and `crates/jvm-runtime/examples/`.
+## Spikes (finished 2026-10-18)
+All five passed. Details are in the spike sections of the plan page and `docs/DECISIONS.md`. Spike code stays in `spikes/` and `crates/jvm-runtime/examples/`.
 
-## M1: UI kit and shell (finished 2026-10-18)
-Browse plans in a coloured tree, command palette, tabs, panels, themes, settings. 267 automated tests and 26 real-window checks at the time. Details in `docs/DECISIONS.md` D11 to D14. M1 was built with one tab per clicked element and a split editor; both were replaced before M2 (D15, D17, D18).
+## UI kit and shell (finished 2026-10-18)
+Browse plans in a coloured tree, command palette, tabs, panels, themes, settings. 267 automated tests and 26 real-window checks at the time. Details in `docs/DECISIONS.md`. The shell was first built with one tab per clicked element and a split editor; both were replaced before editing was added.
 
-## Design changes before M2 (decided 2026-10-23, applied the same day)
-One tab per plan, the tree selection decides what the editor shows, no split editor, search only in the top box, the inspector hidden by default and cut down to Scope & Order and Can add (D15 to D18).
+## Design changes before editing (decided 2026-10-23, applied the same day)
+One tab per plan, the tree selection decides what the editor shows, no split editor, search only in the top box, the inspector hidden by default and cut down to Scope & Order and Can add.
 
-## M2: edit a plan (finished 2026-10-23)
+## Editing a plan (finished 2026-10-23)
 
 What exists, all in `crates/`:
 
@@ -22,7 +22,7 @@ What exists, all in `crates/`:
 | `app` | The window: theme, fields, combo box, palette, tree with drag and drop and right-click menu, tabs, forms and tables, inspector, results panel, dialogs, status bar, settings | 162 |
 | `tools/jmeter-catalog` | The script that makes the templates by running JMeter itself | checked by the `plan-core` tests |
 
-Total: **422 automated tests, all passing**, plus **50 real-window checks** in `tests/ui/smoke.ps1`.
+Total: **422 automated tests, all passing** (458 after the security tests below), plus **50 real-window checks** in `tests/ui/smoke.ps1`.
 
 ### What the user can do now
 - Open plans, one tab each (the same plan twice just shows its tab). The tree on the left and the editor in the middle work together: click or arrow to an element and the editor shows its settings, never a new tab.
@@ -49,8 +49,50 @@ Total: **422 automated tests, all passing**, plus **50 real-window checks** in `
 - Multi-line text (scripts, request bodies) is shown but cannot be edited here yet; it needs a multi-line editor.
 - About 90 element types have only the generated list of settings, not a hand-made form with labels.
 - Copy and paste of elements between plans, saving a selection as a fragment.
-- Running plans and results (M3 onwards).
+- Running plans and results (done later, see below).
 - Untested: IME input, screen readers, high-DPI scaling, macOS and Linux. The plan is read again in full after each change, which is fine at 20,000 elements but is the first thing to make incremental if plans get much larger.
 
+## Security testing (done 2026-10-24)
+Added 29 automated tests (458 in all): hostile input and escaping in `jmx-model` (14), hostile text through every edit and file safety in `plan-core` (14), a hostile plan opened in the window (1). Two real defects were found and fixed: a deeply nested file overflowed the stack, and re-indenting changed multi-line values when a row was added or an element duplicated or moved. `cargo audit` shows no vulnerabilities (six unmaintained dependencies of GPUI, listed in `deny.toml`), `cargo deny check` passes, clippy is clean with warnings as errors, and the checks run on GitHub for every change.
+
+## Run and watch (finished 2026-10-24)
+
+Decisions made with the user are in `docs/DECISIONS.md` (running plans, and how running works); how it works for the user is in `docs/RUNNING.md`.
+
+What exists:
+
+| Part | What it does |
+|---|---|
+| `jvm-runtime::run` | Starts JMeter in non-GUI mode with each argument passed on its own, checks everything first (Java options, property names, paths, scripts as the Java program), reads output with bounded memory, stops it gracefully, at once or by force, ends it when the handle is dropped and, on Windows, when the app itself ends (job object). |
+| `jvm-runtime::results`, `live` | Reads the results file while JMeter writes it (bounded steps, damaged or endless lines skipped and counted, not-a-results-file refused) and keeps the live numbers: totals, exact percentiles, a time series that merges when long, per-request tables, the latest failures. |
+| `jvm-runtime::runs` | Run folders (`<place>/runs/<plan>-<date>-<time>/`), `run.json`, listing, keeping the last N, clearing the shared folder, checking the place before a run. Only folders holding this app's own `run.json` are ever listed or removed; links are never followed. |
+| `plan-core::derive`, `scripts` | The plans made for Validate (one user, once, no timers) and Send once (one request with what applies to it), with relative file names made absolute; finding script elements and script functions. |
+| `app` | Run, Stop, Stop now, Validate, Send once (F5, Shift+F5, Ctrl+Shift+F5, Ctrl+F5, F6, tree menu), the questions before a run (save, runs place, scripts), the Run tab (numbers, four charts, errors, per-request table, JMeter output), the History tab, Settings > Run history, Clear Runs Folder, status bar, quit during a run. |
+
+Tests: **599 automated tests, all passing** (jmx-model 56, plan-core 156, shell-core 95, jvm-runtime 71, app 221), plus **61 real-window checks**. About 60 of the automated tests start the real JMeter against a small local web server. Every kind of test is now timed by `tools\run-tests.ps1` and recorded in `docs/TEST-TIMINGS.md`.
+
+### How it was tested
+- Security: arguments (paths with spaces, quotes, `&`, `%` and symbols still run; a plan named like an option; property names, values and Java options that could add to the command line are refused; scripts never used as Java), the stop port (a stop message sent to this machine's network address is ignored by JMeter), JMeter ended on kill, on drop and when the app crashes, a flood of output (150,000 lines and one 3 MB line) bounded without blocking the run, hostile results files (giant, endless, unclosed quote, binary junk, a 200 MB file read in steps, text that is not a results file), run folders (names that try to leave the folder, damaged or foreign `run.json`, links, removing only this app's folders, refusing to clear a folder not named `runs`), the script question.
+- Functional: real runs through the window (F5 to the end with exact counts, Stop, Stop now, force, Validate, Send once with a request inside a looping controller, the custom folder, the last N kept with their files, a plan JMeter cannot read), the questions before a run, the History tab, Settings, and the same in the real window (`smoke.ps1` section 11).
+- Performance: 1,000,000 samples into the live numbers in about 2 s (debug build); 500,000 rows of results read in about 4 s (debug); a 200 MB file read in 26 steps in about 3 s; 200,000 rows of a stored run read and shown in about 5 s; a run with 8,000 samples at full speed with the slowest redraw about 1 s (debug); JMeter start to first sample about 6 to 8 s (JMeter's own start-up).
+
+### Found while testing (all fixed)
+- A real-window check found that a settings file saved with a byte order mark (what Windows PowerShell and Notepad write) was treated as damaged and set aside; it is read now.
+- The derived plan for Send once kept the request's own timers and listeners; they are removed.
+- The stored-run reader accepted any text as a results file and counted its lines as samples; a file must now have a header naming `label` and `elapsed`, and lines with a damaged time stamp are skipped.
+- Java on Windows reads command-line paths in the system code page, so a plan in a folder with Chinese letters is not found by JMeter. The run header warns about it (a limit of JMeter, not fixable here).
+- `canonicalize` gives `\\?\C:\...` paths on Windows, which Java does not understand; the prefix is removed before a path reaches JMeter.
+
+### Not done
+- Result listeners as in JMeter (View Results Tree with request and response), the Aggregate Report as its own view, and opening the HTML dashboard report (planned with the results viewer).
+- Comparing two runs and pinning runs (planned with the results viewer).
+- Running several copies of a plan: dropped by the user.
+- The project concept (idea for later, in `docs/RUNNING.md`).
+- Untested: running with a JMeter other than 5.6.3, runs longer than a few minutes, macOS and Linux (the job object that ends JMeter when the app crashes is Windows-only; elsewhere JMeter is ended when the app ends cleanly).
+
 ## Next
-M3: run and watch (runtime screen, run copies, validate, live numbers and charts, stop controls).
+Results (the Samples Explorer with request and response detail, comparing two runs, the generated HTML report, native versions of the dashboard graphs).
+
+**Security work that goes with the results viewer:** opening the HTML report only as a local file, with its own tests.
+
+**Before every release:** a manual security review : the run-time warning, report opening, installer and signing, and a fresh `cargo audit` and `cargo deny check`.

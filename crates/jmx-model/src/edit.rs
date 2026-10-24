@@ -639,11 +639,13 @@ impl Document {
 }
 
 /// Re-indent the line breaks inside `e`: take `strip` off the start of each new line and put `add` on.
-/// Line breaks are written with the document's `eol`.
+/// Line breaks are written with the document's `eol`. Only the blank text between elements is touched: a
+/// value that spans several lines (a script, a request body) keeps its text exactly.
 fn reindent(e: &mut Element, strip: &str, add: &str, eol: &str) {
+    let layout = e.children.iter().any(|c| matches!(c, Node::Element(_)));
     for c in &mut e.children {
         match c {
-            Node::Text(t) if t.contains('\n') => {
+            Node::Text(t) if layout && t.contains('\n') && is_blank(t) => {
                 let text = t.replace("\r\n", "\n");
                 let mut out = String::with_capacity(text.len() + 16);
                 for (i, line) in text.split('\n').enumerate() {

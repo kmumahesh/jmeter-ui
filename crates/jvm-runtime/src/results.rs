@@ -93,54 +93,163 @@ pub struct Sample {
     pub connect_ms: u64,
 }
 
+/// The most bytes read from the results file in one call; a bigger backlog takes several calls.
+pub const MAX_READ_PER_POLL: usize = 8 * 1024 * 1024;
+/// A record longer than this is dropped (a damaged or hostile file).
+pub const MAX_RECORD_BYTES: usize = 1024 * 1024;
+
+/// Positions of the columns that are read, found once from the header row.
+#[derive(Clone, Debug, Default)]
+struct Columns {
+    time_stamp: Option<usize>,
+    elapsed: Option<usize>,
+    label: Option<usize>,
+    response_code: Option<usize>,
+    response_message: Option<usize>,
+    thread_name: Option<usize>,
+    success: Option<usize>,
+    bytes: Option<usize>,
+    group_threads: Option<usize>,
+    all_threads: Option<usize>,
+    latency: Option<usize>,
+    connect: Option<usize>,
+}
+
+impl Columns {
+    /// The columns of a results file, or `None` when the first line is not the header of one (it must at
+    /// least name `label` and `elapsed`).
+    fn from_header(h: &[String]) -> Option<Columns> {
+        let at = |name: &str| h.iter().position(|x| x == name);
+        at("label")?;
+        at("elapsed")?;
+        Some(Columns {
+            time_stamp: at("timeStamp"),
+            elapsed: at("elapsed"),
+            label: at("label"),
+            response_code: at("responseCode"),
+            response_message: at("responseMessage"),
+            thread_name: at("threadName"),
+            success: at("success"),
+            bytes: at("bytes"),
+            group_threads: at("grpThreads"),
+            all_threads: at("allThreads"),
+            latency: at("Latency"),
+            connect: at("Connect"),
+        })
+    }
+
+    /// The sample in a row, or `None` for a row that is not one: the file has a time stamp column and this
+    /// row's value is not a number (a damaged line, or text that is not a results file at all).
+    fn sample(&self, row: &[String]) -> Option<Sample> {
+        let get = |i: Option<usize>| i.and_then(|i| row.get(i)).map(String::as_str).unwrap_or("");
+        if self.time_stamp.is_some() && get(self.time_stamp).trim().parse::<u64>().is_err() {
+            return None;
+        }
+        let num = |i: Option<usize>| get(i).trim().parse::<u64>().unwrap_or(0);
+        Some(Sample {
+            timestamp_ms: num(self.time_stamp),
+            elapsed_ms: num(self.elapsed),
+            label: get(self.label).to_string(),
+            response_code: get(self.response_code).to_string(),
+            response_message: get(self.response_message).to_string(),
+            thread_name: get(self.thread_name).to_string(),
+            success: get(self.success) == "true",
+            bytes: num(self.bytes),
+            group_threads: num(self.group_threads).min(u32::MAX as u64) as u32,
+            all_threads: num(self.all_threads).min(u32::MAX as u64) as u32,
+            latency_ms: num(self.latency),
+            connect_ms: num(self.connect),
+        })
+    }
+}
+
 /// Reads new rows from a results file that is still being written.
+///
+/// Memory stays bounded whatever the file holds: at most [`MAX_READ_PER_POLL`] bytes are read per call and a
+/// record longer than [`MAX_RECORD_BYTES`] is dropped. Rows that cannot be read are skipped and counted.
 pub struct JtlTail {
     offset: u64,
-    pending: String,
-    header: Option<Vec<String>>,
+    pending: Vec<u8>,
+    columns: Option<Columns>,
+    /// The first line has been read (whether or not it was a usable header).
+    header_read: bool,
+    skipped: u64,
+    more: bool,
 }
 
 impl JtlTail {
     pub fn new() -> Self {
-        JtlTail { offset: 0, pending: String::new(), header: None }
+        JtlTail { offset: 0, pending: Vec::new(), columns: None, header_read: false, skipped: 0, more: false }
+    }
+
+    /// How many records were dropped because they were damaged or too long.
+    pub fn skipped(&self) -> u64 {
+        self.skipped
+    }
+
+    /// Whether the last call stopped at its read limit, so that calling again will find more at once.
+    pub fn has_more(&self) -> bool {
+        self.more
     }
 
     /// Read anything new since the last call and return the complete rows.
     pub fn poll(&mut self, path: &Path) -> Result<Vec<Sample>> {
+        self.more = false;
         let Ok(mut f) = std::fs::File::open(path) else { return Ok(vec![]) };
         use std::io::Seek;
+        let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+        if len < self.offset {
+            // The file was replaced by a shorter one: start again.
+            *self = JtlTail { skipped: self.skipped, ..JtlTail::new() };
+        }
         f.seek(std::io::SeekFrom::Start(self.offset))?;
         let mut buf = Vec::new();
-        f.read_to_end(&mut buf)?;
+        f.take(MAX_READ_PER_POLL as u64).read_to_end(&mut buf)?;
         self.offset += buf.len() as u64;
-        self.pending.push_str(&String::from_utf8_lossy(&buf));
+        self.more = buf.len() == MAX_READ_PER_POLL;
+        self.pending.extend_from_slice(&buf);
+
         // Keep only complete records. A record ends at a newline outside quotes.
-        let mut records = Vec::new();
+        let mut out = Vec::new();
         let mut start = 0;
         let mut in_quotes = false;
-        for (i, c) in self.pending.char_indices() {
-            match c {
-                '"' => in_quotes = !in_quotes,
-                '\n' if !in_quotes => {
-                    records.push(self.pending[start..i].trim_end_matches('\r').to_string());
+        for i in 0..self.pending.len() {
+            match self.pending[i] {
+                b'"' => in_quotes = !in_quotes,
+                b'\n' if !in_quotes => {
+                    let rec = &self.pending[start..i];
                     start = i + 1;
+                    let rec = rec.strip_suffix(b"\r").unwrap_or(rec);
+                    if rec.is_empty() {
+                        continue;
+                    }
+                    if rec.len() > MAX_RECORD_BYTES {
+                        self.skipped += 1;
+                        continue;
+                    }
+                    let row = split_record(rec);
+                    if !self.header_read {
+                        self.header_read = true;
+                        self.columns = Columns::from_header(&row);
+                        continue;
+                    }
+                    match &self.columns {
+                        Some(c) => match c.sample(&row) {
+                            Some(sample) => out.push(sample),
+                            None => self.skipped += 1,
+                        },
+                        // Not a results file: its lines are not samples.
+                        None => self.skipped += 1,
+                    }
                 }
                 _ => {}
             }
         }
         self.pending.drain(..start);
-        let mut out = Vec::new();
-        for rec in records {
-            if rec.is_empty() {
-                continue;
-            }
-            let mut rdr = csv::ReaderBuilder::new().has_headers(false).flexible(true).from_reader(rec.as_bytes());
-            let Some(row) = rdr.records().next() else { continue };
-            let row = row?;
-            match &self.header {
-                None => self.header = Some(row.iter().map(str::to_string).collect()),
-                Some(h) => out.push(sample_from_row(h, &row)?),
-            }
+        if self.pending.len() > MAX_RECORD_BYTES {
+            // A record that never ends (an open quote, or no line break): drop it and look for the next line.
+            self.pending.clear();
+            self.skipped += 1;
         }
         Ok(out)
     }
@@ -152,23 +261,36 @@ impl Default for JtlTail {
     }
 }
 
-fn sample_from_row(header: &[String], row: &csv::StringRecord) -> Result<Sample> {
-    let get = |name: &str| header.iter().position(|h| h == name).and_then(|i| row.get(i)).unwrap_or("");
-    let num = |name: &str| get(name).parse::<u64>().unwrap_or(0);
-    Ok(Sample {
-        timestamp_ms: num("timeStamp"),
-        elapsed_ms: num("elapsed"),
-        label: get("label").to_string(),
-        response_code: get("responseCode").to_string(),
-        response_message: get("responseMessage").to_string(),
-        thread_name: get("threadName").to_string(),
-        success: get("success") == "true",
-        bytes: num("bytes"),
-        group_threads: num("grpThreads") as u32,
-        all_threads: num("allThreads") as u32,
-        latency_ms: num("Latency"),
-        connect_ms: num("Connect"),
-    })
+/// Split one CSV record into fields: `,` separates, `"` quotes, `""` inside quotes is one quote.
+fn split_record(rec: &[u8]) -> Vec<String> {
+    let mut fields = Vec::with_capacity(20);
+    let mut cur: Vec<u8> = Vec::new();
+    let mut quoted = false;
+    let mut i = 0;
+    while i < rec.len() {
+        let c = rec[i];
+        if quoted {
+            if c == b'"' {
+                if rec.get(i + 1) == Some(&b'"') {
+                    cur.push(b'"');
+                    i += 1;
+                } else {
+                    quoted = false;
+                }
+            } else {
+                cur.push(c);
+            }
+        } else {
+            match c {
+                b'"' => quoted = true,
+                b',' => fields.push(String::from_utf8_lossy(&std::mem::take(&mut cur)).into_owned()),
+                _ => cur.push(c),
+            }
+        }
+        i += 1;
+    }
+    fields.push(String::from_utf8_lossy(&cur).into_owned());
+    fields
 }
 
 /// A failed sample from the injected XML collector, with request and response detail.

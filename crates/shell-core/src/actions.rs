@@ -35,7 +35,17 @@ pub enum Action {
     OpenSettings,
     About,
     RunPlan,
+    /// Run one thread through the whole plan once, without timers.
+    ValidatePlan,
+    /// Send the selected request alone, with what applies to it.
+    SendOnce,
     StopRun,
+    /// Stop at once, interrupting requests in progress.
+    StopRunNow,
+    /// Empty the shared folder of run files.
+    ClearRunsFolder,
+    /// Show the folder of the latest run (or of the plan's runs) in the file manager.
+    OpenRunsFolder,
     Quit,
 }
 
@@ -78,8 +88,12 @@ pub struct AppContext {
     pub can_move_down: bool,
     pub tab_count: usize,
     pub run_in_progress: bool,
-    /// Whether this build can run plans at all.
+    /// Java and JMeter were found, so a plan can be run.
     pub can_run: bool,
+    /// The selected element is a request that can be sent on its own.
+    pub can_send_once: bool,
+    /// Run files are kept in a folder chosen in Settings (not next to the plan).
+    pub custom_runs_folder: bool,
     /// Whether this build can change the plan (add, move, delete elements).
     pub can_edit: bool,
 }
@@ -97,7 +111,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 33] = [
+    pub const ALL: [Action; 38] = [
         Action::OpenPlan,
         Action::SavePlan,
         Action::SavePlanAs,
@@ -129,7 +143,12 @@ impl Action {
         Action::OpenSettings,
         Action::About,
         Action::RunPlan,
+        Action::ValidatePlan,
+        Action::SendOnce,
         Action::StopRun,
+        Action::StopRunNow,
+        Action::ClearRunsFolder,
+        Action::OpenRunsFolder,
         Action::Quit,
     ];
 
@@ -166,7 +185,12 @@ impl Action {
             Action::OpenSettings => "Open Settings",
             Action::About => "About JMeter UI",
             Action::RunPlan => "Run Plan",
+            Action::ValidatePlan => "Validate Plan (one user, once)",
+            Action::SendOnce => "Send Selected Request Once",
             Action::StopRun => "Stop Run",
+            Action::StopRunNow => "Stop Run Now",
+            Action::ClearRunsFolder => "Clear Runs Folder…",
+            Action::OpenRunsFolder => "Open Runs Folder",
             Action::Quit => "Quit",
         }
     }
@@ -192,7 +216,7 @@ impl Action {
             | Action::ThemeSystem
             | Action::ThemeDark
             | Action::ThemeLight => Group::View,
-            Action::RunPlan | Action::StopRun => Group::Run,
+            Action::RunPlan | Action::ValidatePlan | Action::SendOnce | Action::StopRun | Action::StopRunNow | Action::ClearRunsFolder | Action::OpenRunsFolder => Group::Run,
             Action::About => Group::Help,
         }
     }
@@ -224,6 +248,9 @@ impl Action {
             Action::OpenSettings => Some("Ctrl+,"),
             Action::RunPlan => Some("F5"),
             Action::StopRun => Some("Shift+F5"),
+            Action::ValidatePlan => Some("Ctrl+F5"),
+            Action::SendOnce => Some("F6"),
+            Action::StopRunNow => Some("Ctrl+Shift+F5"),
             Action::Quit => Some("Alt+F4"),
             _ => None,
         }
@@ -252,10 +279,13 @@ impl Action {
             Action::CloseTab | Action::NextTab | Action::PrevTab if c.tab_count == 0 => Disabled("No tab is open"),
             Action::NextTab | Action::PrevTab if c.tab_count < 2 => Disabled("Only one tab is open"),
             Action::CloseAllTabs if c.tab_count == 0 => Disabled("No tab is open"),
-            Action::RunPlan if !c.can_run => Disabled("Running plans arrives in a later release"),
-            Action::RunPlan if !c.has_plan => Disabled("Open a plan first"),
-            Action::RunPlan if c.run_in_progress => Disabled("A run is already in progress"),
-            Action::StopRun if !c.run_in_progress => Disabled("Nothing is running"),
+            Action::RunPlan | Action::ValidatePlan | Action::SendOnce if !c.has_plan => Disabled("Open a plan first"),
+            Action::RunPlan | Action::ValidatePlan | Action::SendOnce if c.run_in_progress => Disabled("A run is already in progress"),
+            Action::RunPlan | Action::ValidatePlan | Action::SendOnce if !c.can_run => Disabled("Java or JMeter was not found: see Settings"),
+            Action::SendOnce if !c.can_send_once => Disabled("Select a request (a sampler) first"),
+            Action::StopRun | Action::StopRunNow if !c.run_in_progress => Disabled("Nothing is running"),
+            Action::ClearRunsFolder if c.run_in_progress => Disabled("A run is in progress"),
+            Action::ClearRunsFolder if !c.custom_runs_folder => Disabled("Only a runs folder chosen in Settings can be cleared; the runs next to each plan are not touched"),
             _ => Enabled,
         }
     }
@@ -303,7 +333,7 @@ mod tests {
         for a in [Action::ReloadPlan, Action::GotoElement, Action::ExpandAll, Action::CloseTab, Action::NextTab, Action::PrevTab] {
             assert!(a.availability(&c).is_enabled(), "{a:?}");
         }
-        assert!(!Action::RunPlan.availability(&c).is_enabled(), "this build cannot run yet");
+        assert_eq!(Action::RunPlan.availability(&c), Availability::Disabled("Java or JMeter was not found: see Settings"));
     }
 
     #[test]
@@ -321,6 +351,42 @@ mod tests {
         let running = AppContext { run_in_progress: true, ..ready };
         assert!(!Action::RunPlan.availability(&running).is_enabled());
         assert!(Action::StopRun.availability(&running).is_enabled());
+    }
+
+    #[test]
+    fn validate_and_send_once_need_a_plan_a_runtime_and_no_run_going() {
+        let none = AppContext::default();
+        for a in [Action::ValidatePlan, Action::SendOnce] {
+            assert_eq!(a.availability(&none), Availability::Disabled("Open a plan first"));
+        }
+        let ready = AppContext { has_plan: true, can_run: true, ..Default::default() };
+        assert!(Action::ValidatePlan.availability(&ready).is_enabled());
+        assert_eq!(Action::SendOnce.availability(&ready), Availability::Disabled("Select a request (a sampler) first"));
+        let sampler = AppContext { can_send_once: true, ..ready };
+        assert!(Action::SendOnce.availability(&sampler).is_enabled());
+        let running = AppContext { run_in_progress: true, ..sampler };
+        for a in [Action::RunPlan, Action::ValidatePlan, Action::SendOnce] {
+            assert_eq!(a.availability(&running), Availability::Disabled("A run is already in progress"));
+        }
+        let no_java = AppContext { can_run: false, ..sampler };
+        assert!(!Action::ValidatePlan.availability(&no_java).is_enabled());
+    }
+
+    #[test]
+    fn stop_now_follows_the_run_state() {
+        let idle = AppContext { has_plan: true, can_run: true, ..Default::default() };
+        assert!(!Action::StopRunNow.availability(&idle).is_enabled());
+        assert!(Action::StopRunNow.availability(&AppContext { run_in_progress: true, ..idle }).is_enabled());
+    }
+
+    #[test]
+    fn only_a_chosen_runs_folder_can_be_cleared_and_not_during_a_run() {
+        let base = AppContext::default();
+        assert!(matches!(Action::ClearRunsFolder.availability(&base), Availability::Disabled(m) if m.contains("next to each plan")));
+        let custom = AppContext { custom_runs_folder: true, ..base };
+        assert!(Action::ClearRunsFolder.availability(&custom).is_enabled());
+        assert!(!Action::ClearRunsFolder.availability(&AppContext { run_in_progress: true, ..custom }).is_enabled());
+        assert!(Action::OpenRunsFolder.availability(&base).is_enabled());
     }
 
     #[test]

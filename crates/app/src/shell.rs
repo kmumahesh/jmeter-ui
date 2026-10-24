@@ -9,7 +9,8 @@ use gpui::{
     Window, prelude::*,
 };
 use plan_core::{EditablePlan, Move, NodeId, Plan, TreeState};
-use shell_core::actions::{Action, AppContext};
+pub use shell_core::actions::AppContext;
+use shell_core::actions::Action;
 use shell_core::layout::{PlanId, TabKind, Workspace};
 use shell_core::palette::Target;
 use shell_core::number::{NumberSpec, Value};
@@ -69,6 +70,18 @@ pub enum Dialog {
     DiscardForReload(PlanId),
     /// A recovery copy was left by an earlier session.
     Recover { path: PathBuf, saved: Option<String>, recovered: String },
+    /// The plan has unsaved changes and a run uses the saved file.
+    SaveToRun { kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId> },
+    /// The plan contains scripts and has not been agreed to run.
+    Scripts { kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId>, text: String },
+    /// The place for run files cannot be used.
+    RunsPlace { message: String, kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId> },
+    /// Empty the shared runs folder?
+    ClearRuns { root: PathBuf, count: usize },
+    /// Remove one stored run?
+    DeleteRun { dir: PathBuf, name: String },
+    /// Quitting while a run is going.
+    QuitRunning,
 }
 
 impl LoadedPlan {
@@ -108,8 +121,19 @@ pub struct RuntimeStatus {
 /// Which lower panel tab is showing.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BottomTab {
-    Output,
+    /// The live numbers and charts of a run, or of a stored run.
+    Run,
+    /// The earlier runs of the open plan.
+    History,
     Problems,
+}
+
+/// What the lower part of the run view shows below the charts.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RunDetail {
+    Errors,
+    Labels,
+    Log,
 }
 
 pub struct SettingsFields {
@@ -118,9 +142,11 @@ pub struct SettingsFields {
     pub heap_mb: Entity<TextField>,
     pub summary_secs: Entity<TextField>,
     pub startup: Entity<ComboBox>,
+    pub runs_keep: Entity<TextField>,
 }
 
 pub const HEAP_SPEC: NumberSpec = NumberSpec::whole(settings::HEAP_RANGE_MB.0 as i64, settings::HEAP_RANGE_MB.1 as i64);
+pub const KEEP_SPEC: NumberSpec = NumberSpec::whole(settings::RUNS_KEEP_RANGE.0 as i64, settings::RUNS_KEEP_RANGE.1 as i64);
 pub const INTERVAL_SPEC: NumberSpec = NumberSpec::whole(settings::SUMMARY_INTERVAL_RANGE.0 as i64, settings::SUMMARY_INTERVAL_RANGE.1 as i64);
 
 pub struct Shell {
@@ -153,6 +179,12 @@ pub struct Shell {
     pub resizing: Option<Resize>,
     pub about_open: bool,
     pub bottom_tab: BottomTab,
+    pub run_detail: RunDetail,
+    /// The run being watched, or the stored run being looked at.
+    pub run: Option<crate::running::RunSession>,
+    pub(crate) run_tick_on: bool,
+    /// The earlier runs of the open plan.
+    pub history: Vec<jvm_runtime::runs::RunEntry>,
     pub settings_fields: Option<SettingsFields>,
     state_dump: Option<PathBuf>,
     _subscriptions: Vec<Subscription>,
@@ -212,7 +244,8 @@ macro_rules! shell_actions {
 shell_actions!(
     OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
-    CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, StopRun, Quit,
+    CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, Quit,
 );
 
 gpui::actions!(
@@ -311,6 +344,10 @@ impl Shell {
             resizing: None,
             about_open: false,
             bottom_tab: BottomTab::Problems,
+            run_detail: RunDetail::Errors,
+            run: None,
+            run_tick_on: false,
+            history: Vec::new(),
             settings_fields: None,
             state_dump: options.state_dump.clone(),
             _subscriptions: Vec::new(),
@@ -371,8 +408,10 @@ impl Shell {
             can_move_up: at.is_some_and(|(i, _)| i > 0),
             can_move_down: at.is_some_and(|(i, n)| i + 1 < n),
             tab_count: self.workspace.tab_count(),
-            run_in_progress: false,
-            can_run: false,
+            run_in_progress: self.run_in_progress(),
+            can_run: self.runtime_ready(),
+            can_send_once: sel.is_some_and(|(_, n)| n.category == plan_core::Category::Sampler),
+            custom_runs_folder: self.shared_runs_root().is_some(),
             can_edit: lp.is_some(),
         }
     }
@@ -445,6 +484,7 @@ impl Shell {
         if let Some(i) = self.workspace.find(TabKind::Plan(id)) {
             self.workspace.activate(i);
             self.active_plan = Some(id);
+            self.refresh_history();
         }
     }
 
@@ -505,6 +545,7 @@ impl Shell {
         self.workspace.close_all();
         self.plans.clear();
         self.active_plan = None;
+        self.refresh_history();
         cx.notify();
     }
 
@@ -516,6 +557,7 @@ impl Shell {
         } else if !self.active_plan.is_some_and(|id| self.plan_index(id).is_some()) {
             self.active_plan = self.workspace.tabs().iter().find_map(|t| if let TabKind::Plan(id) = t.kind { Some(id) } else { None });
         }
+        self.refresh_history();
     }
 
     pub fn tree_move(&mut self, mv: Move, window: &mut Window, cx: &mut Context<Self>) {
@@ -687,7 +729,16 @@ impl Shell {
             Action::ThemeLight => self.set_theme(ThemeChoice::Light, cx),
             Action::OpenSettings => self.open_settings_tab(window, cx),
             Action::About => self.about_open = true,
-            Action::RunPlan | Action::StopRun => self.notify("Running plans arrives in a later release", Severity::Info, window, cx),
+            Action::RunPlan => self.begin_run(jvm_runtime::runs::RunKind::Run, None, window, cx),
+            Action::ValidatePlan => self.begin_run(jvm_runtime::runs::RunKind::Validate, None, window, cx),
+            Action::SendOnce => {
+                let sampler = self.selected_id();
+                self.begin_run(jvm_runtime::runs::RunKind::SendOnce, sampler, window, cx)
+            }
+            Action::StopRun => self.stop_run(false, window, cx),
+            Action::StopRunNow => self.stop_run(true, window, cx),
+            Action::ClearRunsFolder => self.request_clear_runs(window, cx),
+            Action::OpenRunsFolder => self.open_runs_folder(window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -715,6 +766,14 @@ impl Shell {
             let java_path = cx.new(|cx| TextField::new(cx, "settings-java-path", "Leave empty to use JAVA_HOME or PATH", &java));
             let heap_mb = cx.new(|cx| TextField::new(cx, "settings-heap", "1024", &heap).number(HEAP_SPEC));
             let summary_secs = cx.new(|cx| TextField::new(cx, "settings-interval", "1", &interval).number(INTERVAL_SPEC));
+            let keep = self.settings.runs_keep.to_string();
+            let runs_keep = cx.new(|cx| TextField::new(cx, "settings-runs-keep", "10", &keep).number(KEEP_SPEC));
+            let sub = cx.subscribe_in(&runs_keep, window, |this, _, e: &crate::fields::TextFieldEvent, window, cx| {
+                if matches!(e, crate::fields::TextFieldEvent::Submitted | crate::fields::TextFieldEvent::Blurred) {
+                    this.apply_runs_keep(window, cx);
+                }
+            });
+            self._subscriptions.push(sub);
             let startup = cx.new(|_| ComboBox::new("startup-combo", &["Show the welcome screen", "Reopen the last plan"], if self.settings.startup == Startup::LastPlan { 1 } else { 0 }));
             for f in [&jmeter_home, &java_path, &heap_mb, &summary_secs] {
                 let sub = cx.subscribe_in(f, window, |this, _, e: &crate::fields::TextFieldEvent, window, cx| {
@@ -731,7 +790,7 @@ impl Shell {
                 cx.notify();
             });
             self._subscriptions.push(sub);
-            self.settings_fields = Some(SettingsFields { jmeter_home, java_path, heap_mb, summary_secs, startup });
+            self.settings_fields = Some(SettingsFields { jmeter_home, java_path, heap_mb, summary_secs, startup, runs_keep });
         }
         self.workspace.open_tab(TabKind::Settings, "Settings");
         cx.notify();
@@ -765,6 +824,26 @@ impl Shell {
         self.save_settings();
         self.detect_runtime(window, cx);
         self.notify("Settings saved", Severity::Info, window, cx);
+    }
+
+    /// Save how many runs of each plan are kept, and remove the older ones of the open plan at once.
+    pub fn apply_runs_keep(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(f) = &self.settings_fields else { return };
+        match KEEP_SPEC.parse(f.runs_keep.read(cx).text()) {
+            Ok(Value::Number(n)) if n as u32 != self.settings.runs_keep => {
+                self.settings.runs_keep = n as u32;
+                self.save_settings();
+                if let Some(lp) = self.plan() {
+                    let path = crate::run_ctl::plain_path(&lp.path);
+                    let root = jvm_runtime::runs::runs_root(&path, &self.runs_place());
+                    jvm_runtime::runs::prune(&root, &path, self.settings.runs_keep as usize);
+                }
+                self.refresh_history();
+                cx.notify();
+            }
+            Ok(_) => {}
+            Err(_) => self.notify("Keep how many runs must be a whole number from 1 to 1000.", Severity::Error, window, cx),
+        }
     }
 
     /// Look for Java and JMeter without blocking the window.
@@ -820,7 +899,38 @@ impl Shell {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),
+                Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
+                Dialog::Scripts { text, .. } => json!({ "kind": "scripts", "text": text }),
+                Dialog::RunsPlace { message, .. } => json!({ "kind": "runs_place", "message": message }),
+                Dialog::ClearRuns { root, count } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count }),
+                Dialog::DeleteRun { name, .. } => json!({ "kind": "delete_run", "name": name }),
+                Dialog::QuitRunning => json!({ "kind": "quit_running" }),
             }),
+            "run": self.run.as_ref().map(|r| {
+                let t = r.live.total();
+                json!({
+                    "kind": r.kind.label(),
+                    "phase": r.phase.label(),
+                    "dir": r.dir.to_string_lossy(),
+                    "samples": t.count,
+                    "errors": t.errors,
+                    "avg_ms": t.avg_ms(),
+                    "p95_ms": t.percentile(95.0),
+                    "points": r.live.series().len(),
+                    "labels": r.live.labels().len(),
+                    "error_rows": r.live.errors().count(),
+                    "exit_code": r.exit_code,
+                    "error": r.error,
+                    "notes": r.notes,
+                    "can_kill": r.can_kill(),
+                    "skipped": r.skipped,
+                })
+            }),
+            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
+            "bottom_tab": format!("{:?}", self.bottom_tab),
+            "runs_place": format!("{:?}", self.runs_place()),
+            "runs_keep": self.settings.runs_keep,
+            "runtime_ready": self.runtime_ready(),
             "can_undo": self.plan().is_some_and(|lp| lp.edit.can_undo()),
             "can_redo": self.plan().is_some_and(|lp| lp.edit.can_redo()),
             "dirty": self.typing_dirty || self.plan().is_some_and(|lp| lp.is_dirty()),

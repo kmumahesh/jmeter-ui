@@ -55,7 +55,7 @@ impl Plan {
     }
 
     pub fn load(path: &Path) -> Result<Plan> {
-        let src = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        let src = crate::files::read_text(path).with_context(|| format!("cannot read {}", path.display()))?;
         Plan::from_jmx_str(&src).with_context(|| format!("cannot open {} as a JMeter plan", path.display()))
     }
 

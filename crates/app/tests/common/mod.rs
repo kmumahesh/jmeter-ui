@@ -120,6 +120,18 @@ impl App<'_> {
         self.state()["palette"]["unavailable"].as_array().map(|a| a.iter().map(|t| t.as_str().unwrap().to_string()).collect()).unwrap_or_default()
     }
 
+    /// Turn the mouse wheel over the middle of the window, so that `dy` pixels more of a scrolling page show.
+    pub fn scroll_down(&mut self, dy: f32) {
+        let at = gpui::point(gpui::px(640.), gpui::px(400.));
+        self.cx.simulate_event(gpui::ScrollWheelEvent {
+            position: at,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-dy))),
+            modifiers: gpui::Modifiers::default(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        self.cx.run_until_parked();
+    }
+
     pub fn palette_open(&mut self) -> bool {
         !self.state()["palette"].is_null()
     }

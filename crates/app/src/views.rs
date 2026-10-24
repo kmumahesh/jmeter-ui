@@ -160,7 +160,18 @@ impl Shell {
                 MenuItem::Separator,
                 MenuItem::Action(Action::GotoElement),
             ]),
-            ("Run", vec![MenuItem::Action(Action::RunPlan), MenuItem::Action(Action::StopRun)]),
+            (
+                "Run",
+                vec![
+                    MenuItem::Action(Action::RunPlan),
+                    MenuItem::Action(Action::ValidatePlan),
+                    MenuItem::Action(Action::SendOnce),
+                    MenuItem::Action(Action::StopRun),
+                    MenuItem::Action(Action::StopRunNow),
+                    MenuItem::Action(Action::OpenRunsFolder),
+                    MenuItem::Action(Action::ClearRunsFolder),
+                ],
+            ),
             ("View", vec![
                 MenuItem::Action(Action::ToggleSidebar),
                 MenuItem::Action(Action::ToggleInspector),
@@ -277,14 +288,27 @@ impl Shell {
             )
             .child(div().flex_1().h_full().window_control_area(WindowControlArea::Drag))
             .child(
-                div().flex().items_center().gap(px(4.)).pr(px(10.)).child(
-                    Button::new("run", "Run")
-                        .style(ButtonStyle::Tinted(ui::TintColor::Accent))
-                        .size(ButtonSize::Compact)
-                        .disabled(!Action::RunPlan.availability(&self.context()).is_enabled())
-                        .tooltip(Tooltip::text("Run the plan (arrives in a later release)"))
-                        .on_click(cx.listener(|this, _, window, cx| this.perform(Action::RunPlan, window, cx))),
-                ),
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(4.))
+                    .pr(px(10.))
+                    .child(div().debug_selector(|| "run".to_string()).child(
+                        Button::new("run", "Run")
+                            .style(ButtonStyle::Tinted(ui::TintColor::Accent))
+                            .size(ButtonSize::Compact)
+                            .disabled(!Action::RunPlan.availability(&self.context()).is_enabled())
+                            .tooltip(Tooltip::text("Run the saved plan (F5)"))
+                            .on_click(cx.listener(|this, _, window, cx| this.perform(Action::RunPlan, window, cx))),
+                    ))
+                    .child(div().debug_selector(|| "stop".to_string()).child(
+                        Button::new("stop", "Stop")
+                            .style(ButtonStyle::Subtle)
+                            .size(ButtonSize::Compact)
+                            .disabled(!Action::StopRun.availability(&self.context()).is_enabled())
+                            .tooltip(Tooltip::text("Stop the run after the current iteration (Shift+F5)"))
+                            .on_click(cx.listener(|this, _, window, cx| this.perform(Action::StopRun, window, cx))),
+                    )),
             )
             .child(controls("\u{2013}", WindowControlArea::Min, p.panel2, "win-min"))
             .child(controls("\u{25a1}", WindowControlArea::Max, p.panel2, "win-max"))
@@ -644,6 +668,20 @@ impl Tree {
             menu = item(menu, "Rename".into(), Action::RenameElement, &shell, &ctx);
             menu = item(menu, if enabled { "Disable" } else { "Enable" }.into(), Action::ToggleElementEnabled, &shell, &ctx);
             menu = menu.separator();
+            if category == Some(Category::Sampler) {
+                menu = menu.separator();
+                let sh = shell.clone();
+                let ready = Action::SendOnce.availability(&crate::shell::AppContext { can_send_once: true, ..ctx }).is_enabled();
+                let entry = ContextMenuEntry::new("Send once")
+                    .disabled(!ready)
+                    .handler(move |window, cx| {
+                        sh.update(cx, |s, cx| {
+                            s.select_node(id, window, cx);
+                            s.perform(Action::SendOnce, window, cx);
+                        });
+                    });
+                menu = menu.item(ContextMenuItem::Entry(entry));
+            }
             menu = item(menu, "Move Up".into(), Action::MoveElementUp, &shell, &ctx);
             menu = item(menu, "Move Down".into(), Action::MoveElementDown, &shell, &ctx);
             menu = menu.separator();
