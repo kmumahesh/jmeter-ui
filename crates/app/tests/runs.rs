@@ -813,3 +813,181 @@ fn viewing_a_large_stored_run_is_quick_and_does_not_block_the_window(cx: &mut Te
     app.settle();
     assert!(app.has("run-chart-response"));
 }
+
+// ---- the request viewer ----
+
+fn details_setting(s: &mut Settings, v: settings::RequestDetails) {
+    s.request_details = v;
+}
+
+#[gpui::test]
+fn a_run_keeps_the_failed_requests_and_the_viewer_shows_what_was_sent_and_received(cx: &mut TestAppContext) {
+    let Some((s, server)) = real("req-failed", |p| shop_plan(p, 2, 5), |_, _| {}) else { return };
+    let saved = std::fs::read_to_string(&s.plan).unwrap();
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    let st = wait_run(&mut app, Duration::from_secs(120));
+    assert_eq!(st["run"]["errors"], 10);
+    // Only the failed ones are kept by default.
+    let st = wait_until(&mut app, Duration::from_secs(20), "the details to be read", |st| st["run"]["details"] == 10);
+    assert_eq!(st["run"]["details_failed"], 10);
+    assert_eq!(st["run"]["details_off"], false);
+    app.click("run-view-requests");
+    let st = app.state();
+    assert_eq!(st["bottom_tab"], "Requests");
+    for sel in ["requests", "req-list", "req-row-0", "req-tab-request", "req-tab-response", "req-tab-checks", "req-title", "req-count"] {
+        assert!(app.has(sel), "{sel}");
+    }
+    let resp = st["requests"]["response"].as_str().unwrap().to_string();
+    assert!(resp.contains("500") && resp.contains("boom"), "{resp}");
+    let req = st["requests"]["request"].as_str().unwrap().to_string();
+    assert!(req.contains("GET") && req.contains(&format!("127.0.0.1:{}/fail", server.port)), "{req}");
+    // The tabs show the other texts and the checks.
+    app.click("req-tab-request");
+    app.click("req-tab-checks");
+    assert!(app.has("req-checks"));
+    app.click("req-tab-response");
+    // The plan on disk never gets the listener; only the copy JMeter ran has it.
+    assert_eq!(std::fs::read_to_string(&s.plan).unwrap(), saved);
+    let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
+    assert_eq!(std::fs::read_to_string(dir.join("plan-as-run.jmx")).unwrap(), saved, "the record of what ran is the saved plan");
+    assert!(std::fs::read_to_string(dir.join("plan.jmx")).unwrap().contains("request details"));
+    let entries: Vec<_> = std::fs::read_dir(&s.dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+    assert!(entries.iter().all(|n| n == "runs" || n == "shop.jmx" || n == "settings.json"), "nothing is left next to the plan: {entries:?}");
+}
+
+#[gpui::test]
+fn all_requests_can_be_kept_and_walked_through_with_the_arrow_keys(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("req-all", |p| shop_plan(p, 1, 3), |st, _| details_setting(st, settings::RequestDetails::All)) else { return };
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    wait_run(&mut app, Duration::from_secs(120));
+    wait_until(&mut app, Duration::from_secs(20), "the details to be read", |st| st["run"]["details"] == 9);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    let st = app.state();
+    assert_eq!(st["bottom_tab"], "Requests");
+    assert_eq!(st["requests"]["selected"], 0);
+    app.click("req-row-1");
+    assert_eq!(app.state()["requests"]["selected"], 1);
+    app.keys("down");
+    assert_eq!(app.state()["requests"]["selected"], 2);
+    app.keys("up");
+    app.keys("up");
+    app.keys("up");
+    assert_eq!(app.state()["requests"]["selected"], 0, "it stops at the first");
+    for _ in 0..20 {
+        app.keys("down");
+    }
+    assert_eq!(app.state()["requests"]["selected"], 8, "and at the last");
+    // A good request has its body too.
+    app.click("req-row-0");
+    let st = app.state();
+    assert!(st["requests"]["response"].as_str().unwrap().contains("200"));
+}
+
+#[gpui::test]
+fn with_details_off_nothing_is_kept_and_the_viewer_says_how_to_turn_it_on(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("req-off", |p| shop_plan(p, 1, 2), |st, _| details_setting(st, settings::RequestDetails::Off)) else { return };
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    let st = wait_run(&mut app, Duration::from_secs(120));
+    let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
+    assert_eq!(st["run"]["details"], 0);
+    assert_eq!(st["run"]["details_off"], true);
+    assert!(!dir.join("details.jsonl").exists());
+    assert!(!dir.join("plan.jmx").exists(), "JMeter was given the saved plan itself");
+    app.click("run-view-requests");
+    assert!(app.has("requests-empty") && !app.has("req-list"));
+}
+
+#[gpui::test]
+fn send_once_opens_the_viewer_on_the_answer(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("req-once", |p| shop_plan(p, 5, 5), |_, _| {}) else { return };
+    let mut app = open(cx, &s, true);
+    goto(&mut app, "Search");
+    app.keys("f6");
+    wait_run(&mut app, Duration::from_secs(120));
+    let st = wait_until(&mut app, Duration::from_secs(20), "the viewer to open", |st| st["bottom_tab"] == "Requests");
+    assert_eq!(st["run"]["details"], 1);
+    assert!(st["requests"]["response"].as_str().unwrap().contains("200"));
+    assert!(st["requests"]["request"].as_str().unwrap().contains("/search"));
+}
+
+#[gpui::test]
+fn the_viewer_is_not_available_before_a_run(cx: &mut TestAppContext) {
+    let s = setup("req-none", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-k");
+    app.input("view requests");
+    assert!(app.palette_unavailable().iter().any(|t| t.contains("View Requests")));
+    app.keys("escape");
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    assert_ne!(app.state()["bottom_tab"], "Requests", "nothing to show, so nothing opens");
+    app.keys("ctrl-,");
+    app.scroll_down(300.0);
+    for id in ["details-failed", "details-all", "details-off"] {
+        assert!(app.has(id), "{id}");
+    }
+    app.click("details-all");
+    assert_eq!(settings::load(&s.settings).settings.request_details, settings::RequestDetails::All);
+    app.click("details-off");
+    assert_eq!(settings::load(&s.settings).settings.request_details, settings::RequestDetails::Off);
+    app.click("details-failed");
+    assert_eq!(settings::load(&s.settings).settings.request_details, settings::RequestDetails::Failed);
+}
+
+/// A details file written by hand: `lines` is what goes in it.
+fn details_file(dir: &Path, lines: &[String]) {
+    std::fs::write(dir.join("details.jsonl"), lines.join("\n") + "\n").unwrap();
+}
+
+fn detail_line(i: usize, ok: bool) -> String {
+    serde_json::json!({"ts": 1000 + i, "elapsed": 5, "label": format!("Req {i}"), "code": if ok {"200"} else {"500"}, "message": "m", "success": ok,
+        "url": "http://h/x", "request": "GET http://h/x\n", "response_headers": "HTTP/1.1 200 OK", "response": "body <b>& \"quotes\" \u{1F600}"}).to_string()
+}
+
+#[gpui::test]
+fn a_stored_run_loads_its_details_and_counts_damaged_lines(cx: &mut TestAppContext) {
+    let s = setup("req-stored", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let dir = stored_run(&root, &s.plan, 1, 10, Outcome::Finished);
+    details_file(&dir, &[detail_line(0, false), "{ not json".into(), detail_line(1, true), "[1,2,3]".into(), "\u{0}\u{1}garbage".into()]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-row-0");
+    let st = wait_until(&mut app, Duration::from_secs(30), "the details to load", |st| st["run"]["phase"] == "Finished" && st["run"]["details"] != 0);
+    assert_eq!(st["run"]["details"], 2);
+    assert_eq!(st["run"]["details_skipped"], 3);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    assert!(app.state()["requests"]["response"].as_str().unwrap().contains("quotes"));
+    // The viewer holds the keyboard; leaving it for another tab must not strand the shortcuts.
+    app.click("req-row-1");
+    app.click("bottom-problems");
+    app.keys("ctrl-k");
+    assert!(app.palette_open(), "the shortcuts still work after the viewer went away");
+}
+
+#[gpui::test]
+fn a_huge_or_hostile_details_file_cannot_hang_or_flood_the_window(cx: &mut TestAppContext) {
+    let s = setup("req-hostile", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let dir = stored_run(&root, &s.plan, 1, 10, Outcome::Finished);
+    let mut lines: Vec<String> = (0..6000).map(|i| detail_line(i, i % 2 == 0)).collect();
+    lines.push(format!("{{\"label\":\"{}\"}}", "x".repeat(3 * 1024 * 1024)));
+    lines.push(format!("{{\"label\":\"{}\"}}", "y".repeat(200_000)));
+    details_file(&dir, &lines);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-row-0");
+    let t = Instant::now();
+    let st = wait_until(&mut app, Duration::from_secs(30), "the details to load", |st| st["run"]["phase"] == "Finished" && st["run"]["details"] != 0);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    app.click("req-row-499");
+    app.keys("down");
+    assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+    let n = st["run"]["details"].as_u64().unwrap();
+    assert!(n <= 2000, "kept at most the limit, got {n}");
+    assert!(!app.has("req-row-500"), "the list draws a limited number of rows");
+}

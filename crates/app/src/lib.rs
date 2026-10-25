@@ -6,6 +6,7 @@ mod clipboard;
 mod curl_import;
 mod editing;
 mod new_plan;
+mod requests;
 mod run_ctl;
 mod running;
 mod views_run;

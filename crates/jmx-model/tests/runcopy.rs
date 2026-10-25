@@ -69,3 +69,28 @@ fn sets_loops_everywhere_and_counts() {
     let mut none = Document::parse("<a/>").unwrap();
     assert_eq!(set_loops(&mut none, 3), 0);
 }
+
+#[test]
+fn a_listener_with_a_script_goes_last_under_the_test_plan_and_the_script_comes_back_exactly() {
+    use jmx_model::runcopy::inject_script_listener;
+    let script = "try {\n  def a = [] << 'x' && \"<tag attr='1'>\" ; if (1 < 2 && 3 > 2) { a << \"]]>\" }\n} catch (Throwable t) { }\n// caf\u{e9} \u{1F600}\n";
+    let mut d = Document::parse(PLAN).unwrap();
+    inject_script_listener(&mut d, "JMeter UI \"details\" <1>", script).unwrap();
+    let out = d.write();
+    let again = Document::parse(&out).expect("still valid XML");
+    let nodes = plan_tree(&again).unwrap();
+    let kids: Vec<_> = nodes[0].children.iter().map(|c| c.tag.as_str()).collect();
+    assert_eq!(kids, ["ThreadGroup", "JSR223Listener"]);
+    let listener = &nodes[0].children[1];
+    assert_eq!(listener.testname, "JMeter UI \"details\" <1>");
+    let got = listener.props.iter().find(|p| p.name == "script").unwrap();
+    assert_eq!(got.value, script, "the script is stored as text and read back unchanged");
+    assert!(listener.props.iter().any(|p| p.name == "scriptLanguage" && p.value == "groovy"));
+    assert!(!PLAN.is_empty() && out.starts_with(&PLAN[..PLAN.find("</hashTree>\n  </hashTree>").unwrap()]), "what was there is unchanged");
+}
+
+#[test]
+fn a_listener_cannot_be_added_to_a_document_without_a_test_plan() {
+    use jmx_model::runcopy::inject_script_listener;
+    assert!(inject_script_listener(&mut Document::parse("<jmeterTestPlan><hashTree/></jmeterTestPlan>").unwrap(), "x", "y").is_err());
+}

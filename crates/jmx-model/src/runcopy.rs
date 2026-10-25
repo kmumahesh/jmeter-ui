@@ -33,7 +33,29 @@ pub fn inject_collector(doc: &mut Document, collector: &Collector) -> Result<()>
 </ResultCollector>"#,
         escape(path, false)
     );
-    let collector_el = parse_fragment(&template)?;
+    insert_under_plan(doc, &template)
+}
+
+/// Add a JSR223 Listener (Groovy) with `script` as the last child of the Test Plan, so it sees every sampler. The
+/// plan JMeter runs gets it; the user's file does not.
+pub fn inject_script_listener(doc: &mut Document, name: &str, script: &str) -> Result<()> {
+    let template = format!(
+        r#"<JSR223Listener guiclass="TestBeanGUI" testclass="JSR223Listener" testname="{}" enabled="true">
+  <stringProp name="scriptLanguage">groovy</stringProp>
+  <stringProp name="parameters"></stringProp>
+  <stringProp name="filename"></stringProp>
+  <stringProp name="cacheKey">true</stringProp>
+  <stringProp name="script">{}</stringProp>
+</JSR223Listener>"#,
+        escape(name, true),
+        escape(script, false)
+    );
+    insert_under_plan(doc, &template)
+}
+
+/// Put an element (and an empty `<hashTree/>` after it) last under the Test Plan.
+fn insert_under_plan(doc: &mut Document, element_xml: &str) -> Result<()> {
+    let collector_el = parse_fragment(element_xml)?;
     let tree_el = parse_fragment("<hashTree/>")?;
 
     let top = doc

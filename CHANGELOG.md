@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Request viewer (Ctrl+Shift+R, or the Requests tab): what was sent and what came back for each request, including failed ones, with the checks that ran. Settings choose whether failed requests, all requests or none are kept.
 - Import from cURL: paste curl commands and get HTTP requests, with headers, bodies and form fields.
 - Copy, cut and paste elements (also between plans), save a selection as a plan file, and merge a plan file into the open plan.
 - Text area for request bodies and scripts, with line numbers and colours for JSON, XML and `${variables}`; an HTTP request shows it while it sends a body.

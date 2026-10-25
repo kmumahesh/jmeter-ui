@@ -110,9 +110,22 @@ fn serve(mut conn: TcpStream, requests: Arc<AtomicU64>, stop: Arc<AtomicBool>, p
             if path.starts_with("/slow") {
                 std::thread::sleep(Duration::from_millis(300));
             }
-            let (status, body) = if path.starts_with("/fail") { ("500 Internal Server Error", "boom") } else { ("200 OK", "ok") };
-            let resp = format!("HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{body}", body.len());
-            if conn.write_all(resp.as_bytes()).is_err() {
+            // The kinds of answer a test can ask for by path.
+            let (status, ctype, body): (&str, &str, Vec<u8>) = if path.starts_with("/fail") {
+                ("500 Internal Server Error", "text/plain", b"boom".to_vec())
+            } else if path.starts_with("/big") {
+                ("200 OK", "text/plain", "b".repeat(200_000).into_bytes())
+            } else if path.starts_with("/bin") {
+                ("200 OK", "application/octet-stream", vec![0, 1, 2, 3, 255, 254, 253, 0, 7])
+            } else if path.starts_with("/unicode") {
+                ("200 OK", "text/plain; charset=utf-8", "caf\u{e9} \u{1F600} \"quoted\" \\ back\nline two\ttab".as_bytes().to_vec())
+            } else if path.starts_with("/json") {
+                ("200 OK", "application/json", br#"{"a":1,"b":"x"}"#.to_vec())
+            } else {
+                ("200 OK", "text/plain", b"ok".to_vec())
+            };
+            let head = format!("HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nX-Test-Server: yes\r\nContent-Length: {}\r\n\r\n", body.len());
+            if conn.write_all(head.as_bytes()).is_err() || conn.write_all(&body).is_err() {
                 return;
             }
         }

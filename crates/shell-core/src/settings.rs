@@ -40,6 +40,18 @@ pub enum Startup {
     LastPlan,
 }
 
+/// Which requests of a run keep what was sent and received, for the request viewer.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RequestDetails {
+    /// Failed requests only.
+    #[default]
+    Failed,
+    /// Every request, up to a limit.
+    All,
+    Off,
+}
+
 pub const HEAP_RANGE_MB: (u32, u32) = (64, 65_536);
 pub const SUMMARY_INTERVAL_RANGE: (u32, u32) = (1, 60);
 
@@ -84,6 +96,8 @@ pub struct Settings {
     pub runs_keep: u32,
     /// Plans the user has agreed to run although they contain scripts, by file path.
     pub script_approved: Vec<String>,
+    /// Which requests keep their request and response for the viewer.
+    pub request_details: RequestDetails,
 }
 
 impl Default for Settings {
@@ -107,6 +121,7 @@ impl Default for Settings {
             runs_folder: None,
             runs_keep: DEFAULT_RUNS_KEEP,
             script_approved: Vec::new(),
+            request_details: RequestDetails::Failed,
         }
     }
 }

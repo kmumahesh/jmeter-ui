@@ -9,7 +9,7 @@ use plan_core::problems::{self, Level};
 use plan_core::{Category, catalog, rules};
 use shell_core::actions::Action;
 use shell_core::layout::{Tab, TabKind};
-use shell_core::settings::ThemeChoice;
+use shell_core::settings::{RequestDetails, ThemeChoice};
 use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, IconButton, IconName, IconSize, Tooltip};
 
 impl Shell {
@@ -155,6 +155,7 @@ impl Shell {
                     .child(div().flex().gap(px(6.)).child(seg("theme-system", "Follow system", ThemeChoice::System, cx)).child(seg("theme-dark", "Dark", ThemeChoice::Dark, cx)).child(seg("theme-light", "Light", ThemeChoice::Light, cx))),
             )
             .child(div().flex().flex_col().gap(px(8.)).child(heading("ON STARTUP")).child(div().flex().child(f.startup.clone())))
+            .child(self.request_details_section(cx))
             .child(
                 div()
                     .flex()
@@ -175,6 +176,28 @@ impl Shell {
                     div().font_family(MONO_FONT).text_size(px(11.5)).text_color(p.muted).child(self.settings_path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| "Not saved (no settings path)".into())),
                 ),
             )
+            .into_any_element()
+    }
+
+    /// Settings > Request details: which requests keep what was sent and received.
+    fn request_details_section(&self, cx: &mut Context<Self>) -> AnyElement {
+        let p = theme::palette(cx);
+        let current = self.settings.request_details;
+        let seg = |id: &'static str, label: &'static str, choice: RequestDetails, cx: &mut Context<Self>| {
+            div().debug_selector(move || id.to_string()).child(
+                Button::new(id, label)
+                    .style(if current == choice { ButtonStyle::Filled } else { ButtonStyle::Subtle })
+                    .size(ButtonSize::Default)
+                    .on_click(cx.listener(move |this, _, _, cx| this.set_request_details(choice, cx))),
+            )
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .child(div().text_size(px(11.)).font_family(MONO_FONT).text_color(p.muted).child("REQUEST DETAILS"))
+            .child(div().text_color(p.muted).text_size(px(12.5)).child("What was sent and what came back, for the Requests tab. A run keeps at most 500 requests. Checking a plan or sending one request always keeps them."))
+            .child(div().flex().gap(px(6.)).child(seg("details-failed", "Failed requests", RequestDetails::Failed, cx)).child(seg("details-all", "All requests", RequestDetails::All, cx)).child(seg("details-off", "Off", RequestDetails::Off, cx)))
             .into_any_element()
     }
 
@@ -424,6 +447,7 @@ impl Shell {
         let content: AnyElement = match self.bottom_tab {
             BottomTab::Run => self.run_view(cx),
             BottomTab::History => self.history_view(cx),
+            BottomTab::Requests => self.requests_view(cx),
             BottomTab::Problems => {
                 if problems.is_empty() {
                     div().p(px(16.)).text_color(p.muted).child(if self.plan().is_some() { "No problems found in this plan." } else { "Open a plan to check it." }).into_any_element()
@@ -474,6 +498,7 @@ impl Shell {
                     .border_b_1()
                     .border_color(p.line)
                     .child(tab("bottom-run", "Run".into(), BottomTab::Run, cx))
+                    .child(tab("bottom-requests", format!("Requests{}", self.run.as_ref().map_or(String::new(), |r| if r.details.is_empty() { String::new() } else { format!(" ({})", r.details.len()) })), BottomTab::Requests, cx))
                     .child(tab("bottom-history", format!("History{}", if self.history_entries().is_empty() { String::new() } else { format!(" ({})", self.history_entries().len()) }), BottomTab::History, cx))
                     .child(tab("bottom-problems", format!("Problems{}", if problems.is_empty() { String::new() } else { format!(" ({})", problems.len()) }), BottomTab::Problems, cx))
                     .child(div().flex_1())
@@ -484,7 +509,7 @@ impl Shell {
                             .on_click(cx.listener(|this, _, window, cx| this.perform(Action::ToggleBottomPanel, window, cx))),
                     ),
             )
-            .child(div().id("bottom-content").flex_1().min_h_0().when(self.bottom_tab != BottomTab::Run, |d| d.overflow_y_scroll()).child(content))
+            .child(div().id("bottom-content").flex_1().min_h_0().when(!matches!(self.bottom_tab, BottomTab::Run | BottomTab::Requests), |d| d.overflow_y_scroll()).child(content))
     }
 
     // ---- status bar ----
