@@ -4,6 +4,8 @@ A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx`
 
 Status: open, edit, save, run and watch plans, with run history. The results viewer comes next. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
 
+Contributing: `CONTRIBUTING.md`. Security reports: `SECURITY.md`. Changes by version: `CHANGELOG.md`. How a release is made: `docs/RELEASING.md`.
+
 Licence: GPL-3.0-or-later (`LICENSE`). Third-party code is listed in `third_party/zed/PROVENANCE.md`.
 
 ## Features
