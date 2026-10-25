@@ -13,6 +13,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ### Changed
 - Damaged-input tests and libFuzzer targets for the plan and results readers; a coverage report is made on every push to `main`.
+- A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).

@@ -196,3 +196,10 @@ Added with the engineering-practice work, to test the two places that read files
 4. **Coverage is informational.** `coverage.yml` (every push to `main`) keeps a summary, an lcov file and an HTML report; it never fails a pull request, so that a number is never reached by writing tests that do not check anything. Look at a drop, not at the level.
 5. **The seeds are kept in `fuzz/corpus`;** what libFuzzer finds during a run is not kept, a crashing input is uploaded as an artifact and should become a normal test.
 
+## Release workflow (2026-10-25)
+1. **A release is a signed tag on `main`.** Pushing `vX.Y.Z` builds the package; the workflow refuses a tag that is not on `main`.
+2. **Always a draft.** The workflow never publishes: a person adds the changelog entry and the result of the manual security review, then publishes (see `docs/RELEASING.md`).
+3. **What is attached:** the zip (program, licence, README, changelog, third-party notices; fonts and icons are inside the program), the dependency list (CycloneDX SBOM), `SHA256SUMS.txt`, and a signed build provenance statement (GitHub attestation, free for public repositories) so that a download can be checked against the workflow that built it.
+4. **Dry run on a pull request** that changes the workflow, so the release path is exercised before it is needed.
+5. **Not done yet:** a Windows code-signing certificate (costs money, decision for later) and an installer. Downloads may therefore show a SmartScreen warning.
+
