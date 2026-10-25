@@ -196,3 +196,15 @@ Added with the engineering-practice work, to test the two places that read files
 4. **Coverage is informational.** `coverage.yml` (every push to `main`) keeps a summary, an lcov file and an HTML report; it never fails a pull request, so that a number is never reached by writing tests that do not check anything. Look at a drop, not at the level.
 5. **The seeds are kept in `fuzz/corpus`;** what libFuzzer finds during a run is not kept, a crashing input is uploaded as an artifact and should become a normal test.
 
+## Release workflow (2026-10-25)
+1. **A release is a signed tag on `main`.** Pushing `vX.Y.Z` builds the package; the workflow refuses a tag that is not on `main`.
+2. **Always a draft.** The workflow never publishes: a person adds the changelog entry and the result of the manual security review, then publishes (see `docs/RELEASING.md`).
+3. **What is attached:** the zip (program, licence, README, changelog, third-party notices; fonts and icons are inside the program), the dependency list (CycloneDX SBOM), `SHA256SUMS.txt`, and a signed build provenance statement (GitHub attestation, free for public repositories) so that a download can be checked against the workflow that built it.
+4. **Dry run on a pull request** that changes the workflow, so the release path is exercised before it is needed.
+5. **Not done yet:** a Windows code-signing certificate (costs money, decision for later) and an installer. Downloads may therefore show a SmartScreen warning.
+
+## Linux and macOS (2026-10-25)
+1. **Same build and tests everywhere.** CI runs the full build and automated tests on Linux and macOS as well as Windows, with Java and JMeter installed so the real-JMeter tests run too. These two jobs are required to pass before a merge. The fixes the first runs showed are listed in `docs/PROGRESS.md`.
+2. **The platform key for text editing.** Text boxes bind select all, copy, undo and word moves to the platform key (Cmd on macOS, Ctrl elsewhere); the tests press it through `secondary(...)`.
+3. **Known limits, accepted for now.** JMeter is ended when the app closes normally but not when the app crashes on Linux and macOS (Windows has a job object for this; Linux and macOS have no equivalent that is both simple and reliable); the menus and global shortcuts use Ctrl on macOS instead of Cmd; the window has not been looked at on Linux and macOS, only driven by tests; the real-window checks run on Windows only. These are listed as an open item in the README.
+

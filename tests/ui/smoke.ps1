@@ -356,7 +356,7 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
 
     function Wait-RunEnd([string]$state, [int]$seconds = 90) {
         $until = (Get-Date).AddSeconds($seconds)
-        do { Start-Sleep -Milliseconds 500; $x = Get-Content $state -Raw | ConvertFrom-Json } while ($x.run -and @("Starting", "Running", "Stopping") -contains $x.run.phase -and (Get-Date) -lt $until)
+        do { Start-Sleep -Milliseconds 500; $x = Read-State $state } while ($x.run -and @("Starting", "Running", "Stopping") -contains $x.run.phase -and (Get-Date) -lt $until)
         return $x
     }
 
