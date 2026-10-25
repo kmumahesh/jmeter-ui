@@ -107,6 +107,17 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 | Supply chain | actions pinned to commit hashes, tools pinned by version, JMeter download checked by checksum, Dependabot for crates and actions |
 | Not done | Windows code-signing certificate and installer; telemetry and crash reports (left for a later release); screen-reader accessibility; Cmd shortcuts on macOS; JMeter ended on a crash off Windows |
 
+## Guide and comparison with Apache JMeter (done 2026-10-25)
+
+`docs/guide/index.html` is a single-page guide with a sidebar, contents panel and search. It explains the performance test types, shows how Apache JMeter 5.6.3 is used for recording, scripting, correlating, running (locally and distributed) and reporting, and records the same tasks tried in this app with the same example plan (`docs/guide/demo`).
+
+Found while trying the tasks (not fixed yet; details and suggested fixes are in the guide):
+- Opening a plan of about 15,000 requests takes 11 seconds and one of 40,000 does not finish in a minute, with the window not responding.
+- The Users tile reads 1 after a finished run.
+- The per-request table is cut off and has no Total row.
+- Smaller points: inherited settings are invisible in the request form, "No matches" in the palette does not point to add mode, long element names are cut without an ellipsis, the form keeps its scroll position for the next element.
+- Missing compared with JMeter: recorder, templates, new plan, copy and paste, multi-line editor, expression tester, request and response viewer, opening result files, HTML report, remote testing.
+
 ## Next
 Results (the Samples Explorer with request and response detail, comparing two runs, the generated HTML report, native versions of the dashboard graphs).
 

@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JMeter UI Guide</title>
+<meta name="description" content="How Apache JMeter's own window is used for recording, scripting, correlating, running and reporting, and how our JMeter UI compares step by step.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f8fb;
+  --bg-code: #f1f4f9;
+  --fg: #1c2433;
+  --fg-soft: #4b5670;
+  --fg-faint: #7a849c;
+  --line: #e3e8f0;
+  --accent: #4f46e5;
+  --accent-soft: #eceafd;
+  --accent-fg: #ffffff;
+  --ok: #0f7b4f;       --ok-bg: #e4f6ee;
+  --warn: #9a5b00;     --warn-bg: #fdf1dc;
+  --bad: #b4232c;      --bad-bg: #fde8ea;
+  --info: #1d5fb8;     --info-bg: #e6f0fd;
+  --shadow: 0 1px 2px rgba(20,30,60,.06), 0 4px 14px rgba(20,30,60,.06);
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1420; --bg-soft: #151b2a; --bg-code: #1a2133;
+    --fg: #e6eaf4; --fg-soft: #aab3c8; --fg-faint: #7f8aa3; --line: #263049;
+    --accent: #8f89ff; --accent-soft: #23244a; --accent-fg: #0f1420;
+    --ok: #4fd39b; --ok-bg: #123226; --warn: #f0b95a; --warn-bg: #36290f;
+    --bad: #ff8a92; --bad-bg: #3a1a1f; --info: #7db4ff; --info-bg: #14283f;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1420; --bg-soft: #151b2a; --bg-code: #1a2133;
+  --fg: #e6eaf4; --fg-soft: #aab3c8; --fg-faint: #7f8aa3; --line: #263049;
+  --accent: #8f89ff; --accent-soft: #23244a; --accent-fg: #0f1420;
+  --ok: #4fd39b; --ok-bg: #123226; --warn: #f0b95a; --warn-bg: #36290f;
+  --bad: #ff8a92; --bad-bg: #3a1a1f; --info: #7db4ff; --info-bg: #14283f;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img { max-width: 100%; height: auto; }
+code, kbd, pre { font-family: var(--mono); }
+code { font-size: .88em; background: var(--bg-code); border: 1px solid var(--line); border-radius: 5px; padding: .1em .35em; }
+kbd { font-size: .82em; background: var(--bg-soft); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: .05em .4em; white-space: nowrap; }
+
+/* top bar */
+.topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; height: 60px; padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); letter-spacing: -.01em; }
+.brand:hover { text-decoration: none; }
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 15px; }
+.brand small { font-weight: 500; color: var(--fg-faint); }
+.spacer { flex: 1; }
+.iconbtn { border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft); border-radius: 8px; height: 36px; min-width: 36px; padding: 0 10px; cursor: pointer; font: inherit; font-size: 14px; }
+.iconbtn:hover { background: var(--bg-soft); color: var(--fg); }
+#menu-btn { display: none; }
+
+/* layout */
+.shell { display: grid; grid-template-columns: 290px minmax(0, 1fr) 230px; max-width: 1480px; margin: 0 auto; }
+.sidebar { position: sticky; top: 60px; align-self: start; height: calc(100vh - 60px); overflow-y: auto; padding: 20px 14px 40px max(16px, env(safe-area-inset-left, 0px)); border-right: 1px solid var(--line); }
+.search { position: relative; margin-bottom: 14px; }
+.search input { width: 100%; height: 38px; border: 1px solid var(--line); background: var(--bg-soft); color: var(--fg); border-radius: 9px; padding: 0 12px 0 34px; font: inherit; font-size: 14px; }
+.search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--bg); }
+.search::before { content: "\2315"; position: absolute; left: 11px; top: 7px; color: var(--fg-faint); font-size: 16px; }
+.nav h6 { margin: 20px 0 6px 10px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-faint); font-weight: 600; }
+.nav a { display: block; padding: 6px 10px; border-radius: 7px; color: var(--fg-soft); font-size: 14.5px; line-height: 1.35; }
+.nav a:hover { background: var(--bg-soft); color: var(--fg); text-decoration: none; }
+.nav a.current { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav a[hidden] { display: none; }
+.nav-empty { color: var(--fg-faint); font-size: 14px; padding: 8px 10px; }
+
+main { min-width: 0; padding: 36px clamp(16px, 4vw, 56px) 80px; }
+.toc { position: sticky; top: 60px; align-self: start; max-height: calc(100vh - 60px); overflow-y: auto; padding: 36px max(16px, env(safe-area-inset-right, 0px)) 40px 8px; font-size: 13.5px; }
+.toc h6 { margin: 0 0 8px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-faint); font-weight: 600; }
+.toc a { display: block; padding: 4px 0 4px 12px; color: var(--fg-soft); border-left: 2px solid var(--line); line-height: 1.4; }
+.toc a:hover { color: var(--fg); text-decoration: none; }
+.toc a.on { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+
+/* article */
+article { max-width: 780px; }
+.crumbs { font-size: 13.5px; color: var(--fg-faint); margin-bottom: 8px; }
+article h1 { font-size: clamp(1.9rem, 3.2vw, 2.45rem); line-height: 1.18; letter-spacing: -.025em; margin: 0 0 14px; text-wrap: balance; }
+.lede { font-size: 1.12rem; color: var(--fg-soft); margin: 0 0 28px; }
+article h2 { font-size: 1.45rem; letter-spacing: -.015em; margin: 52px 0 12px; padding-top: 6px; text-wrap: balance; }
+article h3 { font-size: 1.1rem; margin: 30px 0 8px; }
+article p, article ul, article ol { margin: 0 0 16px; }
+article li { margin-bottom: 6px; }
+article hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
+.anchor { color: var(--fg-faint); margin-left: 8px; font-weight: 400; opacity: 0; font-size: .8em; }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+/* steps */
+ol.steps { list-style: none; padding: 0; counter-reset: s; }
+ol.steps > li { counter-increment: s; position: relative; padding: 0 0 18px 46px; margin: 0; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+ol.steps > li::after { content: ""; position: absolute; left: 14px; top: 34px; bottom: 4px; width: 2px; background: var(--line); }
+ol.steps > li:last-child::after { display: none; }
+ol.steps > li > strong:first-child { display: block; margin-bottom: 2px; }
+
+/* callouts */
+.callout { display: flex; gap: 12px; border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 12px 16px; margin: 0 0 20px; background: var(--bg-soft); }
+.callout > div { min-width: 0; }
+.callout p:last-child { margin-bottom: 0; }
+.callout .tag { font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: 2px; }
+.callout.note { border-left-color: var(--info); } .callout.note .tag { color: var(--info); }
+.callout.tip { border-left-color: var(--ok); } .callout.tip .tag { color: var(--ok); }
+.callout.warn { border-left-color: var(--warn); } .callout.warn .tag { color: var(--warn); }
+.callout.bad { border-left-color: var(--bad); } .callout.bad .tag { color: var(--bad); }
+
+/* pills + verdict */
+.pill { display: inline-block; font-size: 12px; font-weight: 600; line-height: 1; padding: 5px 9px; border-radius: 999px; white-space: nowrap; vertical-align: middle; }
+.pill.works { background: var(--ok-bg); color: var(--ok); }
+.pill.partial { background: var(--warn-bg); color: var(--warn); }
+.pill.missing { background: var(--bad-bg); color: var(--bad); }
+.pill.high { background: var(--bad-bg); color: var(--bad); }
+.pill.medium { background: var(--warn-bg); color: var(--warn); }
+.pill.low { background: var(--info-bg); color: var(--info); }
+.verdict { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; margin: 8px 0 22px; border: 1px solid var(--line); background: var(--bg-soft); }
+.verdict .pill { margin-top: 1px; }
+.verdict p { margin: 0; }
+
+/* figures */
+figure { margin: 18px 0 26px; }
+figure a.zoom { display: block; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); background: var(--bg-soft); cursor: zoom-in; }
+figure img { display: block; width: 100%; }
+figcaption { font-size: 13.5px; color: var(--fg-faint); margin-top: 8px; }
+.fig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.fig-pair figure { margin: 18px 0 8px; }
+.lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(8,12,22,.86); display: none; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; background: #fff; }
+
+/* tables + code */
+.table-wrap { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+th { background: var(--bg-soft); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-soft); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; }
+.codeblock { position: relative; margin: 0 0 20px; }
+.codeblock pre { margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--bg-code); border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px; line-height: 1.6; }
+.copy { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.copy:hover { color: var(--fg); }
+
+/* cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; margin: 0 0 24px; }
+.card { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--bg); color: var(--fg); transition: border-color .15s, box-shadow .15s; }
+a.card:hover { border-color: var(--accent); box-shadow: var(--shadow); text-decoration: none; }
+.card h4 { margin: 0 0 4px; font-size: 1rem; }
+.card p { margin: 0; color: var(--fg-soft); font-size: 14.5px; }
+.stat { font-size: 2rem; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+.stat small { display: block; font-size: 13px; font-weight: 500; color: var(--fg-faint); letter-spacing: 0; margin-top: 4px; }
+
+/* pager */
+.pager { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 64px; }
+.pager a { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; color: var(--fg); }
+.pager a:hover { border-color: var(--accent); text-decoration: none; }
+.pager small { display: block; color: var(--fg-faint); font-size: 12.5px; }
+.pager .next { text-align: right; grid-column: 2; }
+.pager .prev { grid-column: 1; }
+.pager span.sp { display: none; }
+.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--fg-faint); font-size: 13.5px; }
+
+/* page switching (only when script is running) */
+.js article[data-page] { display: none; }
+.js article[data-page].active { display: block; }
+.no-results { color: var(--fg-faint); }
+
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: 270px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 820px) {
+  #menu-btn { display: inline-block; }
+  .shell { display: block; }
+  .sidebar { position: fixed; z-index: 40; top: 60px; left: 0; bottom: 0; width: min(88vw, 330px); height: auto; background: var(--bg); transform: translateX(-102%); transition: transform .2s; box-shadow: var(--shadow); }
+  .sidebar.open { transform: none; }
+  main { padding-top: 24px; }
+  .fig-pair { grid-template-columns: 1fr; }
+  .brand small { display: none; }
+}
+@media print { .topbar, .sidebar, .toc, .pager { display: none; } .js article[data-page] { display: block; } .shell { display: block; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="iconbtn" id="menu-btn" aria-label="Open navigation">&#9776;</button>
+  <a class="brand" href="#start"><span class="brand-mark">&#9889;</span><span>JMeter UI <small>Guide</small></span></a>
+  <span class="spacer"></span>
+  <a class="iconbtn" style="display:inline-grid;place-items:center" href="https://github.com/kmumahesh/jmeter-ui" rel="noopener">GitHub</a>
+  <button class="iconbtn" id="theme-btn" aria-label="Switch colour theme" title="Switch colour theme">&#9680;</button>
+</header>
+
+<div class="shell">
+<aside class="sidebar" id="sidebar" aria-label="Guide navigation">
+  <div class="search"><input id="q" type="search" placeholder="Search this guide" aria-label="Search this guide" autocomplete="off"></div>
+  <nav class="nav" id="nav"></nav>
+</aside>
+
+<main id="main">
+
+<!-- ============================================================ -->
+<article data-page id="start" data-group="Getting started" data-title="About this guide">
+  <div class="crumbs">Getting started</div>
+  <h1>About this guide</h1>
+  <p class="lede">Learn how people use Apache JMeter's own window to record, script, correlate, run and report on performance tests, and see how our JMeter UI measures up at each step.</p>
+
+  <div class="cards">
+    <a class="card" href="#test-types"><h4>Performance testing</h4><p>The kinds of tests teams run, and when in a project each one belongs.</p></a>
+    <a class="card" href="#recording"><h4>Using JMeter</h4><p>Six tasks, each with screenshots taken from the real JMeter 5.6.3 window.</p></a>
+    <a class="card" href="#walkthrough"><h4>Trying our JMeter UI</h4><p>The same six tasks repeated in our app, with what worked and what did not.</p></a>
+    <a class="card" href="#problems"><h4>Problems and gaps</h4><p>What we found, how serious it is, and a suggested order for fixing it.</p></a>
+  </div>
+
+  <h2 id="what-you-will-find">What you will find here</h2>
+  <ul>
+    <li><strong>Background.</strong> A short tour of the performance test types and where they fit in a software project.</li>
+    <li><strong>How JMeter is used today.</strong> The real workflow in the Apache JMeter window: recording, building a script, correlating, running locally or across machines, and reading results.</li>
+    <li><strong>A hands-on comparison.</strong> We repeated every step in our JMeter UI and wrote down what we saw.</li>
+    <li><strong>An action list.</strong> Problems we found and features still missing, ranked so the most useful fixes come first.</li>
+  </ul>
+
+  <h2 id="scorecard">Results at a glance</h2>
+  <p>Each task was tried with the same example plan in both programs. The marks show how much of the task works in our app today.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Task</th><th>In JMeter</th><th>In our JMeter UI</th><th>Main reason</th></tr></thead>
+    <tbody>
+      <tr><td><a href="#walk-recording">Record a script</a></td><td>Built in</td><td><span class="pill missing">Missing</span></td><td>No recorder, no templates, no import from cURL.</td></tr>
+      <tr><td><a href="#walk-scripting">Build and edit a script</a></td><td>Built in</td><td><span class="pill partial">Partly</span></td><td>Editing is good. No new plan, no copy and paste, no multi-line editor.</td></tr>
+      <tr><td><a href="#walk-correlation">Correlate dynamic values</a></td><td>Built in</td><td><span class="pill partial">Partly</span></td><td>Extractor forms work and undefined variables are flagged. No way to test an expression against a response.</td></tr>
+      <tr><td><a href="#walk-running">Run a test</a></td><td>Built in</td><td><span class="pill works">Works</span></td><td>Same numbers as JMeter (500 requests, 100 errors). Run history is better than JMeter's.</td></tr>
+      <tr><td><a href="#walk-distributed">Run a distributed test</a></td><td>Built in</td><td><span class="pill missing">Missing</span></td><td>No remote host setup or remote start.</td></tr>
+      <tr><td><a href="#walk-reporting">Report on results</a></td><td>Built in</td><td><span class="pill partial">Partly</span></td><td>Live numbers and charts work. No request detail, no result-file viewer, no HTML report.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout note"><div><span class="tag">Note</span><p>This guide describes Apache JMeter 5.6.3 and our JMeter UI as built from the <code>main</code> branch on 25 October 2026. Both were run on Windows 11 with Java 21. See <a href="#method">Sources and method</a> for how we tested and what we did not cover.</p></div></div>
+
+  <h2 id="legend">How to read the marks</h2>
+  <div class="table-wrap"><table>
+    <tbody>
+      <tr><td><span class="pill works">Works</span></td><td>The task can be finished in our app and the result matches JMeter.</td></tr>
+      <tr><td><span class="pill partial">Partly</span></td><td>Some of the task works. Something important is missing or awkward.</td></tr>
+      <tr><td><span class="pill missing">Missing</span></td><td>The task cannot be done in our app yet.</td></tr>
+      <tr><td><span class="pill high">High</span> <span class="pill medium">Medium</span> <span class="pill low">Low</span></td><td>How much a problem or gap gets in the way of a typical test engineer.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pager"><span class="sp"></span><a class="next" href="#demo"><small>Next</small>The example used in this guide</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="demo" data-group="Getting started" data-title="The example used here">
+  <div class="crumbs">Getting started</div>
+  <h1>The example used in this guide</h1>
+  <p class="lede">Every screenshot and number comes from one small web shop and one test plan, so you can repeat each step yourself.</p>
+
+  <h2 id="the-shop">The shop</h2>
+  <p><code>demo-server.py</code> is a tiny web server that listens on <code>127.0.0.1:8089</code>. It needs only Python 3.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Address</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /</code></td><td>Returns a page with a hidden form field named <code>csrf</code>. Its value is new on every request.</td></tr>
+      <tr><td><code>POST /login</code></td><td>Returns JSON such as <code>{"token": "9f2c…"}</code>. The token is new on every call.</td></tr>
+      <tr><td><code>GET /cart?token=…</code></td><td>Answers 200 only if the token was issued by <code>/login</code>. Otherwise 401.</td></tr>
+      <tr><td><code>GET /slow</code></td><td>Waits about 300 ms before answering.</td></tr>
+      <tr><td><code>GET /fail</code></td><td>Always answers 500, so every run has a known share of errors.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="the-plan">The plan</h2>
+  <p><code>shop-demo.jmx</code> has one thread group named <strong>Shoppers</strong> with 10 users, a 5 second ramp-up and 10 loops. Each loop calls five requests:</p>
+  <ol>
+    <li><strong>Home page</strong> checks that the page contains the <code>csrf</code> field, and a Regular Expression Extractor saves its value as <code>${csrf}</code>.</li>
+    <li><strong>Log in</strong> posts a JSON body. A JSON Extractor saves <code>$.token</code> as <code>${token}</code>.</li>
+    <li><strong>View cart</strong> sends <code>${token}</code> back to the server.</li>
+    <li><strong>Slow report</strong> and <strong>Broken page</strong> give the results something to show.</li>
+  </ol>
+  <p>A run makes <strong>500 requests</strong>. We expect <strong>100 errors (20%)</strong>, all from the broken page, and no errors from the cart. If the cart fails, correlation is not working.</p>
+
+  <h2 id="try-it">Try it yourself</h2>
+  <ol class="steps">
+    <li><strong>Start the shop</strong>
+      <div class="codeblock"><button class="copy">Copy</button><pre>python docs/guide/demo/demo-server.py 8089</pre></div></li>
+    <li><strong>Run the plan without a window</strong>
+      <div class="codeblock"><button class="copy">Copy</button><pre>jmeter -n -t docs/guide/demo/shop-demo.jmx -l results.jtl -e -o report</pre></div>
+      <p>You should see <code>Err: 100 (20.00%)</code> at the end.</p></li>
+    <li><strong>Open the plan in a window.</strong> Use Apache JMeter (<code>jmeter -t docs/guide/demo/shop-demo.jmx</code>) or our app (<code>cargo run -p jmeter-ui -- docs/guide/demo/shop-demo.jmx</code>).</li>
+  </ol>
+  <div class="callout warn"><div><span class="tag">Warning</span><p>Only point load tests at systems you own or have permission to test. This example listens on your own machine only.</p></div></div>
+  <div class="pager"><a class="prev" href="#start"><small>Previous</small>About this guide</a><a class="next" href="#test-types"><small>Next</small>Types of performance tests</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="test-types" data-group="Performance testing" data-title="Types of performance tests">
+  <div class="crumbs">Performance testing</div>
+  <h1>Types of performance tests</h1>
+  <p class="lede">"Performance test" is a family of tests. Each one asks a different question, so each needs a different load shape.</p>
+
+  <div class="callout note"><div><span class="tag">Note</span><p>Names vary between teams. Some call soak tests "endurance" tests, and stress and breakpoint tests overlap. What matters is the question you are asking. The descriptions below follow the common definitions in the <a href="#method">sources</a>.</p></div></div>
+
+  <h2 id="the-types">The main types</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Type</th><th>Question it answers</th><th>Load shape</th><th>What you look for</th></tr></thead>
+    <tbody>
+      <tr><td>Smoke</td><td>Does the script and the environment work at all?</td><td>One or a few users, one loop.</td><td>No errors. Correct responses.</td></tr>
+      <tr><td>Load</td><td>Does the system meet its targets under the load we expect?</td><td>Ramp up to the expected number of users, hold, ramp down.</td><td>Response-time percentiles, error rate and throughput against your targets.</td></tr>
+      <tr><td>Stress</td><td>What happens beyond normal capacity, and does it recover?</td><td>Push past expected load until things break, then reduce it.</td><td>Where errors start, how it fails, how fast it recovers.</td></tr>
+      <tr><td>Spike</td><td>Can it survive a sudden surge, such as a sale or a launch?</td><td>Jump from low load to very high load in seconds, then drop.</td><td>Errors during the jump and recovery time afterwards.</td></tr>
+      <tr><td>Soak (endurance)</td><td>Does it stay healthy over hours?</td><td>Expected load, held for hours.</td><td>Slow memory growth, leaked connections, response times that creep up.</td></tr>
+      <tr><td>Scalability</td><td>How does performance change as load or resources grow?</td><td>Step the load up (or add servers) in stages.</td><td>Whether throughput grows in step with the load or flattens.</td></tr>
+      <tr><td>Volume (data)</td><td>Does it cope with large amounts of data?</td><td>Normal load against a very large database or file set.</td><td>Query times, storage and batch durations.</td></tr>
+      <tr><td>Breakpoint (capacity)</td><td>What is the most it can handle while still meeting targets?</td><td>Increase load step by step until the first target is missed.</td><td>The highest load that still passes.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="in-jmeter">How these look in JMeter</h2>
+  <p>JMeter makes the load shape from a few settings on the <strong>Thread Group</strong>:</p>
+  <ul>
+    <li><strong>Number of threads</strong> is the number of virtual users.</li>
+    <li><strong>Ramp-up period</strong> is the time over which users are started.</li>
+    <li><strong>Loop count</strong> or <strong>Duration</strong> sets how long each user keeps going.</li>
+  </ul>
+  <p>A smoke test is one thread and one loop. A soak test is a moderate thread count with a duration of hours. Spike and stepped tests need more than one thread group, or a plugin that shapes the load over time. Throughput can be held at a target with a timer such as the Constant Throughput Timer.</p>
+  <div class="pager"><a class="prev" href="#demo"><small>Previous</small>The example used in this guide</a><a class="next" href="#lifecycle"><small>Next</small>Where tests fit in development</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="lifecycle" data-group="Performance testing" data-title="Where tests fit in development">
+  <div class="crumbs">Performance testing</div>
+  <h1>Where performance tests fit in development</h1>
+  <p class="lede">The cheapest time to find a slow page is while it is being built. The most reassuring time is just before release. Most teams do some of each.</p>
+
+  <h2 id="phases">By phase of the project</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>Performance work</th><th>Typical tests</th></tr></thead>
+    <tbody>
+      <tr><td>Requirements</td><td>Agree numbers that mean "fast enough": for example 95% of searches under 800 ms, fewer than 1% errors, 200 orders per minute.</td><td>None yet. Write the targets down.</td></tr>
+      <tr><td>Design</td><td>Estimate capacity. Pick likely bottlenecks to check first.</td><td>None yet. Plan the tests.</td></tr>
+      <tr><td>Development</td><td>Check each service or page as it is built. Catch slow queries early.</td><td>Smoke tests of single requests or small flows, run by developers.</td></tr>
+      <tr><td>Integration and QA</td><td>Build the real scripts. Measure a baseline. Compare every build with it.</td><td>Load tests, regression tests against the baseline.</td></tr>
+      <tr><td>Pre-release (staging)</td><td>Prove the system with production-like data and hardware.</td><td>Load, stress, spike, soak, scalability, volume.</td></tr>
+      <tr><td>Release</td><td>Watch real traffic. Run light, safe checks against production.</td><td>Smoke tests. Careful, small-scale checks.</td></tr>
+      <tr><td>Operations</td><td>Re-test after big changes, before busy seasons, and when capacity changes.</td><td>Load, spike, breakpoint.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout tip"><div><span class="tag">Tip</span><p>Run a small smoke test on every change and the larger tests on a schedule or before releases. A one-minute test that runs every time catches more problems than a two-hour test that nobody runs.</p></div></div>
+
+  <h2 id="numbers">The numbers that matter</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Measure</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td>Response time (average)</td><td>The typical time for a request. One slow request can hide inside an average.</td></tr>
+      <tr><td>Percentiles (90th, 95th, 99th)</td><td>The time that 90, 95 or 99 percent of requests beat. This shows what the slowest users see.</td></tr>
+      <tr><td>Throughput</td><td>Requests completed per second.</td></tr>
+      <tr><td>Error rate</td><td>The share of requests that failed, including failed checks.</td></tr>
+      <tr><td>APDEX</td><td>A single score from 0 to 1 that counts requests as satisfied, tolerating or frustrated, using two time limits.</td></tr>
+      <tr><td>Concurrent users</td><td>How many virtual users are active at the same moment.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pager"><a class="prev" href="#test-types"><small>Previous</small>Types of performance tests</a><a class="next" href="#recording"><small>Next</small>Record a script</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="recording" data-group="Using JMeter" data-title="Record a script">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Record a script</h1>
+  <p class="lede">Instead of typing every request by hand, point a browser at JMeter and let it write the requests while you click through the site.</p>
+
+  <h2 id="rec-how">How it works</h2>
+  <p>JMeter starts a proxy on your machine. Your browser sends its traffic through the proxy, and JMeter turns every request it sees into an HTTP Request in your plan. For HTTPS sites, JMeter makes a temporary certificate authority that the browser must trust.</p>
+
+  <h2 id="rec-steps">Record a site in JMeter</h2>
+  <ol class="steps">
+    <li><strong>Start from the Recording template.</strong> Choose <strong>File &gt; Templates…</strong> and pick <em>Recording</em>, or <em>Recording with Think Time</em>. The template adds a thread group, a Recording Controller and the recorder.
+      <figure><a class="zoom" href="img/jm-13-templates.jpg"><img loading="lazy" src="img/jm-13-templates.jpg" alt="The Templates dialog in JMeter listing ready-made plans"></a><figcaption>File &gt; Templates lists 15 ready-made plans, including Recording.</figcaption></figure></li>
+    <li><strong>Or add the recorder yourself.</strong> Right-click the Test Plan and choose <strong>Add &gt; Non-Test Elements &gt; HTTP(S) Test Script Recorder</strong>.
+      <figure><a class="zoom" href="img/jm-21-nontest.jpg"><img loading="lazy" src="img/jm-21-nontest.jpg" alt="The Add menu open on Non-Test Elements, showing HTTP(S) Test Script Recorder"></a><figcaption>The recorder lives under Non-Test Elements because it is a tool, not part of the test.</figcaption></figure></li>
+    <li><strong>Choose where the requests go.</strong> Set <em>Target Controller</em> to the Recording Controller, and decide how to group requests. Leave the port at <code>8888</code> unless something else uses it.
+      <figure><a class="zoom" href="img/jm-22-recorder.jpg"><img loading="lazy" src="img/jm-22-recorder.jpg" alt="The HTTP(S) Test Script Recorder form with Start, Stop and Restart buttons, port 8888 and options for grouping and capturing headers"></a><figcaption>The recorder: Start and Stop, the port, the target controller, grouping, and naming for the recorded requests.</figcaption></figure></li>
+    <li><strong>Filter out the noise.</strong> On the <em>Requests Filtering</em> tab, exclude images, style sheets and scripts so only the calls you care about are recorded.</li>
+    <li><strong>Click Start.</strong> JMeter creates <code>ApacheJMeterTemporaryRootCA.crt</code> in its <code>bin</code> folder. Import that file into your browser as a trusted authority. It expires after a few days, on purpose.</li>
+    <li><strong>Point the browser at the proxy.</strong> In the browser's network settings, use a manual proxy of <code>localhost</code> on port <code>8888</code>.</li>
+    <li><strong>Click through the journey.</strong> Do what a real user does. Requests appear under the Recording Controller as you go.</li>
+    <li><strong>Click Stop, then tidy up.</strong> Remove requests you do not want, give clear names, add think time, and replace recorded dynamic values with variables. The next task, <a href="#correlation">correlating values</a>, covers that last part.</li>
+  </ol>
+
+  <h2 id="rec-other">Other ways to get a first script</h2>
+  <ul>
+    <li><strong>Import from cURL.</strong> <em>Tools &gt; Import from cURL</em> turns a command copied from the browser's developer tools into a request.</li>
+    <li><strong>Templates.</strong> Ready-made plans for web, SOAP, FTP, LDAP, JDBC and more.</li>
+  </ul>
+  <div class="callout tip"><div><span class="tag">Tip</span><p>Record one short, typical journey rather than a whole session. Short recordings are easier to clean up and to make repeatable.</p></div></div>
+  <div class="pager"><a class="prev" href="#lifecycle"><small>Previous</small>Where tests fit in development</a><a class="next" href="#scripting"><small>Next</small>Build and edit a script</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="scripting" data-group="Using JMeter" data-title="Build and edit a script">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Build and edit a script</h1>
+  <p class="lede">A JMeter script is a tree. The window shows the tree on the left and a form for the selected element on the right.</p>
+
+  <figure><a class="zoom" href="img/jm-01-open.jpg"><img loading="lazy" src="img/jm-01-open.jpg" alt="Apache JMeter with the example plan open: the tree on the left and the HTTP Request Defaults form on the right"></a><figcaption>The Apache JMeter window: the test plan tree on the left, the form for the selected element on the right.</figcaption></figure>
+
+  <h2 id="tree">The parts of a plan</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Part</th><th>What it does</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Thread Group</td><td>Sets how many users run, how fast they start and how long they keep going.</td><td>Shoppers: 10 users, 5 second ramp-up</td></tr>
+      <tr><td>Sampler</td><td>Sends one request and records the result.</td><td>HTTP Request to <code>/login</code></td></tr>
+      <tr><td>Logic controller</td><td>Decides which samplers run, and in what order or how often.</td><td>Loop, If, Transaction</td></tr>
+      <tr><td>Config element</td><td>Supplies shared settings.</td><td>HTTP Request Defaults, Cookie Manager, CSV Data Set</td></tr>
+      <tr><td>Timer</td><td>Adds a pause, to imitate a person thinking.</td><td>Constant Timer, 200 ms</td></tr>
+      <tr><td>Pre- and post-processor</td><td>Prepares a request or reads a response.</td><td>JSON Extractor</td></tr>
+      <tr><td>Assertion</td><td>Checks a response and fails the request if it is wrong.</td><td>Response Assertion</td></tr>
+      <tr><td>Listener</td><td>Collects and shows results.</td><td>Summary Report</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="edit-steps">Edit a plan in JMeter</h2>
+  <ol class="steps">
+    <li><strong>Select an element to see its form.</strong> The thread group form holds the user count, ramp-up and loop count.
+      <figure><a class="zoom" href="img/jm-02-threadgroup.jpg"><img loading="lazy" src="img/jm-02-threadgroup.jpg" alt="The Thread Group form with number of threads, ramp-up period and loop count"></a><figcaption>Thread Group: 10 threads, 5 seconds ramp-up, 10 loops.</figcaption></figure></li>
+    <li><strong>Open a request.</strong> An HTTP Request has a method, a path, options and a body. A JSON body goes on the <em>Body Data</em> tab, in an editor with syntax colours.
+      <figure><a class="zoom" href="img/jm-03-sampler-login.jpg"><img loading="lazy" src="img/jm-03-sampler-login.jpg" alt="The Log in HTTP Request form showing a POST to /login with a JSON body"></a><figcaption>The Log in request with its JSON body on the Body Data tab.</figcaption></figure></li>
+    <li><strong>Add an element.</strong> Right-click a node and choose <em>Add</em>. JMeter only offers what fits at that point in the tree.
+      <figure><a class="zoom" href="img/jm-05-add-menu.jpg"><img loading="lazy" src="img/jm-05-add-menu.jpg" alt="The right-click menu on the Shoppers thread group with the Add submenu open"></a><figcaption>Right-click menu: Add, Add Think Times to children, Start, Validate, Cut, Copy, Paste, Duplicate, Remove, Merge, Save Selection As and more.</figcaption></figure>
+      <figure><a class="zoom" href="img/jm-06-add-listener.jpg"><img loading="lazy" src="img/jm-06-add-listener.jpg" alt="The Add menu with the Listener submenu open"></a><figcaption>Add menu categories: Sampler, Logic Controller, Pre Processors, Post Processors, Assertions, Timer, Test Fragment, Config Element and Listener.</figcaption></figure></li>
+    <li><strong>Rearrange.</strong> Drag nodes to move them. Use <kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd> and <kbd>Ctrl</kbd>+<kbd>V</kbd> to copy, cut and paste, also between plans. <em>Duplicate</em> makes a copy next to the original.</li>
+    <li><strong>Turn parts off.</strong> <kbd>Ctrl</kbd>+<kbd>T</kbd> toggles an element. A disabled element stays in the plan but does not run.</li>
+    <li><strong>Find and replace.</strong> <em>Search &gt; Search</em> (<kbd>Ctrl</kbd>+<kbd>F</kbd>) finds text anywhere in the tree.</li>
+    <li><strong>Reuse pieces.</strong> <em>Save Selection As…</em> saves part of a plan to a file, <em>Merge</em> brings one in, and <em>Save as Test Fragment</em> keeps a reusable block in the plan.</li>
+    <li><strong>Save.</strong> <kbd>Ctrl</kbd>+<kbd>S</kbd> writes a <code>.jmx</code> file. It is plain XML, so it works well in version control.</li>
+  </ol>
+
+  <h2 id="menus">The menus</h2>
+  <p>JMeter puts almost everything in its menu bar. <a href="#menu-compare">Menu comparison</a> lines these up against our app.</p>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/jm-07-menu-file.jpg"><img loading="lazy" src="img/jm-07-menu-file.jpg" alt="The JMeter File menu"></a><figcaption>File: New, Templates, Open, Open Recent, Merge, Save, Save Test Plan as, Save Selection As, Save as Test Fragment, Revert, Restart.</figcaption></figure>
+    <figure><a class="zoom" href="img/jm-11-menu-options.jpg"><img loading="lazy" src="img/jm-11-menu-options.jpg" alt="The JMeter Options menu"></a><figcaption>Options: look and feel, log viewer, log level, SSL manager, language, zoom and "Save automatically before run".</figcaption></figure>
+  </div>
+  <div class="pager"><a class="prev" href="#recording"><small>Previous</small>Record a script</a><a class="next" href="#correlation"><small>Next</small>Correlate dynamic values</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="correlation" data-group="Using JMeter" data-title="Correlate dynamic values">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Correlate dynamic values</h1>
+  <p class="lede">Many sites hand out values that change on every visit: session tokens, form tokens, order numbers. A recorded script replays the old value and fails. Correlation means capturing the value from one response and sending it in the next request.</p>
+
+  <h2 id="corr-how">The idea</h2>
+  <ol>
+    <li>Find the value that changes. Compare two recordings, or look at a failing request.</li>
+    <li>Add an <strong>extractor</strong> under the request that returns the value. It saves the value into a variable.</li>
+    <li>Use the variable, written <code>${name}</code>, in the later request.</li>
+  </ol>
+  <p>JMeter has no automatic correlation. You choose each value yourself.</p>
+
+  <h2 id="extractors">Pick an extractor</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Extractor</th><th>Use it when the response is…</th><th>Expression example</th></tr></thead>
+    <tbody>
+      <tr><td>JSON Extractor</td><td>JSON</td><td><code>$.token</code></td></tr>
+      <tr><td>Regular Expression Extractor</td><td>Any text, such as HTML or headers</td><td><code>name="csrf" value="(.+?)"</code></td></tr>
+      <tr><td>CSS Selector Extractor</td><td>HTML you can address by element</td><td><code>input[name=csrf]</code></td></tr>
+      <tr><td>XPath Extractor</td><td>XML or well-formed HTML</td><td><code>//input[@name='csrf']/@value</code></td></tr>
+      <tr><td>Boundary Extractor</td><td>Text between two fixed strings</td><td>Left <code>value="</code>, right <code>"</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="corr-steps">Correlate a login token in JMeter</h2>
+  <ol class="steps">
+    <li><strong>Add a JSON Extractor under the Log in request.</strong> Right-click <em>Log in</em>, then <em>Add &gt; Post Processors &gt; JSON Extractor</em>.</li>
+    <li><strong>Fill in the extractor.</strong> Name the variable <code>token</code>, use the path <code>$.token</code>, set the match number to <code>1</code>, and give a default of <code>NOT_FOUND</code> so a missing value is easy to spot.
+      <figure><a class="zoom" href="img/jm-04-json-extractor.jpg"><img loading="lazy" src="img/jm-04-json-extractor.jpg" alt="The JSON Extractor form in JMeter with variable name token and path $.token"></a><figcaption>The JSON Extractor under the Log in request.</figcaption></figure></li>
+    <li><strong>Use the variable.</strong> In <em>View cart</em>, add a parameter named <code>token</code> with the value <code>${token}</code>.</li>
+    <li><strong>Check it.</strong> Run the plan with a View Results Tree listener. If <em>View cart</em> returns 200 instead of 401, the correlation works. The tree also has testers for regular expressions and JSON paths.</li>
+  </ol>
+
+  <h2 id="params">Make values different for each user</h2>
+  <ul>
+    <li><strong>CSV Data Set Config</strong> reads one line of a file per user or loop, which suits user names and passwords.</li>
+    <li><strong>User Defined Variables</strong> hold values you reuse, such as the server name.</li>
+    <li><strong>Functions</strong> such as <code>${__Random(1,100)}</code> and <code>${__time()}</code> make values on the fly. <em>Tools &gt; Function Helper Dialog</em> builds and tests them.</li>
+  </ul>
+  <figure><a class="zoom" href="img/jm-15-function-helper.jpg"><img loading="lazy" src="img/jm-15-function-helper.jpg" alt="The Function Helper dialog with a function list and a place to try the result"></a><figcaption>The Function Helper dialog (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F1</kbd>): pick a function, fill in its parameters, copy the generated text.</figcaption></figure>
+  <div class="pager"><a class="prev" href="#scripting"><small>Previous</small>Build and edit a script</a><a class="next" href="#running"><small>Next</small>Run a test</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="running" data-group="Using JMeter" data-title="Run a test">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Run a test</h1>
+  <p class="lede">JMeter can run a plan from its window or from the command line. Use the window to build and check a plan. Use the command line for real load.</p>
+
+  <h2 id="gui-run">Run from the window</h2>
+  <ol class="steps">
+    <li><strong>Start.</strong> Click the green arrow, press <kbd>Ctrl</kbd>+<kbd>R</kbd>, or choose <em>Run &gt; Start</em>. <em>Start no pauses</em> ignores timers.</li>
+    <li><strong>Watch.</strong> The top right shows elapsed time, warnings, and active and total users (for example <code>0/10</code>). Open a listener to see results arrive.</li>
+    <li><strong>Stop.</strong> <kbd>Ctrl</kbd>+<kbd>.</kbd> stops now. <em>Shutdown</em> (<kbd>Ctrl</kbd>+<kbd>,</kbd>) lets running requests finish first.</li>
+    <li><strong>Clear.</strong> <kbd>Ctrl</kbd>+<kbd>E</kbd> clears all listeners before the next run.</li>
+  </ol>
+  <figure><a class="zoom" href="img/jm-10-menu-run.jpg"><img loading="lazy" src="img/jm-10-menu-run.jpg" alt="The Run menu showing Start, Start no pauses, Stop, Shutdown, the Remote items, and Clear"></a><figcaption>The Run menu: local start and stop, all the Remote items, and Clear.</figcaption></figure>
+
+  <div class="callout warn"><div><span class="tag">Warning</span><p>The window uses a lot of memory when it draws every result. The JMeter manual recommends running load tests without it.</p></div></div>
+
+  <h2 id="cli-run">Run from the command line</h2>
+  <div class="codeblock"><button class="copy">Copy</button><pre>jmeter -n -t shop-demo.jmx -l results.jtl -e -o report</pre></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>-n</code></td><td>No window (non-GUI mode)</td></tr>
+      <tr><td><code>-t</code></td><td>The plan to run</td></tr>
+      <tr><td><code>-l</code></td><td>Where to write the results file</td></tr>
+      <tr><td><code>-e -o</code></td><td>Make the HTML report in the named folder when the run ends</td></tr>
+      <tr><td><code>-J name=value</code></td><td>Set a property, so one plan can run with different users or servers</td></tr>
+    </tbody>
+  </table></div>
+  <p>While it runs, JMeter prints a summary line every 30 seconds with samples, rate, average, minimum, maximum, errors and active users.</p>
+
+  <h2 id="check-first">Check a plan before a big run</h2>
+  <p><em>Validate</em> runs the selected thread group with one user and no timers. It is a quick way to see that every request works before you add the load.</p>
+  <div class="pager"><a class="prev" href="#correlation"><small>Previous</small>Correlate dynamic values</a><a class="next" href="#distributed"><small>Next</small>Run a distributed test</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="distributed" data-group="Using JMeter" data-title="Run a distributed test">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Run a distributed test</h1>
+  <p class="lede">One machine can only generate so much load. A distributed test uses several machines, called workers, each running the plan while one controller starts them and collects the results.</p>
+
+  <h2 id="dist-how">How it works</h2>
+  <ul>
+    <li>Each worker runs a small JMeter server program (<code>jmeter-server</code>).</li>
+    <li>The controller sends the plan to every worker and starts them together.</li>
+    <li>Each worker runs the <strong>whole</strong> plan. Ten users on three workers means thirty users in total.</li>
+    <li>Workers send results back to the controller.</li>
+  </ul>
+
+  <h2 id="dist-steps">Set it up</h2>
+  <ol class="steps">
+    <li><strong>Match versions.</strong> Install the same JMeter and Java versions on every machine. Make sure the machines can reach each other through any firewall.</li>
+    <li><strong>Share the encryption keys.</strong> JMeter encrypts traffic between machines. Create the key store with <code>create-rmi-keystore</code> in the <code>bin</code> folder and copy <code>rmi_keystore.jks</code> to every machine.</li>
+    <li><strong>Start the workers.</strong> On each worker, run <code>jmeter-server</code>.</li>
+    <li><strong>List the workers.</strong> On the controller, set <code>remote_hosts</code> in <code>jmeter.properties</code> to the worker addresses, separated by commas.</li>
+    <li><strong>Copy data files.</strong> The plan is sent, but files it reads, such as a CSV of users, must already be on each worker.</li>
+    <li><strong>Start the test.</strong> In the window, choose <em>Run &gt; Remote Start All</em> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) or start one worker from <em>Remote Start</em>. From the command line, use <code>-R host1,host2</code> with <code>-n</code>.</li>
+    <li><strong>Stop or shut down.</strong> <em>Remote Stop</em>, <em>Remote Shutdown</em> and <em>Remote Exit</em> act on one worker or on all of them.</li>
+  </ol>
+  <div class="callout tip"><div><span class="tag">Tip</span><p>The controller can become the bottleneck if it must show every result. Run the controller without a window and write results to a file.</p></div></div>
+  <div class="pager"><a class="prev" href="#running"><small>Previous</small>Run a test</a><a class="next" href="#reporting"><small>Next</small>Report on results</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="reporting" data-group="Using JMeter" data-title="Report on results">
+  <div class="crumbs">Using JMeter</div>
+  <h1>Report on results</h1>
+  <p class="lede">JMeter shows results three ways: live in listeners, from a saved results file, and as a shareable HTML report.</p>
+
+  <h2 id="live">Live results in listeners</h2>
+  <p>A listener shows results as they arrive. The three you will use most:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Listener</th><th>Best for</th></tr></thead>
+    <tbody>
+      <tr><td>Summary Report</td><td>One row per request name with samples, average, minimum, maximum, standard deviation, error rate, throughput and bytes.</td></tr>
+      <tr><td>Aggregate Report</td><td>The same, plus median and the 90th, 95th and 99th percentiles.</td></tr>
+      <tr><td>View Results Tree</td><td>Reading one request: what was sent, what came back, and why a check failed.</td></tr>
+    </tbody>
+  </table></div>
+  <figure><a class="zoom" href="img/jm-17-summary-done.jpg"><img loading="lazy" src="img/jm-17-summary-done.jpg" alt="The Summary Report listener after a run, one row per request and a TOTAL row"></a><figcaption>Summary Report after the example run: 500 samples in total, 20% errors, all from the broken page.</figcaption></figure>
+  <figure><a class="zoom" href="img/jm-19-request-detail.jpg"><img loading="lazy" src="img/jm-19-request-detail.jpg" alt="View Results Tree with one failed request selected and its detail on the right"></a><figcaption>View Results Tree: pick a red entry to see the request, the response data and the status.</figcaption></figure>
+
+  <h2 id="files">Save results and load them again</h2>
+  <p>Every listener has a <em>Filename</em> box. Give it a file and the listener writes each result there. The same box, with <em>Browse…</em>, loads a saved file back into the listener, so you can study an old run in a window without running anything. <em>Configure</em> chooses which fields are saved.</p>
+
+  <h2 id="dashboard">The HTML report</h2>
+  <p>The HTML report is a folder of web pages with charts. You can open it in any browser or send it to someone.</p>
+  <ol class="steps">
+    <li><strong>Make it during a run.</strong> Add <code>-e -o report</code> to the command line.</li>
+    <li><strong>Or make it from a saved file.</strong> Choose <em>Tools &gt; Generate HTML report</em>, pick the results file, an optional <code>user.properties</code> file and an empty output folder. On the command line:
+      <div class="codeblock"><button class="copy">Copy</button><pre>jmeter -g results.jtl -o report</pre></div>
+      <figure><a class="zoom" href="img/jm-14-generate-report.jpg"><img loading="lazy" src="img/jm-14-generate-report.jpg" alt="The Generate HTML report dialog with a results file, a properties file and an output directory"></a><figcaption>Tools &gt; Generate HTML report.</figcaption></figure></li>
+    <li><strong>Open <code>index.html</code>.</strong> The dashboard shows the test details, an APDEX table, a pass and fail chart, a statistics table, the errors, and charts over time.
+      <figure><a class="zoom" href="img/jm-23-dashboard.jpg"><img loading="lazy" src="img/jm-23-dashboard.jpg" alt="The JMeter HTML dashboard: APDEX table, requests summary pie chart and statistics table"></a><figcaption>The HTML dashboard for the example run.</figcaption></figure></li>
+  </ol>
+  <div class="callout note"><div><span class="tag">Note</span><p>The results file must be in CSV form with JMeter's usual columns, and the output folder must be new or empty.</p></div></div>
+
+  <h2 id="beyond">Beyond one run</h2>
+  <p>For long tests or many runs, a <em>Backend Listener</em> streams live results to a database such as InfluxDB, which a dashboard tool like Grafana can chart.</p>
+  <div class="pager"><a class="prev" href="#distributed"><small>Previous</small>Run a distributed test</a><a class="next" href="#walkthrough"><small>Next</small>Walkthrough in our JMeter UI</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="walkthrough" data-group="Trying our JMeter UI" data-title="Walkthrough in our JMeter UI">
+  <div class="crumbs">Trying our JMeter UI</div>
+  <h1>The same six tasks in our JMeter UI</h1>
+  <p class="lede">We repeated each task with the same example plan. This page shows what we saw, with a verdict for each.</p>
+
+  <div class="callout note"><div><span class="tag">Note</span><p>Our app edits <code>.jmx</code> files and runs the real JMeter in the background, so the numbers come from the same engine. What differs is the window around it.</p></div></div>
+
+  <figure><a class="zoom" href="img/ui-01-open.jpg"><img loading="lazy" src="img/ui-01-open.jpg" alt="Our JMeter UI with the example plan open, showing the tree, a summary of the plan and the plan's settings"></a><figcaption>Our JMeter UI with the example plan open. The plan overview counts each kind of element.</figcaption></figure>
+
+  <h2 id="walk-recording">1. Record a script</h2>
+  <div class="verdict"><span class="pill missing">Missing</span><p>There is no recorder, no templates and no import from cURL.</p></div>
+  <p>We searched the menus and the command palette for <em>record</em>, <em>template</em>, <em>import</em> and <em>function</em> and found nothing. The Tools menu holds only palette commands.</p>
+  <figure><a class="zoom" href="img/ui-09-menu-tools.jpg"><img loading="lazy" src="img/ui-09-menu-tools.jpg" alt="Our Tools menu with three items: Open Command Palette, Go to Element, Focus Test Plan Tree"></a><figcaption>Our Tools menu. JMeter's has Function Helper, Generate HTML report, Import from cURL and more.</figcaption></figure>
+  <p><strong>What this means:</strong> a new test cannot start from a recording. Users record in Apache JMeter or another tool, then open the file here.</p>
+
+  <h2 id="walk-scripting">2. Build and edit a script</h2>
+  <div class="verdict"><span class="pill partial">Partly</span><p>Editing is quick and pleasant. Starting and reusing are the gaps.</p></div>
+  <h3>What worked well</h3>
+  <ul>
+    <li>Selecting any element shows a clear form with plain-language labels, for example "Number of threads (users)" and "Loop count (-1 for forever)".</li>
+    <li>Adding is fast. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>, type <code>+regular</code> and choose the Regular Expression Extractor. It is added under the selected request.</li>
+    <li>Edits are marked as unsaved on the tab, saved with <kbd>Ctrl</kbd>+<kbd>S</kbd>, and undo and redo work. After we saved, the new extractor was in the file with the values we typed.</li>
+  </ul>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/ui-04-context-menu.jpg"><img loading="lazy" src="img/ui-04-context-menu.jpg" alt="Our right-click menu on the Shoppers thread group"></a><figcaption>Our right-click menu: Add, Duplicate, Delete, Rename, Disable, Move, Expand and Collapse.</figcaption></figure>
+    <figure><a class="zoom" href="img/ui-15-added-regex.jpg"><img loading="lazy" src="img/ui-15-added-regex.jpg" alt="A new Regular Expression Extractor added under the Home page request"></a><figcaption>A Regular Expression Extractor added under Home page, ready to fill in.</figcaption></figure>
+  </div>
+  <h3>What was missing or awkward</h3>
+  <ul>
+    <li><strong>No File &gt; New.</strong> The File menu only opens existing plans. A new plan cannot be started here.</li>
+    <li><strong>No copy, cut or paste</strong> of elements, no Merge, no Save Selection As and no Test Fragment.</li>
+    <li><strong>The request body is one line.</strong> The JSON body of <em>Log in</em> sits in a table cell, with no multi-line editing and no colours. JMeter has a Body Data tab for this.
+      <figure><a class="zoom" href="img/ui-10-sampler-body.jpg"><img loading="lazy" src="img/ui-10-sampler-body.jpg" alt="The Log in request form scrolled down to the Parameters table with the JSON body in a single-line cell"></a><figcaption>The JSON body appears as the value of an unnamed parameter.</figcaption></figure></li>
+    <li><strong>The palette's add mode is hard to find.</strong> Typing <code>json</code> says "No matches". You need to type <code>+json</code>. The hint is in the footer of the box.
+      <figure><a class="zoom" href="img/ui-13-palette-add.jpg"><img loading="lazy" src="img/ui-13-palette-add.jpg" alt="The command palette showing No matches for the word json"></a><figcaption>"No matches" does not mention the <code>+</code> prefix.</figcaption></figure></li>
+  </ul>
+
+  <h2 id="walk-correlation">3. Correlate dynamic values</h2>
+  <div class="verdict"><span class="pill partial">Partly</span><p>The extractor forms work, and the app warns about unknown variables. You cannot test an expression before running.</p></div>
+  <figure><a class="zoom" href="img/ui-03-json-extractor.jpg"><img loading="lazy" src="img/ui-03-json-extractor.jpg" alt="Our JSON Extractor form for the Get the token element with its breadcrumb"></a><figcaption>The JSON Extractor from the example plan. The path above the title shows where it sits in the tree.</figcaption></figure>
+  <p>We filled in a Regular Expression Extractor (<code>csrf</code>, <code>name="csrf" value="(.+?)"</code>, template <code>$1$</code>, match 1, default <code>NOT_FOUND</code>) and saved. The saved file matched what we typed.</p>
+  <p>Then we set a request path to <code>/slow?x=${nope}</code>, a variable nothing defines. The <strong>Problems</strong> tab named it straight away:</p>
+  <figure><a class="zoom" href="img/ui-17-problems.jpg"><img loading="lazy" src="img/ui-17-problems.jpg" alt="The Problems tab saying: Slow report uses ${nope}, which nothing in this plan defines"></a><figcaption>Problems: "Slow report uses ${nope}, which nothing in this plan defines. It may come from a property or a file."</figcaption></figure>
+  <div class="callout tip"><div><span class="tag">Strength</span><p>Catching a misspelled variable before a run is something JMeter's window does not do. It only shows up as a failed request.</p></div></div>
+  <p><strong>Missing:</strong> there is no tester for a regular expression or JSON path against a real response, no Function Helper, and no view of variable values after a run. Correlation is trial and error.</p>
+
+  <h2 id="walk-running">4. Run a test</h2>
+  <div class="verdict"><span class="pill works">Works</span><p>Press <kbd>F5</kbd> and watch. Our numbers matched JMeter's.</p></div>
+  <p>We pressed <kbd>F5</kbd>. The results panel opened by itself with six live tiles and four charts, and a status message appeared when the run ended.</p>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/ui-11-run-started.jpg"><img loading="lazy" src="img/ui-11-run-started.jpg" alt="A run in progress: 62 samples, 9 users, with Stop and Stop now buttons"></a><figcaption>Six seconds in: 62 samples, 14.5% errors, 9 users.</figcaption></figure>
+    <figure><a class="zoom" href="img/ui-12-run-finished.jpg"><img loading="lazy" src="img/ui-12-run-finished.jpg" alt="The finished run: 500 samples, 100 errors, average 82 ms"></a><figcaption>Finished: 500 samples, 100 errors (20.0%), average 82 ms, 95th percentile 335 ms.</figcaption></figure>
+  </div>
+  <table class="table-wrap" style="display:table;width:100%"><thead><tr><th>Measure</th><th>Apache JMeter</th><th>Our JMeter UI</th></tr></thead><tbody>
+    <tr><td>Samples</td><td>500</td><td>500</td></tr>
+    <tr><td>Errors</td><td>100 (20%)</td><td>100 (20%)</td></tr>
+    <tr><td>Average response time</td><td>80 ms</td><td>82 ms</td></tr>
+    <tr><td>Cart requests failing</td><td>0</td><td>0 (correlation works)</td></tr>
+  </tbody></table>
+  <p>Also in our app:</p>
+  <ul>
+    <li>The Run menu has <em>Validate Plan (one user, once)</em> (<kbd>Ctrl</kbd>+<kbd>F5</kbd>) and <em>Send Selected Request Once</em> (<kbd>F6</kbd>), and Stop and Stop now.</li>
+    <li>Every run is saved in its own folder next to the plan, with the results file, the JMeter log and the plan exactly as it ran. The <strong>History</strong> tab lists them.</li>
+    <li>The run never changes your <code>.jmx</code> file.</li>
+  </ul>
+  <figure><a class="zoom" href="img/ui-07-menu-run.jpg"><img loading="lazy" src="img/ui-07-menu-run.jpg" alt="Our Run menu"></a><figcaption>Our Run menu. Not here: Remote items, Start no pauses, Clear, and a way to set <code>-J</code> properties.</figcaption></figure>
+
+  <h2 id="walk-distributed">5. Run a distributed test</h2>
+  <div class="verdict"><span class="pill missing">Missing</span><p>There is nothing for remote hosts.</p></div>
+  <p>There is no place to list workers, no Remote Start or Stop, and no setup for the encryption key store. Distributed runs still have to be started outside the app, using <code>jmeter -n … -R</code>.</p>
+
+  <h2 id="walk-reporting">6. Report on results</h2>
+  <div class="verdict"><span class="pill partial">Partly</span><p>Good live numbers. Nothing for looking at saved results or making the report.</p></div>
+  <ul>
+    <li><strong>Live and after the run:</strong> tiles for samples, rate, average, 95th percentile, errors and users, plus four charts. A list of failed requests, a per-request table and JMeter's own output.</li>
+    <li><strong>Failed requests show only the code and message.</strong> You cannot see what was sent or returned, which is the first thing needed to find out why a request failed.</li>
+    <li><strong>The per-request table</strong> has samples, average, minimum, maximum and three percentiles, but no Total row. At the default panel size only the first rows are visible.
+      <figure><a class="zoom" href="img/ui-18-requests-tab.jpg"><img loading="lazy" src="img/ui-18-requests-tab.jpg" alt="The Requests tab of the results panel with a table of per-request numbers cut off at the bottom"></a><figcaption>The Requests tab: the table is cut off at the edge of the panel.</figcaption></figure></li>
+    <li><strong>History</strong> lists earlier runs. There is no way to open a results file from somewhere else, or to compare two runs.
+      <figure><a class="zoom" href="img/ui-19-history.jpg"><img loading="lazy" src="img/ui-19-history.jpg" alt="The History tab listing one earlier run"></a><figcaption>The History tab.</figcaption></figure></li>
+    <li><strong>No HTML report.</strong> The app does not make or open the dashboard.</li>
+  </ul>
+  <div class="callout tip"><div><span class="tag">Quick win</span><p>The results file our app saves is in the format the HTML report needs. We ran <code>jmeter -g results.jtl -o report</code> on a run saved by our app and it produced a full report. A "Generate report" button could call exactly that.</p></div></div>
+  <div class="pager"><a class="prev" href="#reporting"><small>Previous</small>Report on results</a><a class="next" href="#problems"><small>Next</small>Problems found</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="problems" data-group="Trying our JMeter UI" data-title="Problems found">
+  <div class="crumbs">Trying our JMeter UI</div>
+  <h1>Problems found</h1>
+  <p class="lede">Things that behave wrongly or confusingly, as opposed to features that are not there yet. Each one was seen while following the walkthrough.</p>
+
+  <h2 id="problem-list">Summary</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Problem</th><th>Seriousness</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td><a href="#p-large">Very large plans freeze the window</a></td><td><span class="pill medium">Medium</span></td><td>Open a plan</td></tr>
+      <tr><td><a href="#p-users">Users tile shows 1 after a finished run</a></td><td><span class="pill low">Low</span></td><td>Results panel</td></tr>
+      <tr><td><a href="#p-table">Per-request table is cut off and has no total</a></td><td><span class="pill low">Low</span></td><td>Results panel</td></tr>
+      <tr><td><a href="#p-defaults">Settings that come from defaults are invisible</a></td><td><span class="pill low">Low</span></td><td>Request form</td></tr>
+      <tr><td><a href="#p-palette">"No matches" does not point to add mode</a></td><td><span class="pill low">Low</span></td><td>Command palette</td></tr>
+      <tr><td><a href="#p-names">Long element names are cut off without a sign</a></td><td><span class="pill low">Low</span></td><td>Test plan tree</td></tr>
+      <tr><td><a href="#p-scroll">Form scroll position carries over to the next element</a></td><td><span class="pill low">Low</span></td><td>Editor</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="p-large">Very large plans freeze the window</h2>
+  <p><span class="pill medium">Medium</span></p>
+  <p><strong>What happens.</strong> Opening a plan with a few thousand requests is fast. Opening a plan with tens of thousands makes the window stop responding. The time grows faster than the size of the plan.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Requests in the plan</th><th>File size</th><th>Time to open</th></tr></thead>
+    <tbody>
+      <tr><td>500</td><td>195 KB</td><td>0.8 s</td></tr>
+      <tr><td>2,000</td><td>766 KB</td><td>1.0 s</td></tr>
+      <tr><td>5,000</td><td>1.9 MB</td><td>1.7 s</td></tr>
+      <tr><td>15,000</td><td>5.7 MB</td><td>11.5 s</td></tr>
+      <tr><td>40,000</td><td>15 MB</td><td>No answer after 60 s. Windows reported "Not responding".</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Why it matters.</strong> Plans this large are unusual, but generated or heavily recorded plans can reach them. Three times the plan took more than six times as long.</p>
+  <p><strong>Suggested fix.</strong> Find the step that grows faster than the plan, and load plans in the background with a progress message so the window stays alive.</p>
+
+  <h2 id="p-users">Users tile shows 1 after a finished run</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> During the run the tile counts up correctly to 9. When the run finishes it shows <code>1</code> and the chart ends at 1, although 10 users ran and none are left.</p>
+  <p><strong>Suggested fix.</strong> Show 0 when the run has finished, and the peak if you want a summary.</p>
+
+  <h2 id="p-table">Per-request table is cut off and has no total</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> On the Requests tab, only the first few rows fit at the default panel height and the last row is cut off. There is no Total row, which JMeter's Summary Report has.</p>
+  <p><strong>Suggested fix.</strong> Make the table scroll, pin the header, and add a Total row.</p>
+
+  <h2 id="p-defaults">Settings that come from defaults are invisible</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> The example plan sets the server and port once in HTTP Request Defaults. In each request, the Server and Port boxes are empty, so nothing says which server the request will call. JMeter's window behaves the same way.</p>
+  <p><strong>Suggested fix.</strong> Show the inherited value as grey placeholder text, such as "127.0.0.1 from HTTP Request Defaults".</p>
+
+  <h2 id="p-palette">"No matches" does not point to add mode</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> The palette searches existing elements and commands. Typing <code>json</code> to add a JSON Extractor shows "No matches". Adding needs the <code>+</code> prefix, which is only hinted at in the footer.</p>
+  <p><strong>Suggested fix.</strong> When a search finds nothing, offer "Add an element named json?" and list matching element types.</p>
+
+  <h2 id="p-names">Long element names are cut off without a sign</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> In the tree, an assertion named "Page has the form" shows as "Page has" next to its grey type label. There is no ellipsis and no tooltip.</p>
+  <p><strong>Suggested fix.</strong> Add an ellipsis and show the full name and type in a tooltip.</p>
+
+  <h2 id="p-scroll">Form scroll position carries over to the next element</h2>
+  <p><span class="pill low">Low</span></p>
+  <p><strong>What happens.</strong> After scrolling down a long request form, selecting another request opens it at the same scrolled position instead of at the top.</p>
+  <p><strong>Suggested fix.</strong> Return to the top when another element is selected, and remember the position only for the same element.</p>
+  <div class="pager"><a class="prev" href="#walkthrough"><small>Previous</small>Walkthrough in our JMeter UI</a><a class="next" href="#missing"><small>Next</small>Missing features</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="missing" data-group="Trying our JMeter UI" data-title="Missing features">
+  <div class="crumbs">Trying our JMeter UI</div>
+  <h1>Missing features</h1>
+  <p class="lede">What Apache JMeter's window offers that ours does not yet, grouped by task and ranked by how often a test engineer would reach for it.</p>
+
+  <div class="callout note"><div><span class="tag">Note</span><p>Several of these are already on the feature list in the project's README. This page adds the ranking, and the missing pieces that the walkthrough turned up.</p></div></div>
+
+  <h2 id="m-recording">Record a script</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>HTTP(S) Test Script Recorder</td><td>The usual way to get a first script. Includes the proxy, the certificate and request filtering.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Templates (File &gt; Templates)</td><td>A quick start for common plan types, and the way JMeter sets up a recording.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Import from cURL</td><td>Turns a request copied from browser tools into a sampler.</td><td><span class="pill medium">Medium</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="m-scripting">Build and edit a script</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>New plan (File &gt; New)</td><td>There is currently no way to start from an empty plan.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Copy, cut and paste elements, also between plans</td><td>The everyday way to reuse a request or a whole group.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Multi-line editor for bodies and scripts, with colours</td><td>JSON and XML bodies and Groovy scripts are hard to edit in one line.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Merge, Save Selection As, Test Fragment</td><td>Share parts of plans between files.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Search and replace across the plan</td><td>Change a server name or a path in one go.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>File pickers for CSV, include and script files</td><td>Typing paths by hand invites mistakes.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Hand-made forms for the remaining element types</td><td>About 90 element types use a generated form that is correct but plain.</td><td><span class="pill low">Low</span></td></tr>
+      <tr><td>Add Think Times to children</td><td>One click to pace a recorded script.</td><td><span class="pill low">Low</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="m-correlation">Correlate dynamic values</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>Expression tester (regular expression, JSON path, XPath, CSS) against a real response</td><td>Removes the run-and-check loop from the slowest part of scripting.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Function Helper</td><td>Build and test <code>${__…}</code> functions.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>See variable values after a run or a validate</td><td>Shows whether an extractor captured what you expected.</td><td><span class="pill medium">Medium</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="m-running">Run a test</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>Properties editor and <code>-J</code> overrides per run</td><td>Run the same plan with a different number of users or another server.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Log viewer</td><td>JMeter's output is shown in a tab. A full log with levels would help debugging.</td><td><span class="pill low">Low</span></td></tr>
+      <tr><td>Start no pauses, and run one thread group</td><td>Faster checks while building.</td><td><span class="pill low">Low</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="m-distributed">Run a distributed test</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>Remote hosts list, Remote Start, Stop, Shutdown and Exit</td><td>Needed for loads one machine cannot make.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Key store set-up and worker health check</td><td>The most common reason a distributed run does not start.</td><td><span class="pill medium">Medium</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="m-reporting">Report on results</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Why it matters</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>View Results Tree: request, response, headers and failed checks</td><td>The first tool for finding out why a request failed.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Open a saved results file (<code>.jtl</code> or CSV)</td><td>Study old runs and runs made elsewhere, such as in a build pipeline.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Generate and open the HTML report</td><td>The report most teams share. Our result files already work with it.</td><td><span class="pill high">High</span></td></tr>
+      <tr><td>Aggregate Report with all percentiles and a Total row</td><td>The standard table people quote in test reports.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Compare two runs</td><td>Shows whether a change made things faster or slower.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Graphs over time for each request</td><td>Spot when slowdowns start.</td><td><span class="pill medium">Medium</span></td></tr>
+      <tr><td>Backend Listener set-up</td><td>Stream results to a database for dashboards.</td><td><span class="pill low">Low</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="strengths">Where our app is already ahead</h2>
+  <ul>
+    <li><strong>Problems panel</strong> finds variables nothing defines before you run.</li>
+    <li><strong>Run history</strong> keeps each run in its own folder with the plan as it ran.</li>
+    <li><strong>Command palette</strong> reaches every command and element from the keyboard.</li>
+    <li><strong>Undo and redo</strong> for every change, and a recovery copy while there are unsaved changes.</li>
+    <li><strong>Safe by default.</strong> Plans are read without fetching other files, and a run never rewrites your plan.</li>
+    <li><strong>Fast.</strong> A 5,000-request plan opens in under two seconds.</li>
+  </ul>
+  <div class="pager"><a class="prev" href="#problems"><small>Previous</small>Problems found</a><a class="next" href="#roadmap"><small>Next</small>Suggested order of work</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="roadmap" data-group="Trying our JMeter UI" data-title="Suggested order of work">
+  <div class="crumbs">Trying our JMeter UI</div>
+  <h1>Suggested order of work</h1>
+  <p class="lede">A proposal, not a commitment. The order puts first what lets a person finish a whole test inside the app.</p>
+
+  <h2 id="r-why">The idea behind the order</h2>
+  <p>A test engineer's day is: get a script, fix it, run it, find out why it failed, report. Today our app does the middle well. Two ends are missing, getting a script in and getting answers out. That is why the first three steps below are the ones to do first.</p>
+
+  <ol class="steps">
+    <li><strong>See what failed.</strong> <span class="pill high">High</span> Add a request and response viewer for failed requests, built from the run's results. It turns "100 errors" into "100 errors, here is why".</li>
+    <li><strong>Reuse and start.</strong> <span class="pill high">High</span> Add File &gt; New, copy, cut and paste, and a multi-line editor for request bodies and scripts. These remove the most daily friction.</li>
+    <li><strong>Open results and make the report.</strong> <span class="pill high">High</span> Open a saved results file, and add a button that makes and opens the HTML report. The files are already compatible.</li>
+    <li><strong>Make correlation faster.</strong> <span class="pill high">High</span> An expression tester with a pasted or recorded response. Add variable values after a validate.</li>
+    <li><strong>Get a script from a browser.</strong> <span class="pill high">High</span> The recorder, then templates and import from cURL. This is the biggest piece of work, so it comes after the quick wins.</li>
+    <li><strong>Fix the small problems.</strong> <span class="pill low">Low</span> The seven items on <a href="#problems">Problems found</a>, apart from the large-plan one, are each small and can be done as part of the steps above.</li>
+    <li><strong>Handle very large plans.</strong> <span class="pill medium">Medium</span> Find what makes opening slow and keep the window responsive.</li>
+    <li><strong>Everything else.</strong> <span class="pill medium">Medium</span> Properties and <code>-J</code> overrides, comparing runs, distributed testing, per-request graphs.</li>
+  </ol>
+
+  <div class="callout tip"><div><span class="tag">Tip</span><p>Each of these can be checked the same way this guide did it: repeat the task with the example plan and compare with Apache JMeter. The example in <code>docs/guide/demo</code> is built so that the right answer is known: 500 requests, 100 errors, and no cart failures.</p></div></div>
+  <div class="pager"><a class="prev" href="#missing"><small>Previous</small>Missing features</a><a class="next" href="#menu-compare"><small>Next</small>Menu comparison</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="menu-compare" data-group="Reference" data-title="Menu comparison">
+  <div class="crumbs">Reference</div>
+  <h1>Menu comparison</h1>
+  <p class="lede">Every item in Apache JMeter 5.6.3's menus, next to what our JMeter UI has.</p>
+
+  <div class="callout note"><div><span class="tag">Note</span><p>"Same" means the item is there and does the same job. "Different" means it does the job in another way. A dash means it is not there.</p></div></div>
+
+  <h2 id="mc-file">File</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Apache JMeter</th><th>Our JMeter UI</th></tr></thead>
+    <tbody>
+      <tr><td>New</td><td>—</td></tr>
+      <tr><td>Templates…</td><td>—</td></tr>
+      <tr><td>Open, Open Recent</td><td>Same (Open Plan…, Recent Plans)</td></tr>
+      <tr><td>Merge</td><td>—</td></tr>
+      <tr><td>Save, Save Test Plan as</td><td>Same (Save Plan, Save Plan As…)</td></tr>
+      <tr><td>Save Selection As…, Save as Test Fragment</td><td>—</td></tr>
+      <tr><td>Revert</td><td>Reload Plan from Disk</td></tr>
+      <tr><td>Restart</td><td>—</td></tr>
+      <tr><td>—</td><td>Close Tab, Close All Tabs (several plans at once), Open Settings, Quit</td></tr>
+    </tbody>
+  </table></div>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/jm-07-menu-file.jpg"><img loading="lazy" src="img/jm-07-menu-file.jpg" alt="JMeter File menu"></a><figcaption>Apache JMeter: File</figcaption></figure>
+    <figure><a class="zoom" href="img/ui-05-menu-file.jpg"><img loading="lazy" src="img/ui-05-menu-file.jpg" alt="Our File menu"></a><figcaption>Our JMeter UI: File</figcaption></figure>
+  </div>
+
+  <h2 id="mc-edit">Edit, Search and View</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Apache JMeter</th><th>Our JMeter UI</th></tr></thead>
+    <tbody>
+      <tr><td>Edit: Add, Remove, Cut, Copy, Paste, Duplicate, Open, Merge</td><td>Add Element, Delete Element, Duplicate Element. No cut, copy, paste, open or merge.</td></tr>
+      <tr><td>Edit: Enable, Disable, Toggle</td><td>Enable or Disable Element</td></tr>
+      <tr><td>Edit: Collapse All, Expand All</td><td>View: Expand All Elements, Collapse All Elements</td></tr>
+      <tr><td>—</td><td>Edit: Undo, Redo, Rename, Move Up and Down, Go to Element</td></tr>
+      <tr><td>Search: Search, Reset Search</td><td>— (Go to Element finds an element by name only)</td></tr>
+      <tr><td>Options: Zoom In and Out, Look and Feel</td><td>View: Color Theme (follow system, dark, light). Panel toggles.</td></tr>
+      <tr><td>Options: Log Viewer, Log Level, SSL Manager, Language</td><td>—</td></tr>
+      <tr><td>Options: Save automatically before run</td><td>Different: asks to save, then runs the saved file</td></tr>
+    </tbody>
+  </table></div>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/ui-06-menu-edit.jpg"><img loading="lazy" src="img/ui-06-menu-edit.jpg" alt="Our Edit menu"></a><figcaption>Our JMeter UI: Edit</figcaption></figure>
+    <figure><a class="zoom" href="img/ui-08-menu-view.jpg"><img loading="lazy" src="img/ui-08-menu-view.jpg" alt="Our View menu"></a><figcaption>Our JMeter UI: View</figcaption></figure>
+  </div>
+
+  <h2 id="mc-run">Run and Tools</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Apache JMeter</th><th>Our JMeter UI</th></tr></thead>
+    <tbody>
+      <tr><td>Run: Start (<kbd>Ctrl</kbd>+<kbd>R</kbd>)</td><td>Run Plan (<kbd>F5</kbd>)</td></tr>
+      <tr><td>Run: Start no pauses</td><td>—</td></tr>
+      <tr><td>Run: Stop, Shutdown</td><td>Stop Run (<kbd>Shift</kbd>+<kbd>F5</kbd>), Stop Run Now</td></tr>
+      <tr><td>Right-click: Validate</td><td>Validate Plan (<kbd>Ctrl</kbd>+<kbd>F5</kbd>), Send Selected Request Once (<kbd>F6</kbd>)</td></tr>
+      <tr><td>Run: Remote Start, Stop, Shutdown, Exit (single and all)</td><td>—</td></tr>
+      <tr><td>Run: Clear, Clear All</td><td>— (every run is kept in its own folder instead)</td></tr>
+      <tr><td>—</td><td>Open Runs Folder, Clear Runs Folder…</td></tr>
+      <tr><td>Tools: Function Helper Dialog</td><td>—</td></tr>
+      <tr><td>Tools: Generate HTML report, Export transactions for report</td><td>—</td></tr>
+      <tr><td>Tools: Import from cURL, Create heap dump, Create thread dump</td><td>—</td></tr>
+      <tr><td>Tools: Compile JSR223 Test Elements, Generate Schematic View</td><td>—</td></tr>
+      <tr><td>—</td><td>Tools: Open Command Palette, Go to Element, Focus Test Plan Tree</td></tr>
+    </tbody>
+  </table></div>
+  <div class="fig-pair">
+    <figure><a class="zoom" href="img/jm-12-menu-tools.jpg"><img loading="lazy" src="img/jm-12-menu-tools.jpg" alt="JMeter Tools menu"></a><figcaption>Apache JMeter: Tools</figcaption></figure>
+    <figure><a class="zoom" href="img/ui-07-menu-run.jpg"><img loading="lazy" src="img/ui-07-menu-run.jpg" alt="Our Run menu"></a><figcaption>Our JMeter UI: Run</figcaption></figure>
+  </div>
+
+  <h2 id="mc-context">Right-click menu</h2>
+  <p>Apache JMeter: Add, Add Think Times to children, Start, Start no pauses, Validate, Cut, Copy, Paste, Duplicate, Remove, Open, Merge, Save Selection As, Copy Code, Save Node As Image, Save Screen As Image, Enable, Disable, Toggle, Help.</p>
+  <p>Our JMeter UI: Add, Duplicate, Delete, Rename, Disable, Move Up, Move Down, Expand All, Collapse All.</p>
+  <div class="pager"><a class="prev" href="#roadmap"><small>Previous</small>Suggested order of work</a><a class="next" href="#method"><small>Next</small>Sources and method</a></div>
+</article>
+
+<!-- ============================================================ -->
+<article data-page id="method" data-group="Reference" data-title="Sources and method">
+  <div class="crumbs">Reference</div>
+  <h1>Sources and method</h1>
+  <p class="lede">What we read, how we tested, and what the tests did not cover.</p>
+
+  <h2 id="how-tested">How we tested</h2>
+  <ol>
+    <li>We started the example web shop and confirmed from the command line that the example plan gives 500 requests and 100 errors.</li>
+    <li>We opened the plan in the real Apache JMeter 5.6.3 window, clicked through each task and took screenshots of every window and menu.</li>
+    <li>We built our JMeter UI from the <code>main</code> branch (release profile) and repeated each task with the same plan.</li>
+    <li>For the performance numbers we generated plans of 500 to 40,000 requests and timed how long the window took to show the plan.</li>
+    <li>We checked that the results file from our app can be turned into an HTML report by JMeter.</li>
+  </ol>
+  <div class="table-wrap"><table>
+    <tbody>
+      <tr><td>Machine</td><td>Windows 11 Pro, one local machine</td></tr>
+      <tr><td>Java</td><td>OpenJDK 21.0.8 (Corretto)</td></tr>
+      <tr><td>Apache JMeter</td><td>5.6.3</td></tr>
+      <tr><td>Our app</td><td>Release build of <code>main</code> at commit <code>0fb1c6b</code>, dark theme</td></tr>
+      <tr><td>Date</td><td>25 October 2026</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="not-covered">What we did not cover</h2>
+  <ul>
+    <li><strong>Recording and distributed tests in our app</strong>, because the features do not exist yet. In Apache JMeter we only looked at the recorder form and the Remote menu. We did not record a site or start workers.</li>
+    <li><strong>Linux and macOS by hand.</strong> All screenshots and timings are from Windows. The automated tests of the app run on Windows, Linux and macOS for every change, but nobody has used the window by hand on Linux or macOS yet.</li>
+    <li><strong>Accessibility.</strong> We did not test with a screen reader.</li>
+    <li><strong>Plugins</strong> and JMeter versions other than 5.6.3.</li>
+    <li><strong>Timings</strong> come from one run on one machine. Use them to compare sizes, not as exact figures.</li>
+  </ul>
+
+  <h2 id="sources">Sources</h2>
+  <p>These pages describe the standard behaviour that this guide follows. Several are written by tool vendors, so the test-type descriptions are the common ground between them.</p>
+  <ul>
+    <li><a href="https://testomat.io/blog/types-of-performance-testing/" rel="noopener">Types of performance testing</a> (Testomat)</li>
+    <li><a href="https://www.testrail.com/blog/performance-testing-types/" rel="noopener">Performance testing: types, tools and tutorial</a> (TestRail)</li>
+    <li><a href="https://www.browserstack.com/guide/types-of-performance-test" rel="noopener">Types of performance test</a> (BrowserStack)</li>
+    <li><a href="https://jmeter.apache.org/usermanual/jmeter_proxy_step_by_step" rel="noopener">Apache JMeter HTTP(S) Test Script Recorder</a> (JMeter manual)</li>
+    <li><a href="https://jmeter.apache.org/usermanual/jmeter_distributed_testing_step_by_step.html" rel="noopener">Apache JMeter distributed testing step by step</a> (JMeter manual)</li>
+    <li><a href="https://jmeter.apache.org/usermanual/remote-test.html" rel="noopener">Remote testing</a> (JMeter manual)</li>
+    <li><a href="https://www.simplified.guide/jmeter/existing-results-dashboard-generate" rel="noopener">Generate a JMeter dashboard from an existing result file</a> (Simplified Guide)</li>
+    <li><a href="https://www.softwaretestinghelp.com/?p=15343" rel="noopener">How to achieve JMeter correlation, with an example</a> (Software Testing Help)</li>
+    <li><a href="https://www.blazemeter.com/p/jmeter-playbook/parameterization-correlation/regular-expressions-other-extractors" rel="noopener">Regular expressions and other extractors</a> (BlazeMeter JMeter Playbook)</li>
+  </ul>
+
+  <h2 id="files-here">Files in this folder</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>index.html</code></td><td>This guide.</td></tr>
+      <tr><td><code>img/</code></td><td>Screenshots. Names starting <code>jm-</code> are Apache JMeter, names starting <code>ui-</code> are our JMeter UI.</td></tr>
+      <tr><td><code>demo/shop-demo.jmx</code></td><td>The example test plan.</td></tr>
+      <tr><td><code>demo/demo-server.py</code></td><td>The example web shop.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pager"><a class="prev" href="#menu-compare"><small>Previous</small>Menu comparison</a><span class="sp"></span></div>
+  <div class="footer">Apache JMeter and the JMeter logo are trademarks of the Apache Software Foundation. Our JMeter UI is an independent project and drives the real JMeter.</div>
+</article>
+
+</main>
+
+<nav class="toc" id="toc" aria-label="On this page"></nav>
+</div>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-label="Enlarged screenshot"><img alt=""></div>
+
+<script>
+(function () {
+  var doc = document.documentElement;
+  doc.classList.add('js');
+  var pages = Array.prototype.slice.call(document.querySelectorAll('article[data-page]'));
+  var nav = document.getElementById('nav');
+  var toc = document.getElementById('toc');
+  var sidebar = document.getElementById('sidebar');
+  var q = document.getElementById('q');
+  var current = null;
+
+  function safe(fn) { try { return fn(); } catch (e) { return null; } }
+
+  /* ---- theme ---- */
+  var saved = safe(function () { return localStorage.getItem('guide-theme'); });
+  if (saved === 'dark' || saved === 'light') doc.setAttribute('data-theme', saved);
+  document.getElementById('theme-btn').addEventListener('click', function () {
+    var isDark = doc.getAttribute('data-theme') === 'dark' ||
+      (!doc.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = isDark ? 'light' : 'dark';
+    doc.setAttribute('data-theme', next);
+    safe(function () { localStorage.setItem('guide-theme', next); });
+  });
+
+  /* ---- sidebar ---- */
+  var groups = [];
+  pages.forEach(function (p) {
+    var g = p.getAttribute('data-group');
+    var grp = groups.filter(function (x) { return x.name === g; })[0];
+    if (!grp) { grp = { name: g, pages: [] }; groups.push(grp); }
+    grp.pages.push(p);
+  });
+  groups.forEach(function (g) {
+    var h = document.createElement('h6'); h.textContent = g.name; h.className = 'nav-group'; nav.appendChild(h);
+    g.pages.forEach(function (p) {
+      var a = document.createElement('a');
+      a.href = '#' + p.id; a.textContent = p.getAttribute('data-title'); a.setAttribute('data-for', p.id);
+      nav.appendChild(a);
+    });
+  });
+  var empty = document.createElement('div'); empty.className = 'nav-empty'; empty.hidden = true; empty.textContent = 'Nothing matches that search.'; nav.appendChild(empty);
+
+  var texts = {};
+  pages.forEach(function (p) { texts[p.id] = (p.getAttribute('data-title') + ' ' + p.textContent).toLowerCase(); });
+  q.addEventListener('input', function () {
+    var words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+    var shown = 0;
+    Array.prototype.forEach.call(nav.querySelectorAll('a'), function (a) {
+      var t = texts[a.getAttribute('data-for')];
+      var ok = words.every(function (w) { return t.indexOf(w) !== -1; });
+      a.hidden = !ok; if (ok) shown++;
+    });
+    Array.prototype.forEach.call(nav.querySelectorAll('.nav-group'), function (h) {
+      var n = h.nextElementSibling, any = false;
+      while (n && n.tagName === 'A') { if (!n.hidden) any = true; n = n.nextElementSibling; }
+      h.hidden = !any;
+    });
+    empty.hidden = shown !== 0;
+  });
+
+  /* ---- pages ---- */
+  function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  pages.forEach(function (p) {
+    Array.prototype.forEach.call(p.querySelectorAll('h2, h3'), function (h) {
+      if (!h.id) h.id = slug(h.textContent);
+      var a = document.createElement('a'); a.className = 'anchor'; a.href = '#' + h.id; a.textContent = '#'; a.setAttribute('aria-label', 'Link to this section');
+      h.appendChild(a);
+    });
+  });
+
+  var spy = null;
+  function buildToc(page) {
+    toc.innerHTML = '';
+    var heads = page.querySelectorAll('h2');
+    if (!heads.length) return;
+    var t = document.createElement('h6'); t.textContent = 'On this page'; toc.appendChild(t);
+    Array.prototype.forEach.call(heads, function (h) {
+      var a = document.createElement('a'); a.href = '#' + h.id;
+      a.textContent = h.firstChild ? h.firstChild.textContent : h.textContent; toc.appendChild(a);
+    });
+    if (spy) spy.disconnect();
+    if ('IntersectionObserver' in window) {
+      spy = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            Array.prototype.forEach.call(toc.querySelectorAll('a'), function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id); });
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      Array.prototype.forEach.call(heads, function (h) { spy.observe(h); });
+    }
+  }
+
+  function show(hash) {
+    var id = (hash || '').replace('#', '');
+    var target = id ? document.getElementById(id) : null;
+    var page = null;
+    if (target) page = target.closest ? target.closest('article[data-page]') : null;
+    if (!page) page = pages[0];
+    if (page !== current) {
+      pages.forEach(function (p) { p.classList.toggle('active', p === page); });
+      Array.prototype.forEach.call(nav.querySelectorAll('a'), function (a) { a.classList.toggle('current', a.getAttribute('data-for') === page.id); });
+      document.title = page.getAttribute('data-title') + ' · JMeter UI Guide';
+      current = page; buildToc(page);
+      if (!target || target === page) window.scrollTo(0, 0);
+    }
+    if (target && target !== page) { target.scrollIntoView(); }
+    sidebar.classList.remove('open');
+  }
+  window.addEventListener('hashchange', function () { show(location.hash); });
+  show(location.hash);
+
+  /* ---- mobile menu ---- */
+  document.getElementById('menu-btn').addEventListener('click', function () { sidebar.classList.toggle('open'); });
+
+  /* ---- copy buttons ---- */
+  Array.prototype.forEach.call(document.querySelectorAll('.copy'), function (b) {
+    b.addEventListener('click', function () {
+      var pre = b.parentNode.querySelector('pre'); var text = pre.innerText.trim();
+      function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+      function fallback() { var r = document.createRange(); r.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Press Ctrl+C'; }
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, fallback); } else { fallback(); }
+    });
+  });
+
+  /* ---- screenshots ---- */
+  var lb = document.getElementById('lightbox'), lbImg = lb.querySelector('img');
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a.zoom') : null;
+    if (a) { e.preventDefault(); lbImg.src = a.getAttribute('href'); lbImg.alt = a.querySelector('img').alt; lb.classList.add('open'); return; }
+    if (lb.classList.contains('open')) lb.classList.remove('open');
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('open'); });
+})();
+</script>
+</body>
+</html>

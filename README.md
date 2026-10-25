@@ -4,6 +4,8 @@ A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx`
 
 Status: open, edit, save, run and watch plans, with run history. The results viewer comes next. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
 
+Guide: `docs/guide/index.html` (open it in a browser) explains how Apache JMeter is used and how this app compares, step by step.
+
 Contributing: `CONTRIBUTING.md`. Security reports: `SECURITY.md`. Changes by version: `CHANGELOG.md`. How a release is made: `docs/RELEASING.md`.
 
 Licence: GPL-3.0-or-later (`LICENSE`). Third-party code is listed in `third_party/zed/PROVENANCE.md`.
@@ -43,25 +45,47 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources | ✅ |
 | Builds and passes all the automated tests on Windows, Linux and macOS for every change; the real-window checks run on Windows | ✅ |
 | Release build: a signed version tag builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, as a draft release | ✅ |
-| Result listeners as in JMeter: View Results Tree with request and response, Aggregate Report, graphs over time | ⬜ |
-| Open saved result files (`.jtl`), compare two runs | ⬜ |
-| Open the generated HTML dashboard report | ⬜ |
-| Multi-line editor for scripts and request bodies, with syntax highlighting | ⬜ |
+| Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
+| View Results Tree: what was sent and returned for each request, including failed ones (today a failed request shows only its code and message) | ⬜ |
+| Aggregate Report with all percentiles and a Total row, and graphs over time for each request | ⬜ |
+| Open saved result files (`.jtl` or CSV) from anywhere, compare two runs | ⬜ |
+| Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
+| New plan from scratch (File > New), which the File menu lacks today | ⬜ |
+| Multi-line editor for scripts and request bodies, with syntax highlighting (a body is one line in a table cell today) | ⬜ |
 | Copy, cut and paste elements (also between plans), merge a plan into another | ⬜ |
 | Save a selection as a Test Fragment | ⬜ |
-| Templates (File > Templates) | ⬜ |
+| Templates (File > Templates) and import from cURL | ⬜ |
 | Search and replace across the plan | ⬜ |
-| HTTP(S) Test Script Recorder | ⬜ |
-| Function Helper dialog and expression tester (regex, JSON path, XPath) | ⬜ |
-| Backend Listener setup, distributed testing (remote start) | ⬜ |
-| Properties editor (`user.properties`, `-J` options), log viewer | ⬜ |
+| HTTP(S) Test Script Recorder (proxy, certificate, request filtering) | ⬜ |
+| Expression tester (regex, JSON path, XPath, CSS) against a real response, variable values after a run, and the Function Helper dialog | ⬜ |
+| Distributed testing: remote hosts, remote start, stop and exit, key store set-up | ⬜ |
+| Backend Listener setup | ⬜ |
+| Properties editor (`user.properties`, `-J` options per run), log viewer, Start no pauses, Add Think Times to children | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
+| Keep the window responsive when opening very large plans (15,000 requests take 11 seconds, 40,000 do not finish in a minute) | ⬜ |
+| Small fixes found in the guide: the Users tile after a run, the cut-off per-request table, inherited settings shown in the request form, a palette hint for add mode, long names with an ellipsis, the form scrolling back to the top | ⬜ |
 | File pickers for CSV, include and script files | ⬜ |
 | Opening the HTML dashboard report only as a local file, with its own security check (arrives with the report viewer) | ⬜ |
 | Security review before every release (see `docs/PROGRESS.md`) | ⬜ |
 | Project concept: group plans, their run history and shared settings (a future idea, not planned yet) | ⬜ |
+| Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
-| Finish macOS and Linux: Cmd shortcuts on macOS (menus and global shortcuts use Ctrl today), JMeter ended when the app crashes, trying the window by hand on both | ⬜ |
+| Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
+
+## Platform support
+
+The app builds and passes all automated tests on Windows, Linux and macOS for every change. These are the differences today.
+
+| Area | Windows | Linux | macOS |
+|---|:---:|:---:|:---:|
+| Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
+| The 61 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| Used by hand | ✅ | ⬜ | ⬜ |
+| JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
+| JMeter ended when the app closes normally | ✅ | ✅ | ✅ |
+| Text-field shortcuts use the platform key (Cmd on macOS) | ✅ | ✅ | ✅ |
+| Menu and global shortcuts use the platform key (they use Ctrl on macOS today) | ✅ | ✅ | ⬜ |
+| Installer and code signing | ⬜ | ⬜ | ⬜ |
 
 ## Prerequisites
 
