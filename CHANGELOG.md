@@ -13,9 +13,11 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ### Changed
 - Damaged-input tests and libFuzzer targets for the plan and results readers; a coverage report is made on every push to `main`.
+- The build and all automated tests now run on Linux and macOS in CI.
 - A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
+- On Linux and macOS a run ended by a kill is reported as ended (it was reported as still running).
 - The `--state` file used by the real-window checks is written in one step, so it is never read half written.
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).
 - A settings file saved with a byte order mark is read instead of being set aside.

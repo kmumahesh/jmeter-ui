@@ -629,10 +629,10 @@ fn valid_heap_and_interval_are_saved(cx: &mut TestAppContext) {
     let mut app = start(cx, None, Some(sp.clone()));
     app.keys("ctrl-,");
     let heap = focus_field(&mut app, |f| f.heap_mb.clone());
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("2048");
     let interval = focus_field(&mut app, |f| f.summary_secs.clone());
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("5");
     assert!(app.cx.update(|_, cx| heap.read(cx).problem().is_none() && interval.read(cx).problem().is_none()));
     app.click("apply-runtime");
@@ -648,7 +648,7 @@ fn invalid_numbers_are_not_saved_and_are_reported(cx: &mut TestAppContext) {
     let mut app = start(cx, None, Some(sp.clone()));
     app.keys("ctrl-,");
     let heap = focus_field(&mut app, |f| f.heap_mb.clone());
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("10"); // below the 64 MB minimum
     assert!(app.cx.update(|_, cx| heap.read(cx).problem()).is_some());
     app.click("apply-runtime");
@@ -663,7 +663,7 @@ fn a_variable_is_not_accepted_for_heap(cx: &mut TestAppContext) {
     let mut app = start(cx, None, Some(sp.clone()));
     app.keys("ctrl-,");
     focus_field(&mut app, |f| f.heap_mb.clone());
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("${heap}");
     app.click("apply-runtime");
     assert!(app.state()["notice"].as_str().unwrap().contains("must be numbers"));
@@ -677,7 +677,7 @@ fn enter_in_a_number_field_applies(cx: &mut TestAppContext) {
     let mut app = start(cx, None, Some(sp.clone()));
     app.keys("ctrl-,");
     focus_field(&mut app, |f| f.heap_mb.clone());
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("512");
     app.keys("enter");
     assert_eq!(settings::load(&sp).settings.heap_mb, 512);

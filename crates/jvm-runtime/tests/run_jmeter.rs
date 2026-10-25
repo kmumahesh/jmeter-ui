@@ -416,6 +416,9 @@ fn jmeter_is_ended_when_the_app_crashes() {
             let _ = std::process::Command::new("taskkill").args(["/F", "/PID", &pid.to_string()]).output();
         }
         assert!(gone, "JMeter {pid} is still running after the app crashed");
+    } else if process_alive(pid) {
+        // Known limit: off Windows nothing ends JMeter when the app crashes. Do not leave it running after the test.
+        let _ = std::process::Command::new("kill").args(["-9", &pid.to_string()]).status();
     }
     let _ = std::fs::remove_dir_all(dir);
 }

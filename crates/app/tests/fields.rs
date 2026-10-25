@@ -1,5 +1,8 @@
 //! Drive the text field through simulated keystrokes in a headless window.
 
+mod common;
+
+use common::secondary;
 use gpui::{AppContext as _, Entity, Focusable, TestAppContext, VisualTestContext};
 use jmeter_ui::fields::{self, TextField, TextFieldEvent};
 use shell_core::number::NumberSpec;
@@ -57,7 +60,7 @@ fn caret_movement_and_insertion(cx: &mut TestAppContext) {
 #[gpui::test]
 fn select_all_and_replace(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "old value", None);
-    cx.simulate_keystrokes("ctrl-a");
+    cx.simulate_keystrokes(&secondary("ctrl-a"));
     cx.simulate_input("new");
     assert_eq!(text(&f, cx), "new");
 }
@@ -72,12 +75,12 @@ fn shift_arrows_select_and_delete(cx: &mut TestAppContext) {
 #[gpui::test]
 fn word_navigation_and_deletion(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "one two three", None);
-    cx.simulate_keystrokes("ctrl-backspace");
+    cx.simulate_keystrokes(&secondary("ctrl-backspace"));
     assert_eq!(text(&f, cx), "one two ");
-    cx.simulate_keystrokes("ctrl-left");
+    cx.simulate_keystrokes(&secondary("ctrl-left"));
     cx.simulate_input("X");
     assert_eq!(text(&f, cx), "one Xtwo ");
-    cx.simulate_keystrokes("ctrl-shift-right backspace");
+    cx.simulate_keystrokes(&secondary("ctrl-shift-right backspace"));
     assert_eq!(text(&f, cx), "one X ", "the word after the caret is selected and deleted, the X stays");
 }
 
@@ -86,24 +89,24 @@ fn undo_and_redo(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "", None);
     cx.simulate_input("abc");
     assert_eq!(text(&f, cx), "abc");
-    cx.simulate_keystrokes("ctrl-z");
+    cx.simulate_keystrokes(&secondary("ctrl-z"));
     assert_eq!(text(&f, cx), "", "typing in a row is one undo step");
-    cx.simulate_keystrokes("ctrl-shift-z");
+    cx.simulate_keystrokes(&secondary("ctrl-shift-z"));
     assert_eq!(text(&f, cx), "abc");
-    cx.simulate_keystrokes("ctrl-z ctrl-y");
+    cx.simulate_keystrokes(&secondary("ctrl-z ctrl-y"));
     assert_eq!(text(&f, cx), "abc");
 }
 
 #[gpui::test]
 fn clipboard_copy_cut_paste(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "hello world", None);
-    cx.simulate_keystrokes("ctrl-a ctrl-c");
+    cx.simulate_keystrokes(&secondary("ctrl-a ctrl-c"));
     cx.simulate_keystrokes("end");
-    cx.simulate_keystrokes("ctrl-v");
+    cx.simulate_keystrokes(&secondary("ctrl-v"));
     assert_eq!(text(&f, cx), "hello worldhello world");
-    cx.simulate_keystrokes("ctrl-a ctrl-x");
+    cx.simulate_keystrokes(&secondary("ctrl-a ctrl-x"));
     assert_eq!(text(&f, cx), "");
-    cx.simulate_keystrokes("ctrl-v");
+    cx.simulate_keystrokes(&secondary("ctrl-v"));
     assert_eq!(text(&f, cx), "hello worldhello world");
 }
 
@@ -111,7 +114,7 @@ fn clipboard_copy_cut_paste(cx: &mut TestAppContext) {
 fn pasting_multiple_lines_gives_one_line(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "", None);
     cx.write_to_clipboard(gpui::ClipboardItem::new_string("a\nb\r\nc".into()));
-    cx.simulate_keystrokes("ctrl-v");
+    cx.simulate_keystrokes(&secondary("ctrl-v"));
     assert_eq!(text(&f, cx), "a b c");
 }
 
@@ -196,7 +199,7 @@ fn read_only_field_ignores_edits_but_allows_copy(cx: &mut TestAppContext) {
     let (f, cx) = cx.add_window_view(|_, cx| TextField::new(cx, "ro", "", "locked").read_only(true));
     focus(&f, cx);
     cx.simulate_input("x");
-    cx.simulate_keystrokes("backspace ctrl-a ctrl-x");
+    cx.simulate_keystrokes(&secondary("backspace ctrl-a ctrl-x"));
     assert_eq!(text(&f, cx), "locked");
     assert_eq!(cx.read_from_clipboard().and_then(|c| c.text()).as_deref(), Some("locked"));
 }
@@ -206,7 +209,7 @@ fn set_text_replaces_the_content(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "before", None);
     cx.update(|_, cx| f.update(cx, |f, cx| f.set_text("after", cx)));
     assert_eq!(text(&f, cx), "after");
-    cx.simulate_keystrokes("ctrl-z");
+    cx.simulate_keystrokes(&secondary("ctrl-z"));
     assert_eq!(text(&f, cx), "after", "programmatic changes are not undoable");
 }
 

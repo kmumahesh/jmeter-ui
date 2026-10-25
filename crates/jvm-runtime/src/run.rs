@@ -366,13 +366,40 @@ impl RunHandle {
         for t in self.threads.drain(..) {
             let _ = t.join();
         }
-        Ok(status.code())
+        Ok(Some(exit_code(status)))
     }
+}
+
+/// The exit code of a finished process. A process that was ended by a signal (a kill on Linux or macOS) has no
+/// code; it is reported as 128 plus the signal number, as a shell does, so that "ended" is never mistaken for
+/// "still running".
+fn exit_code(status: std::process::ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return 128 + signal;
+        }
+    }
+    -1
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_process_ended_by_a_signal_still_has_an_exit_code() {
+        let status = std::process::Command::new("sh").args(["-c", "kill -9 $$"]).status().unwrap();
+        assert_eq!(status.code(), None, "the system gives no code for a kill");
+        assert_eq!(exit_code(status), 137);
+        let ok = std::process::Command::new("sh").args(["-c", "exit 3"]).status().unwrap();
+        assert_eq!(exit_code(ok), 3);
+    }
 
     #[test]
     fn the_long_windows_form_of_a_path_is_shortened() {

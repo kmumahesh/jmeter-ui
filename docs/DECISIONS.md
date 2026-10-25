@@ -203,3 +203,8 @@ Added with the engineering-practice work, to test the two places that read files
 4. **Dry run on a pull request** that changes the workflow, so the release path is exercised before it is needed.
 5. **Not done yet:** a Windows code-signing certificate (costs money, decision for later) and an installer. Downloads may therefore show a SmartScreen warning.
 
+## Linux and macOS (2026-10-25)
+1. **Same build and tests everywhere.** CI runs the full build and automated tests on Linux and macOS as well as Windows, with Java and JMeter installed so the real-JMeter tests run too. These two jobs are required to pass before a merge. The fixes the first runs showed are listed in `docs/PROGRESS.md`.
+2. **The platform key for text editing.** Text boxes bind select all, copy, undo and word moves to the platform key (Cmd on macOS, Ctrl elsewhere); the tests press it through `secondary(...)`.
+3. **Known limits, accepted for now.** JMeter is ended when the app closes normally but not when the app crashes on Linux and macOS (Windows has a job object for this; Linux and macOS have no equivalent that is both simple and reliable); the menus and global shortcuts use Ctrl on macOS instead of Cmd; the window has not been looked at on Linux and macOS, only driven by tests; the real-window checks run on Windows only. These are listed as an open item in the README.
+

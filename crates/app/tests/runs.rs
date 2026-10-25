@@ -176,7 +176,7 @@ fn a_plan_with_unsaved_changes_asks_to_save_before_running(cx: &mut TestAppConte
     let mut app = open(cx, &s, false);
     goto(&mut app, "Home");
     app.keys("f2");
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("Front page");
     app.keys("enter");
     assert!(app.state()["dirty"].as_bool().unwrap());
@@ -200,7 +200,7 @@ fn saving_to_run_writes_the_file_then_goes_on_to_the_next_question(cx: &mut Test
     let mut app = open(cx, &s, false);
     goto(&mut app, "Home");
     app.keys("f2");
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("Front page");
     app.keys("enter");
     app.keys("f5");
