@@ -396,6 +396,16 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
 }
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "12. New plan"
+$r = New-Run "newplan"
+$p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+Send-Keys "^n"
+$s = Get-State $r.State
+Check "Ctrl+N asks which kind of plan to start" ($s.dialog -and $s.dialog.kind -eq "new_plan") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
+Save-Shot $p "$($r.Dir)\new-plan.png"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"

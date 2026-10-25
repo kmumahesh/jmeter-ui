@@ -68,6 +68,8 @@ pub enum Dialog {
     Unsaved { plans: Vec<PlanId>, then: Then },
     /// Reloading would throw away this plan's unsaved changes.
     DiscardForReload(PlanId),
+    /// Which kind of plan to start.
+    NewPlan,
     /// A recovery copy was left by an earlier session.
     Recover { path: PathBuf, saved: Option<String>, recovered: String },
     /// The plan has unsaved changes and a run uses the saved file.
@@ -242,7 +244,7 @@ macro_rules! shell_actions {
 }
 
 shell_actions!(
-    OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
+    NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
     StopRunNow, ClearRunsFolder, OpenRunsFolder, Quit,
@@ -663,6 +665,9 @@ impl Shell {
         // Text typed into a box but not yet confirmed is saved first, so it is part of what happens next.
         self.flush_form(window, cx);
         match action {
+            Action::NewPlan => {
+                self.dialog = Some(Dialog::NewPlan);
+            }
             Action::OpenPlan => self.open_dialog(window, cx),
             Action::SavePlan => {
                 self.save_active(window, cx);
@@ -897,6 +902,7 @@ impl Shell {
             "notice": self.notice.as_ref().map(|n| n.text.clone()),
             "dialog": self.dialog.as_ref().map(|d| match d {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
+                Dialog::NewPlan => json!({ "kind": "new_plan" }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
