@@ -5,6 +5,9 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Try an expression (Ctrl+Shift+T): a JSON Path, regular expression, XPath or CSS selector tried on some text with JMeter's own libraries; an extractor fills in its own expression and a response from the request viewer fills in the text.
+- The request viewer lists the variables of the thread after each request.
+- Escape closes a question (except the one about recovering unsaved changes).
 - Request viewer (Ctrl+Shift+R, or the Requests tab): what was sent and what came back for each request, including failed ones, with the checks that ran. Settings choose whether failed requests, all requests or none are kept.
 - Import from cURL: paste curl commands and get HTTP requests, with headers, bodies and form fields.
 - Copy, cut and paste elements (also between plans), save a selection as a plan file, and merge a plan file into the open plan.

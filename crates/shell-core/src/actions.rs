@@ -62,6 +62,8 @@ pub enum Action {
     OpenRunsFolder,
     /// Show what was sent and received for the requests of the latest run.
     ViewRequests,
+    /// Try a JSON Path, regular expression, XPath or CSS selector on some text.
+    TestExpression,
     Quit,
 }
 
@@ -72,6 +74,7 @@ pub enum Group {
     Edit,
     View,
     Run,
+    Tools,
     Help,
 }
 
@@ -83,6 +86,7 @@ impl Group {
             Group::Edit => "Edit",
             Group::View => "View",
             Group::Run => "Run",
+            Group::Tools => "Tools",
             Group::Help => "Help",
         }
     }
@@ -129,7 +133,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 46] = [
+    pub const ALL: [Action; 47] = [
         Action::ImportCurl,
         Action::CopyElement,
         Action::CutElement,
@@ -175,6 +179,7 @@ impl Action {
         Action::ClearRunsFolder,
         Action::OpenRunsFolder,
         Action::ViewRequests,
+        Action::TestExpression,
         Action::Quit,
     ];
 
@@ -225,6 +230,7 @@ impl Action {
             Action::ClearRunsFolder => "Clear Runs Folder…",
             Action::OpenRunsFolder => "Open Runs Folder",
             Action::ViewRequests => "View Requests and Responses",
+            Action::TestExpression => "Try an Expression\u{2026}",
             Action::Quit => "Quit",
         }
     }
@@ -254,6 +260,7 @@ impl Action {
             | Action::ThemeDark
             | Action::ThemeLight => Group::View,
             Action::RunPlan | Action::ValidatePlan | Action::SendOnce | Action::StopRun | Action::StopRunNow | Action::ClearRunsFolder | Action::OpenRunsFolder | Action::ViewRequests => Group::Run,
+            Action::TestExpression => Group::Tools,
             Action::About => Group::Help,
         }
     }
@@ -294,6 +301,7 @@ impl Action {
             Action::SendOnce => Some("F6"),
             Action::StopRunNow => Some("Ctrl+Shift+F5"),
             Action::ViewRequests => Some("Ctrl+Shift+R"),
+            Action::TestExpression => Some("Ctrl+Shift+T"),
             Action::Quit => Some("Alt+F4"),
             _ => None,
         }
@@ -335,6 +343,7 @@ impl Action {
             Action::SendOnce if !c.can_send_once => Disabled("Select a request (a sampler) first"),
             Action::StopRun | Action::StopRunNow if !c.run_in_progress => Disabled("Nothing is running"),
             Action::ViewRequests if !c.has_run => Disabled("Run the plan first"),
+            Action::TestExpression if !c.can_run => Disabled("Java or JMeter was not found: see Settings"),
             Action::ClearRunsFolder if c.run_in_progress => Disabled("A run is in progress"),
             Action::ClearRunsFolder if !c.custom_runs_folder => Disabled("Only a runs folder chosen in Settings can be cleared; the runs next to each plan are not touched"),
             _ => Enabled,
@@ -441,6 +450,13 @@ mod tests {
     }
 
     #[test]
+    fn an_expression_can_be_tried_when_java_and_jmeter_are_there() {
+        assert_eq!(Action::TestExpression.availability(&AppContext::default()), Availability::Disabled("Java or JMeter was not found: see Settings"));
+        assert!(Action::TestExpression.availability(&AppContext { can_run: true, ..Default::default() }).is_enabled());
+        assert_eq!(Action::TestExpression.shortcut(), Some("Ctrl+Shift+T"));
+    }
+
+    #[test]
     fn requests_can_be_viewed_once_there_is_a_run() {
         assert_eq!(Action::ViewRequests.availability(&AppContext::default()), Availability::Disabled("Run the plan first"));
         assert!(Action::ViewRequests.availability(&AppContext { has_run: true, ..Default::default() }).is_enabled());
@@ -487,7 +503,7 @@ mod tests {
 
     #[test]
     fn every_group_has_actions() {
-        for g in [Group::File, Group::Navigate, Group::View, Group::Run, Group::Help] {
+        for g in [Group::File, Group::Navigate, Group::View, Group::Run, Group::Tools, Group::Help] {
             assert!(Action::ALL.iter().any(|a| a.group() == g), "{g:?}");
         }
     }

@@ -991,3 +991,66 @@ fn a_huge_or_hostile_details_file_cannot_hang_or_flood_the_window(cx: &mut TestA
     assert!(n <= 2000, "kept at most the limit, got {n}");
     assert!(!app.has("req-row-500"), "the list draws a limited number of rows");
 }
+
+// ---- variables and trying an expression on a response ----
+
+fn detail_with_variables(i: usize) -> String {
+    serde_json::json!({"ts": 1000 + i, "elapsed": 5, "label": format!("Req {i}"), "code": "200", "message": "OK", "success": true,
+        "url": "http://h/x", "request": "GET http://h/x\n", "response_headers": "HTTP/1.1 200 OK", "response": "{\"b\":\"x\"}",
+        "variables": {"token": "abc-123", "bval": "x", "empty": ""}}).to_string()
+}
+
+#[gpui::test]
+fn the_variables_of_a_request_are_listed_and_a_request_without_any_says_so(cx: &mut TestAppContext) {
+    let s = setup("req-vars", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let dir = stored_run(&root, &s.plan, 1, 10, Outcome::Finished);
+    details_file(&dir, &[detail_with_variables(0), detail_line(1, true)]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-row-0");
+    wait_until(&mut app, Duration::from_secs(30), "the details to load", |st| st["run"]["phase"] == "Finished" && st["run"]["details"] == 2);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    app.click("req-tab-variables");
+    assert!(app.has("req-variables"));
+    app.click("req-row-1");
+    assert!(app.has("req-variables"), "the second request has none, and the tab says so");
+}
+
+#[gpui::test]
+fn the_response_of_a_request_can_be_tried_with_an_expression(cx: &mut TestAppContext) {
+    let s = setup("req-try", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let dir = stored_run(&root, &s.plan, 1, 10, Outcome::Finished);
+    details_file(&dir, &[detail_with_variables(0)]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-row-0");
+    wait_until(&mut app, Duration::from_secs(30), "the details to load", |st| st["run"]["details"] == 1);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    app.click("req-try-expression");
+    let st = app.state();
+    assert_eq!(st["dialog"]["kind"], "expression");
+    assert_eq!(st["dialog"]["sample"], "{\"b\":\"x\"}", "the dialog starts with the response of the chosen request");
+}
+
+#[gpui::test]
+fn after_a_real_run_an_expression_can_be_tried_on_what_came_back(cx: &mut TestAppContext) {
+    let reqs = |p: u16| jm::plan(p, 1, 1, 0, &[jm::request("Data", "/json")], "");
+    let Some((s, _server)) = real("req-try-real", reqs, |st, _| details_setting(st, settings::RequestDetails::All)) else { return };
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    wait_run(&mut app, Duration::from_secs(120));
+    wait_until(&mut app, Duration::from_secs(20), "the details to be read", |st| st["run"]["details"] == 1);
+    perform(&mut app, shell_core::actions::Action::ViewRequests);
+    app.click("req-try-expression");
+    assert!(app.state()["dialog"]["sample"].as_str().unwrap().contains("\"b\""));
+    app.click("expr-text");
+    app.keys(&secondary("ctrl-a"));
+    app.input("$.b");
+    app.click("dialog-expr-try");
+    let st = wait_until(&mut app, Duration::from_secs(60), "the answer", |st| st["dialog"]["busy"] == false);
+    assert_eq!(st["dialog"]["result"], "x", "{}", st["dialog"]);
+}

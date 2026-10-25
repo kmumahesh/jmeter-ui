@@ -58,3 +58,10 @@ path = "fuzz_targets/paste_text.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "details_file"
+path = "fuzz_targets/details_file.rs"
+test = false
+doc = false
+bench = false

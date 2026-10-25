@@ -195,7 +195,7 @@ impl Shell {
                 MenuItem::Action(Action::ThemeDark),
                 MenuItem::Action(Action::ThemeLight),
             ]),
-            ("Tools", vec![MenuItem::Action(Action::CommandPalette), MenuItem::Action(Action::GotoElement), MenuItem::Action(Action::FocusTree)]),
+            ("Tools", vec![MenuItem::Action(Action::TestExpression), MenuItem::Separator, MenuItem::Action(Action::CommandPalette), MenuItem::Action(Action::GotoElement), MenuItem::Action(Action::FocusTree)]),
             ("Help", vec![MenuItem::Action(Action::About)]),
         ];
         let shell = cx.entity();
