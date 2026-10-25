@@ -118,7 +118,7 @@ impl Shell {
                 .child(label)
         };
         let detail: AnyElement = match self.run_detail {
-            RunDetail::Errors => self.run_errors(run, &p),
+            RunDetail::Errors => self.run_errors(run, &p, cx),
             RunDetail::Labels => self.run_labels(run, &p),
             RunDetail::Log => self.run_log(run, &p),
         };
@@ -147,6 +147,7 @@ impl Shell {
                             .child(div().debug_selector(|| "run-stop-now".to_string()).child(Button::new("run-stop-now", "Stop now").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.stop_run(true, w, cx)))))
                     })
                     .when(run.can_kill(), |d| d.child(div().debug_selector(|| "run-kill".to_string()).child(Button::new("run-kill", "End JMeter").style(ButtonStyle::Tinted(ui::TintColor::Error)).size(ButtonSize::Compact).on_click(cx.listener(|this, _, _, cx| this.kill_run(cx))))))
+                    .child(div().debug_selector(|| "run-view-requests".to_string()).child(Button::new("run-view-requests", if run.details.is_empty() { "View requests".to_string() } else { format!("View requests ({})", run.details.len()) }).style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.show_first_failure(w, cx)))))
                     .child(div().debug_selector(|| "run-open-folder".to_string()).child(Button::new("run-open-folder", "Open folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.open_runs_folder(w, cx))))),
             )
             .when_some(run.error.clone(), |d, e| d.child(div().id("run-error").debug_selector(|| "run-error".to_string()).text_color(p.err).child(e)))
@@ -199,7 +200,7 @@ impl Shell {
             .into_any_element()
     }
 
-    fn run_errors(&self, run: &RunSession, p: &Palette) -> AnyElement {
+    fn run_errors(&self, run: &RunSession, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         let rows: Vec<_> = run.live.errors().collect();
         if rows.is_empty() {
             return div().py(px(6.)).text_color(p.muted).child(if run.phase.active() { "No failed requests so far." } else { "No failed requests." }).into_any_element();
@@ -209,11 +210,24 @@ impl Shell {
             .flex_col()
             .font_family(MONO_FONT)
             .text_size(px(11.5))
-            .children(rows.iter().rev().take(MAX_ROWS).map(|e| {
+            .children(rows.iter().rev().take(MAX_ROWS).enumerate().map(|(n, e)| {
+                // The row opens the request in the viewer when its details were kept: the same code and label.
+                let (code, label) = (e.code.clone(), e.label.clone());
                 div()
+                    .id(("run-error-row", n))
+                    .debug_selector(move || format!("run-error-row-{n}"))
                     .flex()
                     .gap(px(10.))
                     .py(px(1.))
+                    .cursor_pointer()
+                    .hover(|d| d.bg(p.panel2))
+                    .on_click(cx.listener(move |this, _, w, cx| {
+                        let at = this.run.as_ref().and_then(|r| r.details.iter().position(|d| !d.success && d.label == label && d.code == code));
+                        match at {
+                            Some(i) => this.show_requests(Some(i), w, cx),
+                            None => this.show_first_failure(w, cx),
+                        }
+                    }))
                     .child(div().w(px(46.)).text_color(p.err).child(e.code.clone()))
                     .child(div().w(px(180.)).overflow_hidden().whitespace_nowrap().child(e.label.clone()))
                     .child(div().flex_1().overflow_hidden().whitespace_nowrap().text_color(p.muted).child(e.message.clone()))

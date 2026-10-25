@@ -50,7 +50,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Text area for request bodies and scripts: line numbers, colours for JSON, XML and `${variables}`, indenting, scrolling and undo; an HTTP request shows the body editor while it sends a body and the parameters table otherwise | ✅ |
 | New plan (File > New Plan…, Ctrl+N): start from an API test, a web site test or an empty plan, choose where to save it, and it opens ready to edit and run | ✅ |
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
-| View Results Tree: what was sent and returned for each request, including failed ones (today a failed request shows only its code and message) | ⬜ |
+| Request viewer (Ctrl+Shift+R): what was sent and what came back for each request — request line, headers and body, status, response headers and body, assertion results and the requests made as part of it. Failed requests are kept by default, or choose all requests or none in Settings; a run keeps at most 500. Send once opens it on the answer. Works on stored runs too | ✅ |
 | Aggregate Report with all percentiles and a Total row, and graphs over time for each request | ⬜ |
 | Open saved result files (`.jtl` or CSV) from anywhere, compare two runs | ⬜ |
 | Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
@@ -80,7 +80,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 72 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 76 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

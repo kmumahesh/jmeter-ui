@@ -2566,6 +2566,7 @@ dependencies = [
  "chrono",
  "gpui",
  "gpui_platform",
+ "jmx-model",
  "jvm-runtime",
  "menu",
  "plan-core",

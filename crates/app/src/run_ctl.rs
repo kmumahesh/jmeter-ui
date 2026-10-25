@@ -4,15 +4,24 @@
 use crate::running::{Phase, RunSession};
 use crate::shell::{Dialog, Severity, Shell};
 use gpui::{Context, PathPromptOptions, Window};
+use jvm_runtime::details;
 use jvm_runtime::live::LiveStats;
 use jvm_runtime::run::{self, RunSpec};
 use jvm_runtime::runs::{self, Place, RunEntry, RunKind};
 use plan_core::{NodeId, derive, scripts};
 use std::path::{Path, PathBuf};
+use shell_core::settings::RequestDetails;
 use std::time::Duration;
 
 /// The height the lower panel is given when a run starts, so the numbers and charts are visible.
 pub const RUN_PANEL_HEIGHT: f32 = 380.0;
+
+/// The plan text with the listener that keeps requests and responses added to it.
+fn with_details_listener(text: &str) -> Result<String, String> {
+    let mut doc = jmx_model::Document::parse(text).map_err(|e| format!("{e:#}"))?;
+    jmx_model::runcopy::inject_script_listener(&mut doc, "JMeter UI request details", details::SCRIPT).map_err(|e| format!("{e:#}"))?;
+    Ok(doc.write())
+}
 
 /// A path without the `\\?\` prefix Windows gives to canonical paths.
 fn plain(p: &Path) -> PathBuf {
@@ -145,7 +154,23 @@ impl Shell {
         };
 
         // The plan JMeter is given: the saved file itself, or a plan made from it for Validate and Send once.
+        // Which requests keep what was sent and received. A check of one request always does.
+        let mode = match (kind, self.settings.request_details) {
+            (RunKind::Validate | RunKind::SendOnce, _) => details::Mode::All,
+            (RunKind::Run, RequestDetails::Failed) => details::Mode::Failed,
+            (RunKind::Run, RequestDetails::All) => details::Mode::All,
+            (RunKind::Run, RequestDetails::Off) => details::Mode::Off,
+        };
+        let mut copy_problem: Option<String> = None;
         let derived = match kind {
+            // The copy is made from the saved file, which is what runs. If it cannot be read the file runs as it is.
+            RunKind::Run if mode != details::Mode::Off => match std::fs::read_to_string(&plan_path).map_err(anyhow::Error::from).and_then(|t| derive::run_copy(&t, &plan_dir)) {
+                Ok(d) => Some(Ok(d)),
+                Err(e) => {
+                    copy_problem = Some(format!("Requests and responses are not kept for this run: {e:#}"));
+                    None
+                }
+            },
             RunKind::Run => None,
             RunKind::Validate => Some(derive::validate_plan(&lp.edit, &plan_dir)),
             RunKind::SendOnce => match sampler {
@@ -164,21 +189,43 @@ impl Shell {
             Err(e) => return self.notify(format!("Cannot make a folder for the run in {}: {e}", root.display()), Severity::Error, window, cx),
         };
         let mut notes: Vec<String> = derived.as_ref().map(|d| d.notes.clone()).unwrap_or_default();
+        notes.extend(copy_problem);
+        let mut mode = mode;
         let plan_to_run = match &derived {
             Some(d) => {
+                // The listener that keeps requests and responses is added to this copy only.
+                let text = if mode == details::Mode::Off {
+                    d.text.clone()
+                } else {
+                    match with_details_listener(&d.text) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            mode = details::Mode::Off;
+                            notes.push(format!("Requests and responses are not kept for this run: {e}"));
+                            d.text.clone()
+                        }
+                    }
+                };
                 let p = dir.join("plan.jmx");
-                if let Err(e) = std::fs::write(&p, &d.text) {
+                if let Err(e) = std::fs::write(&p, text) {
                     let _ = std::fs::remove_dir_all(&dir);
                     return self.notify(format!("Cannot write the plan for the run: {e}"), Severity::Error, window, cx);
+                }
+                if kind == RunKind::Run {
+                    // The record of what ran is the saved plan, not the copy.
+                    let _ = std::fs::write(dir.join("plan-as-run.jmx"), &saved_text);
                 }
                 p
             }
             None => {
                 // The record of what ran; JMeter is given the saved file itself.
-                let _ = std::fs::write(dir.join("plan-as-run.jmx"), saved_text);
+                let _ = std::fs::write(dir.join("plan-as-run.jmx"), &saved_text);
                 plan_path.clone()
             }
         };
+        if derived.is_none() {
+            mode = details::Mode::Off;
+        }
         notes.extend(run::path_warning(&plan_path));
         notes.extend(run::path_warning(&dir));
         let spec = RunSpec {
@@ -187,7 +234,13 @@ impl Shell {
             plan: plan_to_run,
             run_dir: dir.clone(),
             jvm_args: vec![format!("-Xmx{}m", self.settings.heap_mb)],
-            props: vec![("summariser.interval".into(), self.settings.summary_interval_secs.to_string())],
+            props: {
+                let mut props = vec![("summariser.interval".into(), self.settings.summary_interval_secs.to_string())];
+                if mode != details::Mode::Off {
+                    props.extend(details::props(mode, &dir.join(crate::running::DETAILS_FILE), details::MAX_KEPT));
+                }
+                props
+            },
             generate_report: false,
         };
         let handle = match run::start(&spec) {
@@ -199,7 +252,10 @@ impl Shell {
         };
         meta.notes = notes.clone();
         let _ = runs::write_meta(&dir, &meta);
-        self.run = Some(RunSession::live(kind, plan_path, dir, root, meta, handle, notes));
+        let mut session = RunSession::live(kind, plan_path, dir, root, meta, handle, notes);
+        session.details_off = mode == details::Mode::Off;
+        self.run = Some(session);
+        self.req_sel = 0;
         self.show_run_panel();
         self.refresh_history();
         self.schedule_run_tick(window, cx);
@@ -260,6 +316,10 @@ impl Shell {
         // Keep the last few runs of this plan.
         runs::prune(&root, &plan, self.settings.runs_keep as usize);
         self.refresh_history();
+        // A single request that was sent to look at it: show what came back.
+        if kind == RunKind::SendOnce && self.run.as_ref().is_some_and(|r| !r.details.is_empty()) {
+            self.open_requests(Some(0), cx);
+        }
         match (phase, error) {
             (Phase::Failed, Some(e)) => self.notify(e, Severity::Error, window, cx),
             (Phase::Failed, None) => self.notify(summary, Severity::Error, window, cx),
@@ -331,15 +391,19 @@ impl Shell {
         self.run = Some(RunSession::stored(&entry, root));
         self.bottom_tab = crate::shell::BottomTab::Run;
         let results = entry.dir.join("results.jtl");
+        let details_file = entry.dir.join(crate::running::DETAILS_FILE);
+        self.req_sel = 0;
         let key = entry.dir.clone();
         cx.spawn_in(window, async move |this, cx| {
             let loaded = cx.background_executor().spawn(async move { LiveStats::from_file(&results).map_err(|e| format!("{e:#}")) }).await;
+            let kept = cx.background_executor().spawn(async move { details::read_all(&details_file) }).await;
             this.update(cx, |this, cx| {
                 if let Some(run) = this.run.as_mut().filter(|r| r.dir == key) {
                     match loaded {
                         Ok((live, skipped)) => run.set_stored(live, skipped),
                         Err(e) => run.set_stored_error(e),
                     }
+                    run.set_stored_details(kept.0, kept.1);
                 }
                 cx.notify();
             })

@@ -1,6 +1,7 @@
 //! The state of one run as the window shows it: a live run, a run that has ended, or a stored run read back
 //! from its folder. This holds the numbers and moves through the steps of a run; drawing is in `views_run`.
 
+use jvm_runtime::details::{Detail, DetailsTail};
 use jvm_runtime::live::LiveStats;
 use jvm_runtime::results::Summary;
 use jvm_runtime::run::{RunEvent, RunHandle};
@@ -76,7 +77,17 @@ pub struct RunSession {
     pub error: Option<String>,
     /// Damaged records skipped when a stored run was read.
     pub skipped: u64,
+    /// What was sent and received for the requests that kept it, in the order they finished.
+    pub details: Vec<Detail>,
+    details_tail: Option<DetailsTail>,
+    /// Details the run was not asked to keep (the setting is off), so the viewer can say why it is empty.
+    pub details_off: bool,
+    /// Lines of the details file that could not be read.
+    pub details_skipped: u64,
 }
+
+/// The file in a run folder that holds the details of its requests.
+pub const DETAILS_FILE: &str = "details.jsonl";
 
 impl RunSession {
     /// A run that was just started.
@@ -101,6 +112,10 @@ impl RunSession {
             exit_code: None,
             error: None,
             skipped: 0,
+            details: Vec::new(),
+            details_tail: Some(DetailsTail::new()),
+            details_off: false,
+            details_skipped: 0,
         }
     }
 
@@ -131,7 +146,30 @@ impl RunSession {
             exit_code: entry.meta.exit_code,
             error: None,
             skipped: 0,
+            details: Vec::new(),
+            details_tail: None,
+            details_off: false,
+            details_skipped: 0,
         }
+    }
+
+    /// The details of a stored run have been read.
+    pub fn set_stored_details(&mut self, details: Vec<Detail>, skipped: u64) {
+        self.details = details;
+        self.details_skipped = skipped;
+    }
+
+    /// Take the details written since the last call. Returns whether there are new ones.
+    fn poll_details(&mut self) -> bool {
+        let Some(tail) = &mut self.details_tail else { return false };
+        let Ok(new) = tail.poll(&self.dir.join(DETAILS_FILE)) else { return false };
+        self.details_skipped = tail.skipped();
+        if new.is_empty() {
+            return false;
+        }
+        let room = jvm_runtime::details::MAX_ITEMS.saturating_sub(self.details.len());
+        self.details.extend(new.into_iter().take(room));
+        true
     }
 
     /// The numbers of a stored run have been read.
@@ -205,6 +243,9 @@ impl RunSession {
                 Err(_) => break,
             }
         }
+        if self.poll_details() {
+            changed = true;
+        }
         if self.phase.active() && !h.is_running() {
             // Let the reader threads finish, then take the rest.
             let code = h.wait(Duration::from_secs(3)).ok().flatten();
@@ -212,6 +253,13 @@ impl RunSession {
                 self.apply(ev);
             }
             self.finish(code.or(self.exit_code));
+            // Whatever was written at the very end.
+            for _ in 0..64 {
+                self.poll_details();
+                if !self.details_tail.as_ref().is_some_and(DetailsTail::has_more) {
+                    break;
+                }
+            }
             changed = true;
         }
         self.handle = Some(h);

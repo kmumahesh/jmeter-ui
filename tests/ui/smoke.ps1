@@ -375,6 +375,17 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
     Check "with results, log, the plan as run and run.json" ((Test-Path "$dir\results.jtl") -and (Test-Path "$dir\jmeter.log") -and (Test-Path "$dir\plan-as-run.jmx") -and (Test-Path "$dir\run.json")) ""
     Check "the history lists the run" ($s.history.Count -eq 1 -and $s.history[0].outcome -eq "Finished") ""
 
+    Check "the six failed requests were kept with what was sent and received" ($s.run.details -eq 6 -and $s.run.details_failed -eq 6) "details = $($s.run.details)"
+    Send-Keys "^+r"
+    Start-Sleep -Milliseconds 400
+    $s = Get-State $r.State
+    Check "Ctrl+Shift+R opens the request viewer on the first failure" ($s.bottom_tab -eq "Requests" -and $s.requests.selected -eq 0) "tab = $($s.bottom_tab)"
+    Check "it shows the request that was sent and the answer that came back" ($s.requests.request -like "*GET*/fail*" -and $s.requests.response -like "*500*") "request = $($s.requests.request); response = $($s.requests.response)"
+    Send-Keys "{DOWN}"
+    $s = Get-State $r.State
+    Check "the Down key moves to the next request" ($s.requests.selected -eq 1) "selected = $($s.requests.selected)"
+    Save-Shot $p "$($r.Dir)\request-viewer.png"
+
     Send-Keys "^{F5}"
     $s = Wait-RunEnd $r.State
     Check "Ctrl+F5 validates: one user once, so each request once" ($s.run.kind -eq "Validate" -and $s.run.samples -eq 2) "kind = $($s.run.kind), samples = $($s.run.samples)"

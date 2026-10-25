@@ -69,6 +69,15 @@ fn absolute_files(f: &mut EditablePlan, plan_dir: &Path, notes: &mut Vec<String>
     Ok(())
 }
 
+/// The plan for a normal run when it needs a copy: the saved text, with the file names made absolute because the copy
+/// is not in the folder of the original.
+pub fn run_copy(saved_text: &str, plan_dir: &Path) -> Result<Derived> {
+    let mut f = EditablePlan::open(saved_text)?;
+    let mut notes = Vec::new();
+    absolute_files(&mut f, plan_dir, &mut notes)?;
+    Ok(Derived { text: f.to_text(), notes })
+}
+
 /// The plan for Validate: JMeter's own rules for checking a plan. Every thread group runs one user once
 /// without a schedule or delay, and timers and Backend Listeners are left out.
 pub fn validate_plan(e: &EditablePlan, plan_dir: &Path) -> Result<Derived> {
@@ -301,6 +310,18 @@ mod tests {
             let got = v.prop(v.plan().find_by_name("Users file").unwrap(), "filename").unwrap();
             assert_eq!(got == value, stays, "{value:?} became {got:?}");
         }
+    }
+
+    #[test]
+    fn a_run_copy_is_the_saved_text_with_only_the_file_names_made_absolute() {
+        let d = run_copy(PLAN, Path::new("C:/work/shop")).unwrap();
+        let (a, b) = (EditablePlan::open(PLAN).unwrap(), EditablePlan::open(&d.text).unwrap());
+        assert_eq!(a.plan().iter().count(), b.plan().iter().count(), "no element is added, removed or limited");
+        let csv = b.plan().find_by_name("Users file").unwrap();
+        assert_eq!(b.prop(csv, "filename").unwrap().replace('\\', "/"), "C:/work/shop/users.csv");
+        // Damaged text is an error, so the caller can run the saved file as it is.
+        assert!(run_copy("<html>not a plan</html>", Path::new(".")).is_err());
+        assert!(run_copy("", Path::new(".")).is_err());
     }
 
     #[test]

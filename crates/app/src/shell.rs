@@ -130,6 +130,16 @@ pub enum BottomTab {
     /// The earlier runs of the open plan.
     History,
     Problems,
+    /// What was sent and received for the requests of the run.
+    Requests,
+}
+
+/// Which part of one request the viewer shows.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RequestPart {
+    Request,
+    Response,
+    Checks,
 }
 
 /// What the lower part of the run view shows below the charts.
@@ -184,6 +194,12 @@ pub struct Shell {
     pub about_open: bool,
     pub bottom_tab: BottomTab,
     pub run_detail: RunDetail,
+    /// The request chosen in the request viewer (an index into the run's details).
+    pub req_sel: usize,
+    pub req_part: RequestPart,
+    pub req_focus: FocusHandle,
+    pub req_request: Entity<crate::textarea::TextArea>,
+    pub req_response: Entity<crate::textarea::TextArea>,
     /// The run being watched, or the stored run being looked at.
     pub run: Option<crate::running::RunSession>,
     pub(crate) run_tick_on: bool,
@@ -249,7 +265,7 @@ shell_actions!(
     ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
-    StopRunNow, ClearRunsFolder, OpenRunsFolder, Quit,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, Quit,
 );
 
 gpui::actions!(
@@ -349,6 +365,11 @@ impl Shell {
             about_open: false,
             bottom_tab: BottomTab::Problems,
             run_detail: RunDetail::Errors,
+            req_sel: 0,
+            req_part: RequestPart::Response,
+            req_focus: cx.focus_handle(),
+            req_request: cx.new(|cx| crate::textarea::TextArea::new(cx, "req-request", "", "").rows(14).read_only(true)),
+            req_response: cx.new(|cx| crate::textarea::TextArea::new(cx, "req-response", "", "").rows(14).read_only(true)),
             run: None,
             run_tick_on: false,
             history: Vec::new(),
@@ -416,6 +437,7 @@ impl Shell {
             can_run: self.runtime_ready(),
             can_send_once: sel.is_some_and(|(_, n)| n.category == plan_core::Category::Sampler),
             custom_runs_folder: self.shared_runs_root().is_some(),
+            has_run: self.run.is_some(),
             can_edit: lp.is_some(),
         }
     }
@@ -752,6 +774,7 @@ impl Shell {
             Action::StopRunNow => self.stop_run(true, window, cx),
             Action::ClearRunsFolder => self.request_clear_runs(window, cx),
             Action::OpenRunsFolder => self.open_runs_folder(window, cx),
+            Action::ViewRequests => self.show_requests(None, window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -939,7 +962,17 @@ impl Shell {
                     "notes": r.notes,
                     "can_kill": r.can_kill(),
                     "skipped": r.skipped,
+                    "details": r.details.len(),
+                    "details_failed": r.details.iter().filter(|d| !d.success).count(),
+                    "details_off": r.details_off,
+                    "details_skipped": r.details_skipped,
                 })
+            }),
+            "requests": json!({
+                "selected": self.req_sel,
+                "part": format!("{:?}", self.req_part),
+                "request": self.req_request.read(cx).text(),
+                "response": self.req_response.read(cx).text(),
             }),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
