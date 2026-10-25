@@ -363,9 +363,9 @@ mod bom_tests {
     #[test]
     fn a_byte_order_mark_is_kept_and_does_not_confuse_the_reader() {
         for text in ["\u{feff}<a/>", "\u{feff}<?xml version=\"1.0\"?>\n<a b=\"c\">text &amp; more</a>\n", "\u{feff}\u{feff}<a/>"] {
-            match Document::parse(text) {
-                Ok(d) => assert_eq!(d.write(), text, "{text:?} is written back as it came"),
-                Err(_) => {} // two marks in a row are not a document, and that is fine
+            // Two marks in a row are not a document, and that is fine.
+            if let Ok(d) = Document::parse(text) {
+                assert_eq!(d.write(), text, "{text:?} is written back as it came");
             }
         }
         assert!(Document::parse("\u{feff}<a>\u{feff}</a>").is_ok(), "a mark inside the text is just a character");
