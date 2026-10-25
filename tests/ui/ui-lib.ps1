@@ -62,9 +62,18 @@ function Save-Shot($p, [string]$path) {
     $b.Save($path); $g.Dispose(); $b.Dispose()
 }
 
+# Reads the state file the app writes. If the file is caught while it is being replaced it is read again.
+function Read-State([string]$statePath) {
+    for ($try = 0; $try -lt 20; $try++) {
+        try { return Get-Content $statePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
+        catch { Start-Sleep -Milliseconds 100 }
+    }
+    return Get-Content $statePath -Raw | ConvertFrom-Json
+}
+
 function Get-State([string]$statePath) {
     Start-Sleep -Milliseconds 250
-    return Get-Content $statePath -Raw | ConvertFrom-Json
+    return Read-State $statePath
 }
 
 function Check([string]$name, [bool]$ok, $detail = "") {
@@ -84,7 +93,7 @@ function Send-Query([string]$text, [string]$stateFile) {
     $deadline = (Get-Date).AddSeconds(8)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Milliseconds 150
-        $s = Get-Content $stateFile -Raw | ConvertFrom-Json
+        $s = Read-State $stateFile
         if ($s.palette -and $s.palette.query -eq $want) { break }
     }
     Start-Sleep -Milliseconds 250

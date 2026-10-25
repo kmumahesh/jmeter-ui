@@ -943,7 +943,8 @@ impl Shell {
 
     pub fn write_state_dump(&self, cx: &App) {
         if let Some(p) = &self.state_dump {
-            let _ = std::fs::write(p, serde_json::to_string_pretty(&self.state_json(cx)).unwrap_or_default());
+            // Written in one step so that a program reading the file (the real-window checks) never sees half of it.
+            let _ = plan_core::files::write_atomic(p, &serde_json::to_string_pretty(&self.state_json(cx)).unwrap_or_default());
         }
     }
 }

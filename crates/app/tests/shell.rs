@@ -744,3 +744,44 @@ fn welcome_screen_stays_when_startup_is_welcome(cx: &mut TestAppContext) {
     assert!(app.state()["plan"].is_null());
     assert!(app.has("welcome-open"));
 }
+
+#[gpui::test]
+fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
+    // The real-window checks read this file while the window keeps rewriting it; it must always be whole.
+    setup(cx);
+    let dir = temp_dir("state-file");
+    let path = dir.join("state.json");
+    let options = shell::Options { state_dump: Some(path.clone()), ..Default::default() };
+    let (_shell, cx) = cx.add_window_view(move |window, cx| shell::Shell::new(window, cx, options));
+    cx.update(|window, _| window.activate_window());
+    cx.run_until_parked();
+
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let seen = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let broken = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let reader = {
+        let (path, stop, seen, broken) = (path.clone(), stop.clone(), seen.clone(), broken.clone());
+        std::thread::spawn(move || {
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                // A file that cannot be opened for a moment (it is being replaced) is not the problem tested here.
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
+                        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    } else {
+                        broken.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            }
+        })
+    };
+    for _ in 0..150 {
+        cx.simulate_keystrokes("ctrl-j");
+        cx.run_until_parked();
+    }
+    std::thread::sleep(Duration::from_millis(100));
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    reader.join().unwrap();
+    assert_eq!(broken.load(std::sync::atomic::Ordering::Relaxed), 0, "the file was read half written");
+    assert!(seen.load(std::sync::atomic::Ordering::Relaxed) > 0, "the reader saw the file");
+    let _ = std::fs::remove_dir_all(dir);
+}
