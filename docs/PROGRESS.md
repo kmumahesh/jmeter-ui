@@ -96,6 +96,17 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 - The project concept (idea for later, in `docs/RUNNING.md`).
 - Untested: running with a JMeter other than 5.6.3, runs longer than a few minutes, macOS and Linux (the job object that ends JMeter when the app crashes is Windows-only; elsewhere JMeter is ended when the app ends cleanly).
 
+## Repository and CI practice (done 2026-10-25)
+
+| Part | State |
+|---|---|
+| Branch rules | `main` protected (pull request, five required checks, signed commits, no force-push, no bypass); see `docs/DECISIONS.md` |
+| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 61 real-window checks; fuzzing and coverage when relevant |
+| Release | signed tag on `main` builds the package, SBOM, checksums and build provenance as a draft release (`docs/RELEASING.md`) |
+| Repository files | `SECURITY.md` (private reporting is on), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, templates, `CODEOWNERS`, pinned Rust toolchain |
+| Supply chain | actions pinned to commit hashes, tools pinned by version, JMeter download checked by checksum, Dependabot for crates and actions |
+| Not done | Windows code-signing certificate and installer; telemetry and crash reports (left for a later release); screen-reader accessibility; Cmd shortcuts on macOS; JMeter ended on a crash off Windows |
+
 ## Next
 Results (the Samples Explorer with request and response detail, comparing two runs, the generated HTML report, native versions of the dashboard graphs).
 

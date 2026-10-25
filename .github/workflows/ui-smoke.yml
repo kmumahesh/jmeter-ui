@@ -21,8 +21,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
       - name: Raise the screen to a size the window fits in
@@ -31,7 +31,7 @@ jobs:
       - name: Run the checks
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: ui-smoke

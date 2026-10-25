@@ -19,8 +19,8 @@ jobs:
     name: Build, test, clippy (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       # Java and JMeter are installed so that the tests that run the real JMeter run here, not just locally.
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
@@ -38,13 +38,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: System libraries for the window toolkit (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends cmake clang pkg-config libfontconfig-dev libasound2-dev libssl-dev libzstd-dev             libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libx11-xcb-dev libxcb-xkb-dev libvulkan-dev
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
       # --no-fail-fast: one run lists every failure on this system, not only the first.
@@ -54,6 +54,6 @@ jobs:
     name: Advisories, licences, sources
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Runs `cargo deny check`: known vulnerabilities, allowed licences, allowed code sources (deny.toml).
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2

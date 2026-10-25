@@ -14,6 +14,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ### Changed
 - Damaged-input tests and libFuzzer targets for the plan and results readers; a coverage report is made on every push to `main`.
 - The build and all automated tests now run on Linux and macOS in CI.
+- `main` requires a pull request, signed commits and passing checks; every workflow action is pinned to a commit hash.
 - A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
