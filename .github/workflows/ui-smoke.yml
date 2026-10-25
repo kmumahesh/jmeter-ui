@@ -1,15 +1,13 @@
 name: Real-window checks
 
 # Runs tests/ui/smoke.ps1, which starts the built app and drives it with real mouse and keyboard input.
-# Started by hand for now: shared runners have no graphics card and a small screen, so this is a trial
-# to see whether the window opens and the checks are steady enough to run on every release.
+# The shared runner has no graphics card and starts at 1024x768, so the screen is raised to 1920x1080 first;
+# the window then opens with software drawing and all the checks run.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
-    paths:
-      - ".github/workflows/ui-smoke.yml"
-      - ".github/actions/**"
-      - "tests/ui/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,7 +25,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
-      - name: Use the largest screen size the runner offers
+      - name: Raise the screen to a size the window fits in
         shell: pwsh
         run: ./tests/ui/set-screen-size.ps1 -MinWidth 1400 -MinHeight 900
       - name: Run the checks
