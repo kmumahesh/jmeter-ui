@@ -290,7 +290,7 @@ Check "and removes the recovery copy" (-not (Test-Path "$work.bak")) ""
 
 # ---------------------------------------------------------------------------------------------
 Write-Host "11. Running: F5, live numbers, history, Validate, Send once"
-$jmHome = Join-Path $env:USERPROFILE "Downloads\apache-jmeter-5.6.3"
+$jmHome = if ($env:JMETER_HOME) { $env:JMETER_HOME } else { Join-Path $env:USERPROFILE "Downloads\apache-jmeter-5.6.3" }
 if (-not (Test-Path "$jmHome\bin\ApacheJMeter.jar") -or -not (Get-Command java -ErrorAction SilentlyContinue)) {
     Write-Host "  (skipped: Java or JMeter is not installed)"
 } else {
