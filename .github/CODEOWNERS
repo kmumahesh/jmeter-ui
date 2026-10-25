@@ -1,0 +1,6 @@
+# Everything is reviewed by the maintainer; the workflows and security-sensitive code are listed on purpose.
+*                          @kmumahesh
+/.github/                  @kmumahesh
+/deny.toml                 @kmumahesh
+/crates/jvm-runtime/       @kmumahesh
+/crates/plan-core/src/files.rs @kmumahesh
