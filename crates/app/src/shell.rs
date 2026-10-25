@@ -72,6 +72,8 @@ pub enum Dialog {
     NewPlan,
     /// cURL commands are being pasted in; `error` says why the last attempt did not work.
     Curl { area: Entity<crate::textarea::TextArea>, error: Option<String> },
+    /// Trying an expression on some text. `status` is what the last try found, or what went wrong when `error`.
+    Expression { kind: jvm_runtime::tester::Kind, expr: Entity<TextField>, sample: Entity<crate::textarea::TextArea>, result: Entity<crate::textarea::TextArea>, status: Option<String>, error: bool, busy: bool },
     /// A recovery copy was left by an earlier session.
     Recover { path: PathBuf, saved: Option<String>, recovered: String },
     /// The plan has unsaved changes and a run uses the saved file.
@@ -140,6 +142,8 @@ pub enum RequestPart {
     Request,
     Response,
     Checks,
+    /// The variables of the thread after the request.
+    Variables,
 }
 
 /// What the lower part of the run view shows below the charts.
@@ -207,7 +211,7 @@ pub struct Shell {
     pub history: Vec<jvm_runtime::runs::RunEntry>,
     pub settings_fields: Option<SettingsFields>,
     state_dump: Option<PathBuf>,
-    _subscriptions: Vec<Subscription>,
+    pub(crate) _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<DismissEvent> for Shell {}
@@ -265,7 +269,7 @@ shell_actions!(
     ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
-    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, Quit,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, Quit,
 );
 
 gpui::actions!(
@@ -775,6 +779,7 @@ impl Shell {
             Action::ClearRunsFolder => self.request_clear_runs(window, cx),
             Action::OpenRunsFolder => self.open_runs_folder(window, cx),
             Action::ViewRequests => self.show_requests(None, window, cx),
+            Action::TestExpression => self.open_expression_dialog(window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -935,6 +940,10 @@ impl Shell {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
                 Dialog::NewPlan => json!({ "kind": "new_plan" }),
                 Dialog::Curl { area, error } => json!({ "kind": "curl", "error": error, "text": area.read(cx).text() }),
+                Dialog::Expression { kind, expr, sample, result, status, error, busy } => json!({
+                    "kind": "expression", "expression_kind": kind.word(), "expression": expr.read(cx).text(), "sample": sample.read(cx).text(),
+                    "result": result.read(cx).text(), "status": status, "error": error, "busy": busy,
+                }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),

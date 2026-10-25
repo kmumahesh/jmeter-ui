@@ -261,3 +261,13 @@ Added with the engineering-practice work, to test the two places that read files
 4. **The listener never fails a request.** Any problem inside it is swallowed; tests run it under many users and with large, binary and non-English responses.
 5. **The file is untrusted.** It is read in pieces with limits on the bytes read at a time, the length of a line, the length of each text and the number of requests (2,000 in memory, 500 drawn); damaged lines are counted and shown.
 6. **Shown where it is wanted.** A Requests tab in the lower panel, a View requests button in the run header, a click on an error row, and an automatic opening after Send once. Stored runs show theirs too.
+
+## Trying expressions and seeing variables (2026-10-25)
+1. **JMeter's own libraries decide.** A regular expression, JSON Path, XPath or CSS selector can mean something different in another implementation, so the test runs a small Java program with JMeter's libraries on the class path (Jayway JSON Path, Java's regular expressions and XPath, jsoup). Java 11 or newer is needed for it, which JMeter's own Java already is in practice.
+2. **Nothing typed reaches a command line.** The expression and the text go in through the program's standard input as length-prefixed texts, never as arguments. The program is written to a fresh folder for each test and the folder is removed afterwards.
+3. **Limits.** An expression is at most 10,000 characters and the text at most 1 MB (refused before Java starts); at most 200 results of 2,000 characters are shown; the program runs with 256 MB and is ended after 15 seconds, which stops a regular expression that would never finish and says so.
+4. **XML cannot fetch or expand anything.** A document with a DOCTYPE is refused, so it cannot read a file, call a server or blow up with nested entities. Tests try a file, a local server and an entity bomb.
+5. **No match is an answer, not an error.** JSON that is not an object or array, a path that does not exist as an expression, and a text that is not well-formed XML are errors with a sentence; an expression that finds nothing says "Nothing found".
+6. **Variables come with the request.** The same listener that keeps requests also keeps the thread's variables after each request (at most 200, each cut at 2,000 characters), without JMeter's own bookkeeping names. They are shown in the viewer, so what an extractor took can be seen next to the response it read.
+7. **Escape closes a question.** Found with the real window: the dialog could not be closed from the keyboard. The question about recovering unsaved changes is the one exception, because it has to be answered.
+

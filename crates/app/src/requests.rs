@@ -7,7 +7,9 @@ use crate::shell::{BottomTab, RequestPart, Shell};
 use crate::theme::{self, Palette};
 use gpui::{AnyElement, Context, FontWeight, IntoElement, Window, div, prelude::*, px};
 use jvm_runtime::details::Detail;
+use shell_core::actions::Action;
 use shell_core::settings::RequestDetails;
+use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable};
 
 /// The height the lower panel is given for the viewer, so a list and a request fit side by side.
 pub const REQUESTS_PANEL_HEIGHT: f32 = 420.0;
@@ -187,6 +189,7 @@ impl Shell {
             RequestPart::Request => div().debug_selector(|| "req-request".to_string()).child(self.req_request.clone()).into_any_element(),
             RequestPart::Response => div().debug_selector(|| "req-response".to_string()).child(self.req_response.clone()).into_any_element(),
             RequestPart::Checks => self.request_checks(d, &p),
+            RequestPart::Variables => self.request_variables(d, &p),
         };
         let note = if d.truncated {
             Some("This text was cut at 64 KB.")
@@ -251,7 +254,10 @@ impl Shell {
                                     .border_color(p.line)
                                     .child(part_tab("req-tab-request", "Request".into(), RequestPart::Request, cx))
                                     .child(part_tab("req-tab-response", "Response".into(), RequestPart::Response, cx))
-                                    .child(part_tab("req-tab-checks", if failed_checks > 0 { format!("Checks ({failed_checks} failed)") } else { format!("Checks ({})", d.assertions.len()) }, RequestPart::Checks, cx)),
+                                    .child(part_tab("req-tab-checks", if failed_checks > 0 { format!("Checks ({failed_checks} failed)") } else { format!("Checks ({})", d.assertions.len()) }, RequestPart::Checks, cx))
+                    .child(part_tab("req-tab-variables", format!("Variables ({})", d.variables.len()), RequestPart::Variables, cx))
+                    .child(div().flex_1())
+                    .child(div().debug_selector(|| "req-try-expression".to_string()).px(px(8.)).child(Button::new("req-try-expression", "Try an expression\u{2026}").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.perform(Action::TestExpression, w, cx))))),
                             )
                             .when_some(note, |x, n| x.child(div().px(px(12.)).py(px(2.)).text_size(px(11.5)).text_color(p.warn).child(n)))
                             .child(div().id("req-body").flex_1().min_h_0().overflow_y_scroll().p(px(8.)).child(body)),
@@ -282,6 +288,18 @@ impl Shell {
             .child(hint)
             .when(run.details_skipped > 0, |d| d.child(format!("{} lines of the details file could not be read.", run.details_skipped)))
             .into_any_element()
+    }
+
+    /// The thread's variables after this request: what extractors took, what the plan defines.
+    fn request_variables(&self, d: &Detail, p: &Palette) -> AnyElement {
+        if d.variables.is_empty() {
+            return div().id("req-variables").debug_selector(|| "req-variables".to_string()).text_size(px(12.)).text_color(p.muted).child("No variables were set when this request ran. Extractors and User Defined Variables add them.").into_any_element();
+        }
+        let mut col = div().flex().flex_col().gap(px(2.)).text_size(px(12.)).font_family(MONO_FONT).id("req-variables").debug_selector(|| "req-variables".to_string());
+        for (name, value) in &d.variables {
+            col = col.child(div().flex().gap(px(12.)).child(div().w(px(180.)).flex_none().overflow_hidden().text_color(p.accent).child(name.clone())).child(div().flex_1().min_w_0().child(value.clone())));
+        }
+        col.into_any_element()
     }
 
     fn request_checks(&self, d: &Detail, p: &Palette) -> AnyElement {

@@ -615,6 +615,11 @@ impl Shell {
                 "Paste one or more curl commands, for example from \"Copy as cURL\" in a browser's developer tools. Each becomes an HTTP request; its headers go in an HTTP Header Manager under it.".to_string(),
                 vec![("dialog-curl-add", "Add to Plan", true), ("dialog-cancel", "Cancel", false)],
             ),
+            Some(Dialog::Expression { .. }) => (
+                "Try an expression".to_string(),
+                "Type an expression and the text to try it on. JMeter's own libraries do the work, so the answer is what JMeter would take from that text.".to_string(),
+                vec![("dialog-expr-try", "Try It", true), ("dialog-cancel", "Close", false)],
+            ),
             Some(Dialog::DiscardForReload(id)) => (
                 "Discard changes?".to_string(),
                 format!("Reloading {} replaces your unsaved changes with the file on disk.", name_of(*id)),
@@ -669,6 +674,10 @@ impl Shell {
             Some(Dialog::Curl { area, error }) => Some((area.clone(), error.clone())),
             _ => None,
         };
+        let expression = match &self.dialog {
+            Some(Dialog::Expression { kind, expr, sample, result, status, error, busy }) => Some((*kind, expr.clone(), sample.clone(), result.clone(), status.clone(), *error, *busy)),
+            _ => None,
+        };
         let buttons = buttons.into_iter().map(|(id, label, primary)| {
             let b = Button::new(id, label).style(if primary { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle });
             div().debug_selector(move || id.to_string()).child(b.on_click(cx.listener(move |this, _, window, cx| {
@@ -677,6 +686,7 @@ impl Shell {
                 "dialog-discard" => this.dialog_discard(window, cx),
                 "dialog-reload" => this.dialog_reload(window, cx),
                 "dialog-curl-add" => this.dialog_curl_add(window, cx),
+                "dialog-expr-try" => this.expression_try(window, cx),
                 "dialog-new-api" => this.dialog_new_plan(plan_core::starters::Starter::Api, window, cx),
                 "dialog-new-web" => this.dialog_new_plan(plan_core::starters::Starter::Web, window, cx),
                 "dialog-new-empty" => this.dialog_new_plan(plan_core::starters::Starter::Empty, window, cx),
@@ -697,7 +707,8 @@ impl Shell {
                 window.focus(&this.focus, cx);
             }
             })))
-        });
+        })
+        .collect::<Vec<_>>();
         div()
             .id("dialog-overlay")
             .debug_selector(|| "dialog".to_string())
@@ -708,9 +719,16 @@ impl Shell {
             .justify_center()
             .bg(with_alpha(gpui::black(), 0.4))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            // Escape closes a question, except the one about a recovery copy, which must be answered.
+            .on_key_down(cx.listener(|this, ev: &gpui::KeyDownEvent, window, cx| {
+                if ev.keystroke.key == "escape" && !matches!(this.dialog, Some(Dialog::Recover { .. })) {
+                    this.dialog_cancel(cx);
+                    window.focus(&this.focus, cx);
+                }
+            }))
             .child(
                 div()
-                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. })) { 680. } else { 440. }))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
                     .max_w_full()
                     .p(px(22.))
                     .flex()
@@ -723,6 +741,27 @@ impl Shell {
                     .shadow_lg()
                     .child(div().text_size(px(17.)).font_weight(FontWeight::SEMIBOLD).child(title))
                     .child(div().text_color(p.muted).child(body))
+                    .when_some(expression, |d, (kind, expr, sample, result, status, error, busy)| {
+                        let kind_button = |k: jvm_runtime::tester::Kind, cx: &mut Context<Self>| {
+                            let id: &'static str = match k {
+                                jvm_runtime::tester::Kind::JsonPath => "expr-kind-jsonpath",
+                                jvm_runtime::tester::Kind::Regex => "expr-kind-regex",
+                                jvm_runtime::tester::Kind::XPath => "expr-kind-xpath",
+                                jvm_runtime::tester::Kind::Css => "expr-kind-css",
+                            };
+                            div().debug_selector(move || id.to_string()).child(
+                                Button::new(id, k.label())
+                                    .style(if k == kind { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle })
+                                    .size(ButtonSize::Compact)
+                                    .on_click(cx.listener(move |this, _, _, cx| this.expression_kind(k, cx))),
+                            )
+                        };
+                        d.child(div().flex().gap(px(6.)).children(jvm_runtime::tester::Kind::ALL.map(|k| kind_button(k, cx))))
+                            .child(div().debug_selector(|| "expr-text".to_string()).child(expr))
+                            .child(div().debug_selector(|| "expr-sample".to_string()).child(sample))
+                            .when_some(status, |d, s| d.child(div().debug_selector(|| "expr-status".to_string()).text_size(px(12.5)).text_color(if error { p.err } else if busy { p.muted } else { p.ok }).child(s)))
+                            .child(div().debug_selector(|| "expr-result".to_string()).child(result))
+                    })
                     .when_some(curl, |d, (area, error)| {
                         d.child(div().debug_selector(|| "curl-text".to_string()).child(area))
                             .when_some(error, |d, e| d.child(div().debug_selector(|| "curl-error".to_string()).text_color(p.err).text_size(px(12.5)).child(e)))

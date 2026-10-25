@@ -6,4 +6,5 @@ pub mod live;
 pub mod locate;
 pub mod results;
 pub mod runs;
+pub mod tester;
 pub mod run;

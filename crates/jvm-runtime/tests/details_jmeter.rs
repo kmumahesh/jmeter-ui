@@ -242,3 +242,41 @@ fn a_run_with_the_listener_is_about_as_fast_as_one_without() {
     assert_eq!(with.samples, 4000);
     assert!(with.elapsed < without.elapsed * 3 + Duration::from_secs(5), "{:?} against {:?}", with.elapsed, without.elapsed);
 }
+
+// ---- variables ----
+
+const VARIABLES: &str = r#"        <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="Settings" enabled="true">
+          <collectionProp name="Arguments.arguments">
+            <elementProp name="token" elementType="Argument"><stringProp name="Argument.name">token</stringProp><stringProp name="Argument.value">abc-123</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp>
+          </collectionProp>
+        </Arguments>
+        <hashTree/>
+        <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="Take b" enabled="true">
+          <stringProp name="RegexExtractor.useHeaders">false</stringProp>
+          <stringProp name="RegexExtractor.refname">bval</stringProp>
+          <stringProp name="RegexExtractor.regex">"b":"(.*?)"</stringProp>
+          <stringProp name="RegexExtractor.template">$1$</stringProp>
+          <stringProp name="RegexExtractor.default">NOTFOUND</stringProp>
+          <stringProp name="RegexExtractor.match_number">1</stringProp>
+        </RegexExtractor>
+        <hashTree/>
+"#;
+
+#[test]
+fn the_variables_of_a_request_are_kept_without_jmeters_own() {
+    let Some(env) = env() else { return };
+    let server = Server::start();
+    let reqs = vec![request("Data", "/json"), request("Plain", "/")];
+    let text = plan(server.port, 1, 1, 0, &reqs, VARIABLES);
+    let r = go(&env, "det-vars", &text, Mode::All, 500, true, None);
+    assert_eq!(r.details.len(), 2);
+    let first = &r.details[0];
+    assert_eq!(first.variables.get("token").map(String::as_str), Some("abc-123"), "{:?}", first.variables);
+    assert_eq!(first.variables.get("bval").map(String::as_str), Some("x"), "what an extractor took: {:?}", first.variables);
+    let second = &r.details[1];
+    assert_eq!(second.variables.get("bval").map(String::as_str), Some("NOTFOUND"), "the extractor ran again on the plain answer and fell back to its default");
+    assert_eq!(second.variables.get("token").map(String::as_str), Some("abc-123"));
+    for d in &r.details {
+        assert!(d.variables.keys().all(|k| !k.starts_with("JMeterThread.") && !k.starts_with("START.") && !k.starts_with("__jm")), "{:?}", d.variables.keys().collect::<Vec<_>>());
+    }
+}

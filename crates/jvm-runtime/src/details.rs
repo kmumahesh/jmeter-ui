@@ -10,6 +10,7 @@
 
 use anyhow::Result;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::Path;
 
@@ -94,12 +95,23 @@ try {
     prev.getSubResults().take(50).each { s ->
         subs << [label: s.getSampleLabel(), code: s.getResponseCode(), ok: s.isSuccessful(), ms: s.getTime()]
     }
+    // The variables of the thread as they are after this request, without JMeter's own bookkeeping.
+    def vmap = new TreeMap()
+    try {
+        vars.entrySet().each { e ->
+            String k = String.valueOf(e.getKey())
+            if (vmap.size() >= 200 || k.startsWith("JMeterThread.") || k.startsWith("START.") || k.startsWith("TESTSTART") || k.startsWith("__jm")) return
+            String v = String.valueOf(e.getValue())
+            vmap.put(k.length() > 200 ? k.substring(0, 200) : k, v.length() > 2000 ? v.substring(0, 2000) : v)
+        }
+    } catch (Throwable ignored) {
+    }
     def entry = [
         ts: prev.getTimeStamp(), elapsed: prev.getTime(), latency: prev.getLatency(), connect: prev.getConnectTime(),
         label: prev.getSampleLabel(), code: prev.getResponseCode(), message: prev.getResponseMessage(), thread: prev.getThreadName(),
         success: prev.isSuccessful(), bytes: prev.getBytesAsLong(), sent: prev.getSentBytes(), url: prev.getUrlAsString(),
         request: text(prev.getSamplerData()), request_headers: text(prev.getRequestHeaders()), response_headers: text(prev.getResponseHeaders()),
-        response: body, binary: binary, truncated: cut, assertions: assertions, sub_results: subs
+        response: body, binary: binary, truncated: cut, assertions: assertions, sub_results: subs, variables: vmap
     ]
     String line = groovy.json.JsonOutput.toJson(entry)
     synchronized (props) {
@@ -161,6 +173,8 @@ pub struct Detail {
     pub truncated: bool,
     pub assertions: Vec<AssertionDetail>,
     pub sub_results: Vec<SubDetail>,
+    /// The thread's variables after the request, by name.
+    pub variables: BTreeMap<String, String>,
 }
 
 impl Detail {
@@ -226,6 +240,9 @@ pub const MAX_FIELD_CHARS: usize = 2 * MAX_TEXT_CHARS;
 /// A line longer than this is dropped.
 pub const MAX_LINE_BYTES: usize = 2 * 1024 * 1024;
 
+/// The most variables kept for one request.
+pub const MAX_VARIABLES: usize = 200;
+
 /// The most details kept in memory.
 pub const MAX_ITEMS: usize = 2000;
 
@@ -244,6 +261,17 @@ fn clip_all(d: &mut Detail) {
         clip(&mut a.name);
         clip(&mut a.message);
     }
+    if d.variables.len() > MAX_VARIABLES {
+        d.variables = std::mem::take(&mut d.variables).into_iter().take(MAX_VARIABLES).collect();
+    }
+    d.variables = std::mem::take(&mut d.variables)
+        .into_iter()
+        .map(|(mut k, mut v)| {
+            k.truncate(k.char_indices().nth(200).map_or(k.len(), |(i, _)| i));
+            v.truncate(v.char_indices().nth(2000).map_or(v.len(), |(i, _)| i));
+            (k, v)
+        })
+        .collect();
     d.sub_results.truncate(50);
     for s in &mut d.sub_results {
         clip(&mut s.label);
@@ -362,6 +390,28 @@ mod tests {
     }
 
     const LINE: &str = r#"{"ts":1792950293417,"elapsed":57,"latency":51,"connect":29,"label":"Log in","code":"500","message":"Internal Server Error","thread":"Shoppers 1-1","success":false,"bytes":4,"sent":211,"url":"http://127.0.0.1:8089/login","request":"POST http://127.0.0.1:8089/login\n\nPOST data:\n{\"user\":\"demo\"}\n\n[no cookies]\n","request_headers":"Content-Type: application/json\nX-Demo: 1\n","response_headers":"HTTP/1.1 500 Internal Server Error\nContent-Length: 4\n","response":"boom","binary":false,"truncated":false,"assertions":[{"name":"Status is 200","failure":true,"error":false,"message":"Test failed: code expected to equal /\n\n500"}],"sub_results":[]}"#;
+
+    #[test]
+    fn the_variables_of_a_request_are_read_and_limited() {
+        let mut tail = DetailsTail::new();
+        let dir = std::env::temp_dir().join(format!("jmeter-ui-vars-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("details.jsonl");
+        let many: std::collections::BTreeMap<String, String> = (0..500).map(|i| (format!("v{i:03}"), "x".repeat(3000))).collect();
+        let line = serde_json::json!({"label": "A", "variables": many}).to_string();
+        let plain = serde_json::json!({"label": "B", "variables": {"token": "abc"}}).to_string();
+        let none = serde_json::json!({"label": "C"}).to_string();
+        let wrong = serde_json::json!({"label": "D", "variables": ["not", "a", "map"]}).to_string();
+        std::fs::write(&file, [line, plain, none, wrong].join("\n") + "\n").unwrap();
+        let got = tail.poll(&file).unwrap();
+        assert_eq!(got.len(), 3, "a variables list that is not a map is a damaged line");
+        assert_eq!(tail.skipped(), 1);
+        assert_eq!(got[0].variables.len(), MAX_VARIABLES);
+        assert!(got[0].variables.values().all(|v| v.chars().count() <= 2000));
+        assert_eq!(got[1].variables.get("token").map(String::as_str), Some("abc"));
+        assert!(got[2].variables.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn a_line_from_the_listener_is_read_whole() {

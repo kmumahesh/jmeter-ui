@@ -58,7 +58,9 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Templates (File > Templates) | ⬜ |
 | Search and replace across the plan | ⬜ |
 | HTTP(S) Test Script Recorder (proxy, certificate, request filtering) | ⬜ |
-| Expression tester (regex, JSON path, XPath, CSS) against a real response, variable values after a run, and the Function Helper dialog | ⬜ |
+| Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 15 seconds, which also shows an expression that is too slow | ✅ |
+| Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
+| Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |
 | Distributed testing: remote hosts, remote start, stop and exit, key store set-up | ⬜ |
 | Backend Listener setup | ⬜ |
 | Properties editor (`user.properties`, `-J` options per run), log viewer, Start no pauses, Add Think Times to children | ⬜ |
@@ -80,7 +82,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 76 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 79 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

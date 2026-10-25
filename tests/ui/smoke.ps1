@@ -385,6 +385,18 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
     $s = Get-State $r.State
     Check "the Down key moves to the next request" ($s.requests.selected -eq 1) "selected = $($s.requests.selected)"
     Save-Shot $p "$($r.Dir)\request-viewer.png"
+    Send-Keys "^+t"
+    $s = Get-State $r.State
+    Check "Ctrl+Shift+T opens the expression dialog with the response of the chosen request" ($s.dialog -and $s.dialog.kind -eq "expression" -and $s.dialog.sample -eq "ok") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
+    Send-Keys '$.a'
+    Send-Keys "{ENTER}"
+    $until = (Get-Date).AddSeconds(60)
+    do { Start-Sleep -Milliseconds 500; $s = Get-State $r.State } while ($s.dialog -and $s.dialog.busy -ne $false -and (Get-Date) -lt $until)
+    Check "the real JMeter libraries answer, and say that the text is not JSON" ($s.dialog.error -eq $true -and $s.dialog.status -like "*not a JSON object*") "status = $($s.dialog.status)"
+    Save-Shot $p "$($r.Dir)\expression-dialog.png"
+    Send-Keys "{ESC}"
+    $s = Get-State $r.State
+    Check "Escape closes the dialog" ($null -eq $s.dialog) ""
 
     Send-Keys "^{F5}"
     $s = Wait-RunEnd $r.State

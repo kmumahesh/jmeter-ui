@@ -5,6 +5,7 @@ pub mod combo;
 mod clipboard;
 mod curl_import;
 mod editing;
+mod expression;
 mod new_plan;
 mod requests;
 mod run_ctl;
