@@ -13,7 +13,7 @@ Thanks for helping. This is a Rust desktop app (GPUI) that edits and runs Apache
 1. Branch from `main` (`feature/...`, `fix/...`, `docs/...`). Do not commit to `main` directly.
 2. Keep the change small and focused.
 3. Add tests with the change (changes to the plan or results readers also run the fuzz targets in CI; you can run them locally with `cargo +nightly fuzz run <target>` on Linux): logic tests, a test through the window, and, where it matters, security and performance tests. Hostile input (bad files, odd paths) is tested on purpose, not only the happy path.
-4. Run `powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1` (add `-Smoke` for the real-window checks). It runs the tests, clippy, `cargo audit` and `cargo deny`, and records how long each took in `docs/TEST-TIMINGS.md`.
+4. Run `powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1` (add `-Smoke` for the real-window checks). It runs the tests, clippy, `cargo audit` and `cargo deny`, and records how long each took in `docs/TEST-TIMINGS.md`. (On GitHub, a pull request that changes only documentation skips the build, tests and scans, so it is checked in seconds; anything else runs everything.)
 5. Update the docs that go with it:
    - the Features table in `README.md` (done rows at the top, to do below);
    - `docs/TEST-SCENARIOS.md` (regenerate the list with `python tools/gen-test-doc.py`, write the summary by hand);

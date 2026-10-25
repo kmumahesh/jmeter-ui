@@ -1,0 +1,31 @@
+name: Which kind of change is this
+description: >
+  Sets the output `code` to `false` when a push or pull request changes only documentation, so that the build,
+  test and scan steps can be skipped, and to `true` for everything else (including scheduled and manual runs and
+  any doubt). The jobs still start and report, so the checks that branch protection requires are never missing.
+  Needs the repository checked out with `fetch-depth: 2`.
+
+outputs:
+  code:
+    description: "'true' when the build and tests must run, 'false' for a documentation-only change"
+    value: ${{ steps.classify.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    - id: classify
+      shell: bash
+      run: |
+        kind=code
+        if [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          # On a pull request HEAD is the merge commit, so its first parent is the branch it merges into.
+          if files=$(git diff --name-only HEAD^1 HEAD 2>/dev/null); then
+            kind=$(printf '%s\n' "$files" | bash "${{ github.action_path }}/classify.sh")
+          fi
+        fi
+        if [ "$kind" = "docs" ]; then
+          echo "code=false" >> "$GITHUB_OUTPUT"
+          echo "Documentation-only change: build, tests and scans are skipped." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "code=true" >> "$GITHUB_OUTPUT"
+        fi

@@ -1,5 +1,7 @@
 name: CI
 
+# A change that only touches documentation (see .github/actions/changes) skips the build, tests and scans. The
+# jobs still start and report as passed, because branch protection waits for these checks by name.
 on:
   push:
     branches: [main]
@@ -20,12 +22,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          fetch-depth: 2
+      - id: changes
+        uses: ./.github/actions/changes
+      - if: steps.changes.outputs.code == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       # Java and JMeter are installed so that the tests that run the real JMeter run here, not just locally.
-      - uses: ./.github/actions/setup-jmeter
-      - run: cargo build --locked -p jmeter-ui
-      - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
-      - run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
+      - if: steps.changes.outputs.code == 'true'
+        uses: ./.github/actions/setup-jmeter
+      - if: steps.changes.outputs.code == 'true'
+        run: cargo build --locked -p jmeter-ui
+      - if: steps.changes.outputs.code == 'true'
+        run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
+      - if: steps.changes.outputs.code == 'true'
+        run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
 
   # Linux and macOS: the same build and tests as Windows, so that nothing that only works on Windows gets in.
   # The real-window checks and the crash-safety check run on Windows only.
@@ -39,21 +50,38 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 2
+      - id: changes
+        uses: ./.github/actions/changes
       - name: System libraries for the window toolkit (Linux)
-        if: runner.os == 'Linux'
+        if: steps.changes.outputs.code == 'true' && runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends cmake clang pkg-config libfontconfig-dev libasound2-dev libssl-dev libzstd-dev             libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libx11-xcb-dev libxcb-xkb-dev libvulkan-dev
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: ./.github/actions/setup-jmeter
-      - run: cargo build --locked -p jmeter-ui
+      - if: steps.changes.outputs.code == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - if: steps.changes.outputs.code == 'true'
+        uses: ./.github/actions/setup-jmeter
+      - if: steps.changes.outputs.code == 'true'
+        run: cargo build --locked -p jmeter-ui
       # --no-fail-fast: one run lists every failure on this system, not only the first.
-      - run: cargo test --locked --no-fail-fast --workspace --exclude gpui-spike --exclude zed-ui-spike
+      - if: steps.changes.outputs.code == 'true'
+        run: cargo test --locked --no-fail-fast --workspace --exclude gpui-spike --exclude zed-ui-spike
 
   supply-chain:
     name: Advisories, licences, sources
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 2
+      - id: changes
+        uses: ./.github/actions/changes
+      # The rule that decides what counts as a documentation-only change is tested on every run; it takes a second.
+      - name: Check the documentation-only rule
+        run: bash tests/ci/classify-test.sh
       # Runs `cargo deny check`: known vulnerabilities, allowed licences, allowed code sources (deny.toml).
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+      # A scheduled run always checks, because new advisories appear without any change to the code.
+      - if: steps.changes.outputs.code == 'true'
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
