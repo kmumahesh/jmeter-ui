@@ -271,3 +271,10 @@ Added with the engineering-practice work, to test the two places that read files
 6. **Variables come with the request.** The same listener that keeps requests also keeps the thread's variables after each request (at most 200, each cut at 2,000 characters), without JMeter's own bookkeeping names. They are shown in the viewer, so what an extractor took can be seen next to the response it read.
 7. **Escape closes a question.** Found with the real window: the dialog could not be closed from the keyboard. The question about recovering unsaved changes is the one exception, because it has to be answered.
 
+## Results files and the HTML report (2026-10-25)
+1. **A results file is a run without a plan.** It opens in the same view as a run, with the same numbers and charts, read in pieces in the background so the window stays usable and memory stays flat. It is not added to the run history, because it is not a run of the open plan, and it has no requests and responses to view.
+2. **Only CSV.** JMeter writes CSV unless told otherwise. An XML results file is refused with a sentence that says so. A file that is not results at all opens, and says that no line in it could be read as a request. An empty file, a folder, a missing file and one over 8 GB are refused.
+3. **The report is JMeter's own.** The app runs JMeter's report generator on the results (`-g file -o folder`), in a folder of its own that is removed afterwards. It runs in the background, is ended after 10 minutes, and a report that did not finish is removed so a half-made one is never opened.
+4. **Where it goes.** In the run folder for a run of this app, next to the file (in a folder named after it) for a results file opened on its own. A folder that already has files in it is refused and left alone, because JMeter would write into it. Asking again opens the report that is there; remove the folder to make it again.
+5. **Opening a page is recorded.** Showing a folder or a page goes through one place that records what was asked for, and tests (and the real-window checks, with `JMETER_UI_NO_OPEN`) turn the starting of another program off.
+

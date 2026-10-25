@@ -64,6 +64,10 @@ pub enum Action {
     ViewRequests,
     /// Try a JSON Path, regular expression, XPath or CSS selector on some text.
     TestExpression,
+    /// Open a JMeter results file (`.jtl` or `.csv`) as a run to look at.
+    OpenResults,
+    /// Open the HTML report of the run in the lower panel, making it first when there is none.
+    HtmlReport,
     Quit,
 }
 
@@ -133,7 +137,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 47] = [
+    pub const ALL: [Action; 49] = [
         Action::ImportCurl,
         Action::CopyElement,
         Action::CutElement,
@@ -180,6 +184,8 @@ impl Action {
         Action::OpenRunsFolder,
         Action::ViewRequests,
         Action::TestExpression,
+        Action::OpenResults,
+        Action::HtmlReport,
         Action::Quit,
     ];
 
@@ -231,6 +237,8 @@ impl Action {
             Action::OpenRunsFolder => "Open Runs Folder",
             Action::ViewRequests => "View Requests and Responses",
             Action::TestExpression => "Try an Expression\u{2026}",
+            Action::OpenResults => "Open Results File\u{2026}",
+            Action::HtmlReport => "Open HTML Report",
             Action::Quit => "Quit",
         }
     }
@@ -261,6 +269,8 @@ impl Action {
             | Action::ThemeLight => Group::View,
             Action::RunPlan | Action::ValidatePlan | Action::SendOnce | Action::StopRun | Action::StopRunNow | Action::ClearRunsFolder | Action::OpenRunsFolder | Action::ViewRequests => Group::Run,
             Action::TestExpression => Group::Tools,
+            Action::OpenResults => Group::File,
+            Action::HtmlReport => Group::Run,
             Action::About => Group::Help,
         }
     }
@@ -302,6 +312,8 @@ impl Action {
             Action::StopRunNow => Some("Ctrl+Shift+F5"),
             Action::ViewRequests => Some("Ctrl+Shift+R"),
             Action::TestExpression => Some("Ctrl+Shift+T"),
+            Action::OpenResults => Some("Ctrl+Shift+O"),
+            Action::HtmlReport => Some("Ctrl+Shift+H"),
             Action::Quit => Some("Alt+F4"),
             _ => None,
         }
@@ -343,6 +355,8 @@ impl Action {
             Action::SendOnce if !c.can_send_once => Disabled("Select a request (a sampler) first"),
             Action::StopRun | Action::StopRunNow if !c.run_in_progress => Disabled("Nothing is running"),
             Action::ViewRequests if !c.has_run => Disabled("Run the plan first"),
+            Action::HtmlReport if !c.has_run => Disabled("Run the plan or open a results file first"),
+            Action::HtmlReport if c.run_in_progress => Disabled("A run is in progress"),
             Action::TestExpression if !c.can_run => Disabled("Java or JMeter was not found: see Settings"),
             Action::ClearRunsFolder if c.run_in_progress => Disabled("A run is in progress"),
             Action::ClearRunsFolder if !c.custom_runs_folder => Disabled("Only a runs folder chosen in Settings can be cleared; the runs next to each plan are not touched"),
@@ -447,6 +461,17 @@ mod tests {
         assert!(Action::ClearRunsFolder.availability(&custom).is_enabled());
         assert!(!Action::ClearRunsFolder.availability(&AppContext { run_in_progress: true, ..custom }).is_enabled());
         assert!(Action::OpenRunsFolder.availability(&base).is_enabled());
+    }
+
+    #[test]
+    fn results_can_be_opened_any_time_and_a_report_needs_a_finished_run() {
+        assert!(Action::OpenResults.availability(&AppContext::default()).is_enabled());
+        assert_eq!(Action::HtmlReport.availability(&AppContext::default()), Availability::Disabled("Run the plan or open a results file first"));
+        let run = AppContext { has_run: true, ..Default::default() };
+        assert!(Action::HtmlReport.availability(&run).is_enabled());
+        assert_eq!(Action::HtmlReport.availability(&AppContext { run_in_progress: true, ..run }), Availability::Disabled("A run is in progress"));
+        assert_eq!(Action::OpenResults.shortcut(), Some("Ctrl+Shift+O"));
+        assert_eq!(Action::HtmlReport.shortcut(), Some("Ctrl+Shift+H"));
     }
 
     #[test]

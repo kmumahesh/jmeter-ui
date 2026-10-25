@@ -1054,3 +1054,171 @@ fn after_a_real_run_an_expression_can_be_tried_on_what_came_back(cx: &mut TestAp
     let st = wait_until(&mut app, Duration::from_secs(60), "the answer", |st| st["dialog"]["busy"] == false);
     assert_eq!(st["dialog"]["result"], "x", "{}", st["dialog"]);
 }
+
+// ---- results files and the HTML report ----
+
+const FULL_HEADER: &str = "timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect";
+
+/// A results file written like JMeter does, with `rows` rows, one in ten failed.
+fn csv_file(dir: &Path, name: &str, rows: u64) -> PathBuf {
+    let mut text = String::from(FULL_HEADER);
+    text.push('\n');
+    for i in 0..rows {
+        let ok = i % 10 != 0;
+        text.push_str(&format!(
+            "{},{},{},{},{},Users 1-{},text,{},{},120,100,5,5,http://127.0.0.1/x,{},0,1\n",
+            1_700_000_000_000u64 + i * 20,
+            5 + (i % 50),
+            if i % 2 == 0 { "Home" } else { "Search" },
+            if ok { "200" } else { "500" },
+            if ok { "OK" } else { "Server Error" },
+            i % 5,
+            ok,
+            if ok { "" } else { "boom" },
+            3 + (i % 20)
+        ));
+    }
+    let p = dir.join(name);
+    std::fs::write(&p, text).unwrap();
+    p
+}
+
+fn open_results(app: &mut App, path: &Path) {
+    let shell = app.shell.clone();
+    let path = path.to_path_buf();
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.open_results_path(&path, window, cx)));
+    app.cx.run_until_parked();
+}
+
+fn notice_text(app: &mut App) -> String {
+    app.state()["notice"].as_str().unwrap_or("").to_string()
+}
+
+#[gpui::test]
+fn a_results_file_opens_as_a_run_with_its_numbers_and_charts(cx: &mut TestAppContext) {
+    let s = setup("res-open", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "my-results.csv", 1000);
+    let mut app = open(cx, &s, false);
+    open_results(&mut app, &file);
+    let st = wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    assert_eq!((st["run"]["samples"].clone(), st["run"]["errors"].clone(), st["run"]["labels"].clone()), (1000.into(), 100.into(), 2.into()));
+    assert_eq!(st["bottom_tab"], "Run");
+    assert_eq!(st["bottom"], true);
+    for sel in ["run-kpi-samples", "run-chart-response", "run-tab-errors", "run-report", "run-open-folder"] {
+        assert!(app.has(sel), "{sel}");
+    }
+    assert!(!app.has("run-view-requests"), "a results file has no requests and responses to view");
+    assert!(st["history"].as_array().unwrap().is_empty(), "it is not a run of this plan, so it is not in the history");
+    // The same results can be opened again, and another file replaces it.
+    let other = csv_file(&s.dir, "other.csv", 20);
+    open_results(&mut app, &other);
+    let st = wait_until(&mut app, Duration::from_secs(30), "the second file", |st| st["run"]["samples"] == 20);
+    assert_eq!(st["run"]["phase"], "Finished");
+}
+
+#[gpui::test]
+fn files_that_are_not_results_say_so_and_change_nothing(cx: &mut TestAppContext) {
+    let s = setup("res-bad", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    // Missing, empty and XML files are refused with a notice and no run opens.
+    open_results(&mut app, &s.dir.join("missing.jtl"));
+    assert!(notice_text(&mut app).contains("cannot be read"), "{}", notice_text(&mut app));
+    std::fs::write(s.dir.join("empty.jtl"), "").unwrap();
+    open_results(&mut app, &s.dir.join("empty.jtl"));
+    assert!(notice_text(&mut app).contains("is empty"));
+    std::fs::write(s.dir.join("x.jtl"), "<?xml version=\"1.0\"?><testResults version=\"1.2\"></testResults>").unwrap();
+    open_results(&mut app, &s.dir.join("x.jtl"));
+    assert!(notice_text(&mut app).contains("XML results file"));
+    open_results(&mut app, &s.dir);
+    assert!(notice_text(&mut app).contains("is not a file"));
+    assert!(app.state()["run"].is_null(), "nothing opened");
+    // Text that is not results opens, and says that no line in it was a request.
+    std::fs::write(s.dir.join("notes.txt"), "hello\nthis is\nnot results\n").unwrap();
+    open_results(&mut app, &s.dir.join("notes.txt"));
+    let st = wait_until(&mut app, Duration::from_secs(30), "the file to be read", |st| st["run"]["phase"] == "Finished");
+    assert_eq!(st["run"]["samples"], 0);
+    assert!(st["run"]["error"].as_str().unwrap().contains("does not look like a JMeter results file"), "{}", st["run"]);
+    // A binary file is only text that is not results.
+    std::fs::write(s.dir.join("bin.dat"), (0..5000u32).map(|i| (i * 7 % 256) as u8).collect::<Vec<u8>>()).unwrap();
+    open_results(&mut app, &s.dir.join("bin.dat"));
+    wait_until(&mut app, Duration::from_secs(30), "the binary file", |st| st["run"]["phase"] == "Finished" && st["run"]["error"].is_string());
+}
+
+#[gpui::test]
+fn opening_a_large_results_file_is_quick_and_the_window_stays_responsive(cx: &mut TestAppContext) {
+    let s = setup("res-large", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "large.csv", 300_000);
+    let mut app = open(cx, &s, false);
+    let t = Instant::now();
+    open_results(&mut app, &file);
+    // The window answers while the numbers are read.
+    app.keys("ctrl-k");
+    assert!(app.palette_open());
+    app.keys("escape");
+    let st = wait_until(&mut app, Duration::from_secs(60), "the results to load", |st| st["run"]["phase"] == "Finished");
+    eprintln!("300,000 rows opened in {:?}", t.elapsed());
+    assert_eq!(st["run"]["samples"], 300_000);
+    assert!(t.elapsed() < Duration::from_secs(40), "{:?}", t.elapsed());
+}
+
+#[gpui::test]
+fn the_html_report_is_made_once_and_then_opened(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("rep-run", |p| shop_plan(p, 2, 5), |_, _| {}) else { return };
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    let st = wait_run(&mut app, Duration::from_secs(120));
+    let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
+    assert_eq!(st["report"]["exists"], false);
+    app.click("run-report");
+    let st = wait_until(&mut app, Duration::from_secs(120), "the report", |st| st["report"]["busy"] == false);
+    assert_eq!(st["report"]["exists"], true, "{}", st["notice"]);
+    assert!(dir.join("report").join("index.html").is_file());
+    let opened = st["opened"].as_array().unwrap().clone();
+    assert_eq!(opened.len(), 1, "the page was opened once");
+    assert!(opened[0].as_str().unwrap().ends_with("index.html"));
+    // Asking again opens it without making it again.
+    let made = std::fs::metadata(dir.join("report").join("index.html")).unwrap().modified().unwrap();
+    perform(&mut app, shell_core::actions::Action::HtmlReport);
+    let st = app.state();
+    assert_eq!(st["opened"].as_array().unwrap().len(), 2);
+    assert_eq!(std::fs::metadata(dir.join("report").join("index.html")).unwrap().modified().unwrap(), made);
+}
+
+#[gpui::test]
+fn a_results_file_opened_on_its_own_gets_its_report_next_to_it(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("rep-loose", |p| shop_plan(p, 1, 1), |_, _| {}) else { return };
+    let file = csv_file(&s.dir, "loose-results.csv", 300);
+    let mut app = open(cx, &s, true);
+    open_results(&mut app, &file);
+    wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    perform(&mut app, shell_core::actions::Action::HtmlReport);
+    let st = wait_until(&mut app, Duration::from_secs(120), "the report", |st| st["report"]["busy"] == false && st["report"]["exists"] == true);
+    assert!(s.dir.join("loose-results-report").join("index.html").is_file(), "{}", st["notice"]);
+}
+
+#[gpui::test]
+fn a_report_that_cannot_be_made_says_why_and_leaves_nothing(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("rep-bad", |p| shop_plan(p, 1, 1), |_, _| {}) else { return };
+    std::fs::write(s.dir.join("notes.txt"), "this is not a results file\n").unwrap();
+    let mut app = open(cx, &s, true);
+    open_results(&mut app, &s.dir.join("notes.txt"));
+    wait_until(&mut app, Duration::from_secs(30), "the file to be read", |st| st["run"]["phase"] == "Finished");
+    perform(&mut app, shell_core::actions::Action::HtmlReport);
+    let st = wait_until(&mut app, Duration::from_secs(120), "the end of the attempt", |st| st["report"]["busy"] == false);
+    assert_eq!(st["report"]["exists"], false);
+    assert!(!s.dir.join("notes-report").exists(), "no half-made report is left");
+    assert!(st["opened"].as_array().unwrap().is_empty());
+}
+
+#[gpui::test]
+fn a_report_without_java_or_jmeter_says_so(cx: &mut TestAppContext) {
+    let s = setup("rep-nojava", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "r.csv", 10);
+    let mut app = open(cx, &s, false);
+    open_results(&mut app, &file);
+    wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    perform(&mut app, shell_core::actions::Action::HtmlReport);
+    let n = notice_text(&mut app);
+    assert!(n.contains("JMeter") || n.contains("Java"), "{n}");
+    assert_eq!(app.state()["report"]["busy"], false);
+}

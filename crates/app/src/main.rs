@@ -63,6 +63,7 @@ fn main() {
             state_dump: args.state.clone(),
             theme: args.theme,
             detect_runtime: args.detect,
+            no_external_open: false,
         };
         let window = cx
             .open_window(

@@ -199,6 +199,11 @@ pub struct Shell {
     pub bottom_tab: BottomTab,
     pub run_detail: RunDetail,
     /// The request chosen in the request viewer (an index into the run's details).
+    /// Folders and pages the app was asked to show in another program.
+    pub opened: Vec<PathBuf>,
+    pub(crate) no_external_open: bool,
+    /// A report is being made.
+    pub report_busy: bool,
     pub req_sel: usize,
     pub req_part: RequestPart,
     pub req_focus: FocusHandle,
@@ -229,6 +234,8 @@ pub struct Options {
     pub theme: Option<ThemeChoice>,
     /// Look for Java and JMeter in the background.
     pub detect_runtime: bool,
+    /// Never start another program to show a folder or a page (tests); what would have been shown is still recorded.
+    pub no_external_open: bool,
 }
 
 macro_rules! shell_actions {
@@ -269,7 +276,7 @@ shell_actions!(
     ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
-    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, Quit,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, OpenResults, HtmlReport, Quit,
 );
 
 gpui::actions!(
@@ -369,6 +376,9 @@ impl Shell {
             about_open: false,
             bottom_tab: BottomTab::Problems,
             run_detail: RunDetail::Errors,
+            opened: Vec::new(),
+            no_external_open: options.no_external_open || std::env::var_os("JMETER_UI_NO_OPEN").is_some(),
+            report_busy: false,
             req_sel: 0,
             req_part: RequestPart::Response,
             req_focus: cx.focus_handle(),
@@ -780,6 +790,8 @@ impl Shell {
             Action::OpenRunsFolder => self.open_runs_folder(window, cx),
             Action::ViewRequests => self.show_requests(None, window, cx),
             Action::TestExpression => self.open_expression_dialog(window, cx),
+            Action::OpenResults => self.open_results_dialog(window, cx),
+            Action::HtmlReport => self.html_report(window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -977,6 +989,8 @@ impl Shell {
                     "details_skipped": r.details_skipped,
                 })
             }),
+            "opened": self.opened.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
+            "report": json!({ "busy": self.report_busy, "exists": self.run.as_ref().is_some_and(|r| jvm_runtime::report::existing(&r.report_dir()).is_some()) }),
             "requests": json!({
                 "selected": self.req_sel,
                 "part": format!("{:?}", self.req_part),

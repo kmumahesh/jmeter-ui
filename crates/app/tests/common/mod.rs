@@ -47,7 +47,7 @@ pub fn start<'a>(cx: &'a mut TestAppContext, open: Option<PathBuf>, settings_pat
         Some(l) => (l.settings, l.notice),
         None => (Settings::default(), None),
     };
-    let (shell, cx) = cx.add_window_view(move |window, cx| Shell::new(window, cx, Options { settings, notice, settings_path, open, ..Default::default() }));
+    let (shell, cx) = cx.add_window_view(move |window, cx| Shell::new(window, cx, Options { settings, notice, settings_path, open, no_external_open: true, ..Default::default() }));
     // Focus changes are only reported while the window counts as active, as it does on screen.
     cx.update(|window, _| window.activate_window());
     cx.run_until_parked();

@@ -515,7 +515,7 @@ impl Shell {
     pub fn open_runs_folder(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let target = self.run.as_ref().map(|r| r.dir.clone()).filter(|d| d.is_dir()).or_else(|| self.runs_root_for_active().filter(|d| d.is_dir()));
         match target {
-            Some(d) => open_in_file_manager(&d),
+            Some(d) => self.open_external(&d),
             None => self.notify("There are no run files yet", Severity::Info, window, cx),
         }
     }
@@ -526,9 +526,20 @@ impl Shell {
     }
 }
 
-/// Show a folder in the system file manager.
-pub fn open_in_file_manager(dir: &Path) {
-    if !dir.is_dir() {
+impl Shell {
+    /// Show a folder in the file manager or a page in the browser. What was asked for is recorded, and tests turn the
+    /// starting of another program off.
+    pub fn open_external(&mut self, path: &Path) {
+        self.opened.push(path.to_path_buf());
+        if !self.no_external_open {
+            open_with_system(path);
+        }
+    }
+}
+
+/// Show a folder in the system file manager, or open a file with the program the system uses for it.
+fn open_with_system(dir: &Path) {
+    if !dir.exists() {
         return;
     }
     let mut cmd = if cfg!(windows) {

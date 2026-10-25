@@ -84,6 +84,10 @@ pub struct RunSession {
     pub details_off: bool,
     /// Lines of the details file that could not be read.
     pub details_skipped: u64,
+    /// The results file this run is writing or was read from.
+    pub results_file: PathBuf,
+    /// Opened from a results file on its own, not from a run folder of this app.
+    pub loose: bool,
 }
 
 /// The file in a run folder that holds the details of its requests.
@@ -92,6 +96,7 @@ pub const DETAILS_FILE: &str = "details.jsonl";
 impl RunSession {
     /// A run that was just started.
     pub fn live(kind: RunKind, plan_path: PathBuf, dir: PathBuf, root: PathBuf, meta: RunMeta, handle: RunHandle, notes: Vec<String>) -> RunSession {
+        let results_file = dir.join("results.jtl");
         RunSession {
             kind,
             plan_name: meta.plan_name.clone(),
@@ -116,6 +121,8 @@ impl RunSession {
             details_tail: Some(DetailsTail::new()),
             details_off: false,
             details_skipped: 0,
+            results_file,
+            loose: false,
         }
     }
 
@@ -150,7 +157,30 @@ impl RunSession {
             details_tail: None,
             details_off: false,
             details_skipped: 0,
+            results_file: entry.dir.join("results.jtl"),
+            loose: false,
         }
+    }
+
+    /// A results file opened on its own, with no plan or run folder behind it.
+    pub fn from_results(file: &std::path::Path) -> RunSession {
+        let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "results".into());
+        let dir = file.parent().map(PathBuf::from).unwrap_or_default();
+        let mut meta = RunMeta::new(file, RunKind::Run, runs::local_now());
+        meta.plan_name = name;
+        meta.outcome = Outcome::Finished;
+        meta.started_ms = 0;
+        meta.ended_ms = Some(0);
+        let entry = RunEntry { dir: dir.clone(), meta };
+        let mut s = RunSession::stored(&entry, dir);
+        s.results_file = file.to_path_buf();
+        s.loose = true;
+        s
+    }
+
+    /// Where the HTML report of this run is, or goes: in the run folder, or next to a results file opened on its own.
+    pub fn report_dir(&self) -> PathBuf {
+        if self.loose { jvm_runtime::report::default_folder(&self.results_file) } else { self.dir.join("report") }
     }
 
     /// The details of a stored run have been read.
@@ -174,6 +204,19 @@ impl RunSession {
 
     /// The numbers of a stored run have been read.
     pub fn set_stored(&mut self, live: LiveStats, skipped: u64) {
+        if self.loose {
+            // There is no run.json: the length of the run is the span of the samples.
+            self.meta.ended_ms = Some((live.span_secs() * 1000.0) as u64);
+            let t = live.total();
+            (self.meta.samples, self.meta.errors) = (t.count, t.errors);
+            if t.count == 0 {
+                self.error = Some(if skipped > 0 {
+                    "This does not look like a JMeter results file in CSV form: no line in it could be read as a request. A results file starts with a line of column names that includes label and elapsed.".to_string()
+                } else {
+                    "This file has no requests in it.".to_string()
+                });
+            }
+        }
         self.live = live;
         self.skipped = skipped;
         self.phase = self.stored_phase.take().unwrap_or(Phase::Finished);
