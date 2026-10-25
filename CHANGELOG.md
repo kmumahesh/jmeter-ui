@@ -15,5 +15,6 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - Damaged-input tests and libFuzzer targets for the plan and results readers; a coverage report is made on every push to `main`.
 
 ### Fixed
+- On Linux and macOS a run ended by a kill is reported as ended (it was reported as still running).
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).
 - A settings file saved with a byte order mark is read instead of being set aside.

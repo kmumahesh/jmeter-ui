@@ -41,6 +41,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Safe running: nothing typed anywhere can be added to the JMeter command line, the stop port answers this machine only, JMeter never outlives the app (even after a crash), runaway output and hostile result files are bounded | ✅ |
 | Safe with hostile files: plans are read without ever fetching or reading other files, absurd nesting and sizes are refused, text typed into any box stays text, saving never writes to a file it should not | ✅ |
 | Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources | ✅ |
+| Builds and passes all the automated tests on Windows, Linux and macOS for every change; the real-window checks run on Windows | ✅ |
+| Release build: a signed version tag builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, as a draft release | ✅ |
 | Result listeners as in JMeter: View Results Tree with request and response, Aggregate Report, graphs over time | ⬜ |
 | Open saved result files (`.jtl`), compare two runs | ⬜ |
 | Open the generated HTML dashboard report | ⬜ |
@@ -59,10 +61,13 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Security review before every release (see `docs/PROGRESS.md`) | ⬜ |
 | Project concept: group plans, their run history and shared settings (a future idea, not planned yet) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
-| macOS and Linux builds | ⬜ |
+| Finish macOS and Linux: Cmd shortcuts on macOS (menus and global shortcuts use Ctrl today), JMeter ended when the app crashes, trying the window by hand on both | ⬜ |
 
-## Prerequisites (Windows)
-Rust stable, Visual Studio 2022 C++ build tools, and the Windows 10/11 SDK. Java 8 or newer and a JMeter 5.6.3 install to run plans.
+## Prerequisites
+
+**Windows:** Rust stable, Visual Studio 2022 C++ build tools, and the Windows 10/11 SDK. Java 8 or newer and a JMeter 5.6.3 install to run plans.
+
+**Linux:** the system libraries listed in the "System libraries for the window toolkit" step of `.github/workflows/ci.yml`. **macOS:** the Xcode command line tools. On both, the app builds and passes its automated tests, but the window itself has only been exercised by those tests so far; JMeter is ended when the app closes normally, not when it crashes.
 
 ## Run
     cargo run -p jmeter-ui -- path\to\plan.jmx

@@ -4,7 +4,7 @@ Thanks for helping. This is a Rust desktop app (GPUI) that edits and runs Apache
 
 ## Setup
 
-- Rust (the version in `rust-toolchain.toml`), Windows 10 or 11 for now.
+- Rust (the version in `rust-toolchain.toml`). Windows 10 or 11 is the main platform; Linux and macOS build and pass the tests in CI (see the README for what is not finished there).
 - Java 17 and Apache JMeter 5.6.3 to run the tests that start the real JMeter (set `JMETER_HOME`). Without them those tests skip themselves.
 - Optional: `cargo install cargo-audit cargo-deny`.
 

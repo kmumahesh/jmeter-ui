@@ -27,12 +27,11 @@ jobs:
       - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
       - run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
 
-  # The app is written to run on Linux and macOS too, but only Windows has been used so far. These jobs find out
-  # what does not work there. They report but do not block a merge yet; make them required once they are green.
+  # Linux and macOS: the same build and tests as Windows, so that nothing that only works on Windows gets in.
+  # The real-window checks and the crash-safety check run on Windows only.
   cross-platform:
     name: Build and test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     timeout-minutes: 60
     strategy:
       fail-fast: false
