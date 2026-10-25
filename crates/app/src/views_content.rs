@@ -155,7 +155,6 @@ impl Shell {
                     .child(div().flex().gap(px(6.)).child(seg("theme-system", "Follow system", ThemeChoice::System, cx)).child(seg("theme-dark", "Dark", ThemeChoice::Dark, cx)).child(seg("theme-light", "Light", ThemeChoice::Light, cx))),
             )
             .child(div().flex().flex_col().gap(px(8.)).child(heading("ON STARTUP")).child(div().flex().child(f.startup.clone())))
-            .child(self.request_details_section(cx))
             .child(
                 div()
                     .flex()
@@ -171,6 +170,7 @@ impl Shell {
                     .child(jmeter_line),
             )
             .child(self.runs_settings_section(cx))
+            .child(self.request_details_section(cx))
             .child(
                 div().flex().flex_col().gap(px(4.)).child(heading("SETTINGS FILE")).child(
                     div().font_family(MONO_FONT).text_size(px(11.5)).text_color(p.muted).child(self.settings_path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| "Not saved (no settings path)".into())),

@@ -924,7 +924,7 @@ fn the_viewer_is_not_available_before_a_run(cx: &mut TestAppContext) {
     perform(&mut app, shell_core::actions::Action::ViewRequests);
     assert_ne!(app.state()["bottom_tab"], "Requests", "nothing to show, so nothing opens");
     app.keys("ctrl-,");
-    app.scroll_down(300.0);
+    app.scroll_down(1200.0);
     for id in ["details-failed", "details-all", "details-off"] {
         assert!(app.has(id), "{id}");
     }
