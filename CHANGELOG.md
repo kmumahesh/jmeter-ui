@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Text area for request bodies and scripts, with line numbers and colours for JSON, XML and `${variables}`; an HTTP request shows it while it sends a body.
 - New plan (File > New Plan…, Ctrl+N): start from an API test, a web site test or an empty plan.
 - Open, edit and save `.jmx` plans: one tab per plan, a form for every element, add, delete, move, drag and drop, undo and redo, a recovery copy, Scope & Order and variable hints.
 - Run plans with the real JMeter: Run, Validate and Send once, stopping gently, at once or by force, live numbers and charts, failed requests and a table per request.

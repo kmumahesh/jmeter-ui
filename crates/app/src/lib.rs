@@ -12,6 +12,7 @@ pub mod form;
 pub mod fields;
 pub mod palette_view;
 pub mod shell;
+pub mod textarea;
 pub mod theme;
 pub mod ui_util;
 mod views;

@@ -406,6 +406,39 @@ Save-Shot $p "$($r.Dir)\new-plan.png"
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "13. Text area for a script"
+$r = New-Run "script"
+$scriptPlan = "$($r.Dir)\scripts.jmx"
+[System.IO.File]::WriteAllText($scriptPlan, @'
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree>
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Scripts" enabled="true"><boolProp name="TestPlan.functional_mode">false</boolProp><elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp></TestPlan>
+<hashTree><ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Users" enabled="true"><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp></ThreadGroup>
+<hashTree><JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Calc" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="script">// start
+def a = 1</stringProp></JSR223Sampler><hashTree/></hashTree></hashTree></hashTree></jmeterTestPlan>
+'@)
+$p = Start-Ui $Exe @($scriptPlan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+Send-Keys "^p"
+Send-Query "calc" $r.State
+Send-Keys "{ENTER}"
+$s = Get-State $r.State
+Check "the script element is selected" ($s.selected -eq "Calc") "selected = $($s.selected)"
+Click-At $p 800 600          # inside the script text area
+Send-Keys "^{END}"
+Send-Keys "{ENTER}b = 2"
+Start-Sleep -Milliseconds 800
+Save-Shot $p "$($r.Dir)\script-area.png"
+$s = Get-State $r.State
+Check "typing in the area marks the plan as changed" ($s.dirty -eq $true) ""
+Send-Keys "^s"
+Start-Sleep -Milliseconds 600
+$saved = [System.IO.File]::ReadAllText($scriptPlan)
+Check "the saved script keeps its lines" ($saved -match "// start\r?\ndef a = 1\r?\nb = 2") ""
+$s = Get-State $r.State
+Check "and nothing is left to save" ($s.dirty -eq $false) ""
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"

@@ -145,9 +145,20 @@ impl Shell {
                 self.checkbox(id.clone(), on, cx, handler)
             }
             Widget::Combo(c) => div().child(c.clone()).into_any_element(),
+            Widget::Area(a) => {
+                // Several lines need the width of the page: the label goes above, not beside.
+                let id = format!("area-{}", def.prop);
+                return div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.))
+                    .child(div().text_size(px(12.5)).text_color(p.muted).child(def.label.clone()))
+                    .child(div().debug_selector(move || id.clone()).max_w(px(900.)).child(a.clone()))
+                    .into_any_element();
+            }
             Widget::ReadOnly(text) => div().px(px(8.)).py(px(4.)).rounded(px(6.)).bg(p.panel).border_1().border_color(p.line).text_color(p.muted).font_family(MONO_FONT).text_size(px(12.)).child(if text.is_empty() { "\u{2014}".to_string() } else { text.clone() }).into_any_element(),
         };
-        let help = if matches!(item.widget, Widget::ReadOnly(_)) && matches!(item.def.kind, Kind::Multiline) { Some("Long text is edited in the script editor, which arrives in a later release.") } else { None };
+        let help = if matches!(item.widget, Widget::ReadOnly(_)) && matches!(item.def.kind, Kind::Summary) { Some("A list or group of settings: change it in JMeter for now.") } else { None };
         self.labelled(&def.label, control, help, cx)
     }
 

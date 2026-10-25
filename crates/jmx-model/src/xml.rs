@@ -336,8 +336,16 @@ pub fn escape(s: &str, attr: bool) -> String {
             '\r' => out.push_str("&#xd;"),
             '\n' if attr => out.push_str("&#xa;"),
             '\t' if attr => out.push_str("&#x9;"),
+            // XML 1.0 cannot hold these at all (not even as references), and a file with one in it cannot be
+            // read by JMeter, so they are never written.
+            c if !is_xml_char(c) => {}
             _ => out.push(c),
         }
     }
     out
+}
+
+/// Whether XML 1.0 allows the character.
+pub fn is_xml_char(c: char) -> bool {
+    matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..='\u{D7FF}' | '\u{E000}'..='\u{FFFD}' | '\u{10000}'..='\u{10FFFF}')
 }

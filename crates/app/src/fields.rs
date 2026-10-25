@@ -88,6 +88,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("tab", FocusNextField, c),
         KeyBinding::new("shift-tab", FocusPrevField, c),
     ]);
+    crate::textarea::bind_keys(cx);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

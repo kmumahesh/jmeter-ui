@@ -125,7 +125,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | # | Part | State |
 |---|---|---|
 | 1 | New plan from a starter (API, web site, empty) | done |
-| 2 | Multi-line editor for request bodies and scripts | to do |
+| 2 | Multi-line editor for request bodies and scripts | done |
 | 3 | Copy, cut and paste of elements, also between plans | to do |
 | 4 | Import from cURL | to do |
 | 5 | Request and response viewer, including failed requests | to do |

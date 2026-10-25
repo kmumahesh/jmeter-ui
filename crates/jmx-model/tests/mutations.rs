@@ -43,8 +43,10 @@ fn damaged_fragments_and_text_never_crash_and_escaping_round_trips() {
         let bytes = mutate(&mut rng, SEEDS[i % 3].as_bytes().get(..400).unwrap_or(b"<a b='c'>text &amp; more</a>"));
         let text = String::from_utf8_lossy(&bytes).into_owned();
         let _ = parse_fragment(&text);
-        assert_eq!(unescape(&escape(&text, false)), text, "round {i}: text");
-        assert_eq!(unescape(&escape(&text, true)), text, "round {i}: attribute");
+        // Characters XML 1.0 cannot hold are not written, so they do not come back.
+        let kept: String = text.chars().filter(|&c| jmx_model::xml::is_xml_char(c)).collect();
+        assert_eq!(unescape(&escape(&text, false)), kept, "round {i}: text");
+        assert_eq!(unescape(&escape(&text, true)), kept, "round {i}: attribute");
         let _ = unescape(&text); // any text, including broken references, is accepted
     }
 }
