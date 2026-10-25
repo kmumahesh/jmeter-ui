@@ -38,8 +38,10 @@ impl Shell {
             .child(div().text_color(p.muted).child("Open a test plan to see its elements, or press Ctrl+K for every command."))
             .child(
                 div()
-                    .debug_selector(|| "welcome-open".to_string())
-                    .child(Button::new("welcome-open", "Open Plan\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenPlan, window, cx)))),
+                    .flex()
+                    .gap(px(8.))
+                    .child(div().debug_selector(|| "welcome-new".to_string()).child(Button::new("welcome-new", "New Plan\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx)))))
+                    .child(div().debug_selector(|| "welcome-open".to_string()).child(Button::new("welcome-open", "Open Plan\u{2026}").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenPlan, window, cx))))),
             )
             .when(!recents.is_empty(), |d| {
                 d.child(
@@ -575,6 +577,14 @@ impl Shell {
                     vec![("dialog-save", "Save", true), ("dialog-discard", "Don't Save", false), ("dialog-cancel", "Cancel", false)],
                 )
             }
+            Some(Dialog::NewPlan) => (
+                "New plan".to_string(),
+                format!(
+                    "Choose a starting point. You pick where to save it next.\n\n{}",
+                    plan_core::starters::Starter::ALL.iter().map(|s| format!("{}: {}.", s.label(), s.description())).collect::<Vec<_>>().join("\n")
+                ),
+                vec![("dialog-new-api", "API test", true), ("dialog-new-web", "Web site test", false), ("dialog-new-empty", "Empty plan", false), ("dialog-cancel", "Cancel", false)],
+            ),
             Some(Dialog::DiscardForReload(id)) => (
                 "Discard changes?".to_string(),
                 format!("Reloading {} replaces your unsaved changes with the file on disk.", name_of(*id)),
@@ -631,6 +641,9 @@ impl Shell {
                 "dialog-save" => this.dialog_save(window, cx),
                 "dialog-discard" => this.dialog_discard(window, cx),
                 "dialog-reload" => this.dialog_reload(window, cx),
+                "dialog-new-api" => this.dialog_new_plan(plan_core::starters::Starter::Api, window, cx),
+                "dialog-new-web" => this.dialog_new_plan(plan_core::starters::Starter::Web, window, cx),
+                "dialog-new-empty" => this.dialog_new_plan(plan_core::starters::Starter::Empty, window, cx),
                 "dialog-recover" => this.resolve_recovery(true, window, cx),
                 "dialog-discard-recovery" => this.resolve_recovery(false, window, cx),
                 "dialog-save-run" => this.dialog_save_and_run(window, cx),

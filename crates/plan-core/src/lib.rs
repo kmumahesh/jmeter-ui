@@ -12,6 +12,7 @@ pub mod rules;
 pub mod scripts;
 pub mod scope;
 pub mod search;
+pub mod starters;
 pub mod templates;
 pub mod tree;
 pub mod variables;

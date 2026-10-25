@@ -101,7 +101,7 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 | Part | State |
 |---|---|
 | Branch rules | `main` protected (pull request, five required checks, signed commits, no force-push, no bypass); see `docs/DECISIONS.md` |
-| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 61 real-window checks; fuzzing and coverage when relevant |
+| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 62 real-window checks; fuzzing and coverage when relevant |
 | Release | signed tag on `main` builds the package, SBOM, checksums and build provenance as a draft release (`docs/RELEASING.md`) |
 | Repository files | `SECURITY.md` (private reporting is on), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, templates, `CODEOWNERS`, pinned Rust toolchain |
 | Supply chain | actions pinned to commit hashes, tools pinned by version, JMeter download checked by checksum, Dependabot for crates and actions |
@@ -117,6 +117,29 @@ Found while trying the tasks (not fixed yet; details and suggested fixes are in 
 - The per-request table is cut off and has no Total row.
 - Smaller points: inherited settings are invisible in the request form, "No matches" in the palette does not point to add mode, long element names are cut without an ellipsis, the form keeps its scroll position for the next element.
 - Missing compared with JMeter: recorder, templates, new plan, copy and paste, multi-line editor, expression tester, request and response viewer, opening result files, HTML report, remote testing.
+
+## Getting the app ready for testers (started 2026-10-25)
+
+Goal: performance engineers on Windows can finish an HTTP(S) API test, then a web test, inside the app. A build goes to testers when the list below is done. The order follows a tester's day: get a script in, edit it, find out why requests fail, share a result.
+
+| # | Part | State |
+|---|---|---|
+| 1 | New plan from a starter (API, web site, empty) | done |
+| 2 | Multi-line editor for request bodies and scripts | to do |
+| 3 | Copy, cut and paste of elements, also between plans | to do |
+| 4 | Import from cURL | to do |
+| 5 | Request and response viewer, including failed requests | to do |
+| 6 | Expression tester, variable values after a run | to do |
+| 7 | Open result files, make and open the HTML report | to do |
+| 8 | File pickers for CSV data, properties and `-J` overrides | to do |
+| 9 | The small fixes found in the guide | to do |
+| 10 | HTTP(S) Test Script Recorder | to do |
+| 11 | Templates, Add Think Times to children | to do |
+| 12 | Aggregate Report and graphs for each request | to do |
+| 13 | Compare two runs | to do |
+| 14 | Open large plans: measure the size that opens within 5 seconds, keep it as a limit | to do |
+
+Each part is its own pull request with logic, window, security and speed tests.
 
 ## Next
 Results (the Samples Explorer with request and response detail, comparing two runs, the generated HTML report, native versions of the dashboard graphs).

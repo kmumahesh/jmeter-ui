@@ -3,6 +3,7 @@
 pub mod assets;
 pub mod combo;
 mod editing;
+mod new_plan;
 mod run_ctl;
 mod running;
 mod views_run;

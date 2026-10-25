@@ -2,6 +2,8 @@
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Action {
+    /// Start a new plan from an empty one or from a starter for an API or a web site.
+    NewPlan,
     OpenPlan,
     SavePlan,
     SavePlanAs,
@@ -111,7 +113,8 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 38] = [
+    pub const ALL: [Action; 39] = [
+        Action::NewPlan,
         Action::OpenPlan,
         Action::SavePlan,
         Action::SavePlanAs,
@@ -154,6 +157,7 @@ impl Action {
 
     pub fn title(self) -> &'static str {
         match self {
+            Action::NewPlan => "New Plan…",
             Action::OpenPlan => "Open Plan…",
             Action::SavePlan => "Save Plan",
             Action::SavePlanAs => "Save Plan As…",
@@ -197,7 +201,7 @@ impl Action {
 
     pub fn group(self) -> Group {
         match self {
-            Action::OpenPlan | Action::SavePlan | Action::SavePlanAs | Action::ReloadPlan | Action::CloseTab | Action::CloseAllTabs | Action::OpenSettings | Action::Quit => Group::File,
+            Action::NewPlan | Action::OpenPlan | Action::SavePlan | Action::SavePlanAs | Action::ReloadPlan | Action::CloseTab | Action::CloseAllTabs | Action::OpenSettings | Action::Quit => Group::File,
             Action::Undo
             | Action::Redo
             | Action::DeleteElement
@@ -224,6 +228,7 @@ impl Action {
     /// Shortcut as shown to the user, for example `Ctrl+O`.
     pub fn shortcut(self) -> Option<&'static str> {
         match self {
+            Action::NewPlan => Some("Ctrl+N"),
             Action::OpenPlan => Some("Ctrl+O"),
             Action::SavePlan => Some("Ctrl+S"),
             Action::SavePlanAs => Some("Ctrl+Shift+S"),
@@ -322,7 +327,7 @@ mod tests {
         for a in [Action::ReloadPlan, Action::GotoElement, Action::ExpandAll, Action::CollapseAll, Action::CloseTab, Action::CloseAllTabs, Action::NextTab, Action::RunPlan, Action::StopRun] {
             assert!(!a.availability(&c).is_enabled(), "{a:?}");
         }
-        for a in [Action::OpenPlan, Action::OpenSettings, Action::About, Action::Quit, Action::CommandPalette, Action::ToggleSidebar, Action::ThemeDark] {
+        for a in [Action::NewPlan, Action::OpenPlan, Action::OpenSettings, Action::About, Action::Quit, Action::CommandPalette, Action::ToggleSidebar, Action::ThemeDark] {
             assert!(a.availability(&c).is_enabled(), "{a:?}");
         }
     }

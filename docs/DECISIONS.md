@@ -222,3 +222,9 @@ Added with the engineering-practice work, to test the two places that read files
 3. **Workflows that are not required** (real-window checks, coverage on `main`) use `paths-ignore`, so they do not start at all. Fuzzing and the release dry run already ran only for the files they care about.
 4. **Scheduled and manual runs always do everything.** New advisories appear without any change to the code.
 5. **A pull request that changes a workflow or the rule itself is code,** so the change is tested by the full run.
+
+## Getting plans started from inside the app (2026-10-25)
+1. **A new plan is saved before it opens.** File > New Plan asks which starter, then where to save it, writes the file and opens it like any other plan. There is no unsaved "untitled" plan: a run always uses the saved file, recovery copies sit next to the file, and a plan with no path would need special cases everywhere for little gain.
+2. **Starters are built, not stored.** Each starter (API test, web site test, empty plan) is made with the same editing steps a person would take, so its elements carry exactly the settings JMeter gives them. The server names in the starters are examples to replace; nothing points at a real site.
+3. **The name comes from the file.** The Test Plan is named after the file name, cleaned: control characters are dropped, the length is limited and an empty name becomes "Test Plan". Names are written as text, never as markup.
+4. **No surprises on disk.** The app never makes folders for the user, refuses a folder where a file is expected, refuses a name that is open in another tab, and replaces an existing file only after the system's own save question (which is where the user confirms it).
