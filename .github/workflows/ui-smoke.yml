@@ -1,0 +1,39 @@
+name: Real-window checks
+
+# Runs tests/ui/smoke.ps1, which starts the built app and drives it with real mouse and keyboard input.
+# The shared runner has no graphics card and starts at 1024x768, so the screen is raised to 1920x1080 first;
+# the window then opens with software drawing and all the checks run.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  smoke:
+    name: Real-window checks (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-jmeter
+      - run: cargo build --locked -p jmeter-ui
+      - name: Raise the screen to a size the window fits in
+        shell: pwsh
+        run: ./tests/ui/set-screen-size.ps1 -MinWidth 1400 -MinHeight 900
+      - name: Run the checks
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-smoke
+          path: target/ui-smoke
+          if-no-files-found: ignore

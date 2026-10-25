@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+      # Java and JMeter are installed so that the tests that run the real JMeter run here, not just locally.
+      - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
       - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
       - run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
