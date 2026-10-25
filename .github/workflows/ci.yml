@@ -48,7 +48,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
-      - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
+      # --no-fail-fast: one run lists every failure on this system, not only the first.
+      - run: cargo test --locked --no-fail-fast --workspace --exclude gpui-spike --exclude zed-ui-spike
 
   supply-chain:
     name: Advisories, licences, sources
