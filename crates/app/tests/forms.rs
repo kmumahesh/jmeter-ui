@@ -75,7 +75,7 @@ fn escape_puts_the_saved_value_back(cx: &mut TestAppContext) {
     let mut app = with_request(cx, "form-escape");
     app.type_into("field-HTTPSampler.path", "/one");
     app.click("field-HTTPSampler.path");
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("/two");
     app.keys("escape");
     assert_eq!(app.prop("HTTPSampler.path").as_deref(), Some("/one"));
@@ -338,7 +338,7 @@ fn assertion_patterns_are_a_list_of_strings(cx: &mut TestAppContext) {
     app.keys("enter");
     assert!(app.plan_text().contains(">Welcome</stringProp>"));
     app.click("cell-Asserion.test_strings-0-0");
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("Hello");
     app.keys("enter");
     let text = app.plan_text();
@@ -582,7 +582,7 @@ fn half_a_number_does_not_raise_an_error_while_typing(cx: &mut TestAppContext) {
 fn the_name_box_renames_while_typing(cx: &mut TestAppContext) {
     let mut app = with_request(cx, "form-live-name");
     app.click("field-name");
-    app.keys("ctrl-a");
+    app.keys(&secondary("ctrl-a"));
     app.input("Checkout");
     pause(&mut app, 1.0);
     assert_eq!(app.selected().as_deref(), Some("Checkout"));
