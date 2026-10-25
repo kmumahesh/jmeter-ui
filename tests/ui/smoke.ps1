@@ -11,6 +11,8 @@ param(
 )
 
 . "$PSScriptRoot\ui-lib.ps1"
+# The app records the pages it is asked to open instead of starting a browser during the checks.
+$env:JMETER_UI_NO_OPEN = "1"
 $ErrorActionPreference = "Stop"
 $clock = [System.Diagnostics.Stopwatch]::StartNew()
 $Exe = (Resolve-Path $Exe).Path
@@ -409,6 +411,11 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
     $s = Wait-RunEnd $r.State
     Check "F6 sends the selected request once" ($s.run.kind -eq "Send once" -and $s.run.samples -eq 1) "kind = $($s.run.kind), samples = $($s.run.samples)"
     Check "all three runs are in the history" ($s.history.Count -eq 3) "count = $($s.history.Count)"
+    Send-Keys "^+h"
+    $until = (Get-Date).AddSeconds(120)
+    do { Start-Sleep -Milliseconds 500; $s = Get-State $r.State } while ((-not $s.report.exists -or $s.report.busy) -and (Get-Date) -lt $until)
+    Check "Ctrl+Shift+H makes the HTML report with JMeter's generator and opens its page" ($s.report.exists -eq $true -and @($s.opened).Count -eq 1 -and (Test-Path "$($s.run.dir)\report\index.html")) "report = $($s.report | ConvertTo-Json -Compress); opened = $($s.opened -join ', ')"
+    Save-Shot $p "$($r.Dir)\report-made.png"
     Save-Shot $p "$($r.Dir)\run-history.png"
 
     } finally {
@@ -492,7 +499,9 @@ Send-Keys "^+i"
 $s = Get-State $r.State
 Check "Ctrl+Shift+I opens the cURL dialog" ($s.dialog -and $s.dialog.kind -eq "curl") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
 Send-Keys "curl https://x.org/a"
-$s = Get-State $r.State
+# The window shows the typed text a moment later on a slow machine, so look for a few seconds.
+$until = (Get-Date).AddSeconds(5)
+do { Start-Sleep -Milliseconds 250; $s = Get-State $r.State } while ($s.dialog.text -ne "curl https://x.org/a" -and (Get-Date) -lt $until)
 Check "typing goes into the dialog's text area" ($s.dialog.text -eq "curl https://x.org/a") "text = $($s.dialog.text)"
 Save-Shot $p "$($r.Dir)\curl-dialog.png"
 Stop-Ui $p

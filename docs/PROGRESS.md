@@ -130,7 +130,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 4 | Import from cURL | done |
 | 5 | Request and response viewer, including failed requests | done |
 | 6 | Expression tester, variable values after a run | done |
-| 7 | Open result files, make and open the HTML report | to do |
+| 7 | Open result files, make and open the HTML report | done |
 | 8 | File pickers for CSV data, properties and `-J` overrides | to do |
 | 9 | The small fixes found in the guide | to do |
 | 10 | HTTP(S) Test Script Recorder | to do |

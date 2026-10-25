@@ -5,6 +5,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Open a JMeter results file (Ctrl+Shift+O) and look at it like a run.
+- HTML report (Ctrl+Shift+H): made with JMeter's report generator from the results you are looking at, then opened in the browser.
 - Try an expression (Ctrl+Shift+T): a JSON Path, regular expression, XPath or CSS selector tried on some text with JMeter's own libraries; an extractor fills in its own expression and a response from the request viewer fills in the text.
 - The request viewer lists the variables of the thread after each request.
 - Escape closes a question (except the one about recovering unsaved changes).

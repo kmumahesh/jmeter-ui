@@ -147,7 +147,12 @@ impl Shell {
                             .child(div().debug_selector(|| "run-stop-now".to_string()).child(Button::new("run-stop-now", "Stop now").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.stop_run(true, w, cx)))))
                     })
                     .when(run.can_kill(), |d| d.child(div().debug_selector(|| "run-kill".to_string()).child(Button::new("run-kill", "End JMeter").style(ButtonStyle::Tinted(ui::TintColor::Error)).size(ButtonSize::Compact).on_click(cx.listener(|this, _, _, cx| this.kill_run(cx))))))
-                    .child(div().debug_selector(|| "run-view-requests".to_string()).child(Button::new("run-view-requests", if run.details.is_empty() { "View requests".to_string() } else { format!("View requests ({})", run.details.len()) }).style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.show_first_failure(w, cx)))))
+                    .when(!active, |d| {
+                        let exists = jvm_runtime::report::existing(&run.report_dir()).is_some();
+                        let label = if self.report_busy { "Making report\u{2026}" } else if exists { "Open report" } else { "Make report" };
+                        d.child(div().debug_selector(|| "run-report".to_string()).child(Button::new("run-report", label).style(ButtonStyle::Subtle).size(ButtonSize::Compact).disabled(self.report_busy).on_click(cx.listener(|this, _, w, cx| this.html_report(w, cx)))))
+                    })
+                    .when(!run.loose, |d| d.child(div().debug_selector(|| "run-view-requests".to_string()).child(Button::new("run-view-requests", if run.details.is_empty() { "View requests".to_string() } else { format!("View requests ({})", run.details.len()) }).style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.show_first_failure(w, cx))))))
                     .child(div().debug_selector(|| "run-open-folder".to_string()).child(Button::new("run-open-folder", "Open folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.open_runs_folder(w, cx))))),
             )
             .when_some(run.error.clone(), |d, e| d.child(div().id("run-error").debug_selector(|| "run-error".to_string()).text_color(p.err).child(e)))
@@ -334,8 +339,8 @@ impl Shell {
                 .child(
                     div()
                         .debug_selector(move || format!("history-folder-{i}"))
-                        .child(Button::new(("history-folder", i), "Folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(move |_, _, _, cx| {
-                            crate::run_ctl::open_in_file_manager(&dir_open);
+                        .child(Button::new(("history-folder", i), "Folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(move |this, _, _, cx| {
+                            this.open_external(&dir_open);
                             cx.stop_propagation();
                         }))),
                 )

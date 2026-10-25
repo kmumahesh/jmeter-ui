@@ -135,6 +135,7 @@ impl Shell {
             ("File", vec![
                 MenuItem::Action(Action::NewPlan),
                 MenuItem::Action(Action::OpenPlan),
+                MenuItem::Action(Action::OpenResults),
                 MenuItem::Recent,
                 MenuItem::Separator,
                 MenuItem::Action(Action::SavePlan),
@@ -179,6 +180,7 @@ impl Shell {
                     MenuItem::Action(Action::StopRun),
                     MenuItem::Action(Action::StopRunNow),
                     MenuItem::Action(Action::ViewRequests),
+                    MenuItem::Action(Action::HtmlReport),
                     MenuItem::Action(Action::OpenRunsFolder),
                     MenuItem::Action(Action::ClearRunsFolder),
                 ],

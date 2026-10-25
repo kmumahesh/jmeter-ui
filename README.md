@@ -52,7 +52,9 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
 | Request viewer (Ctrl+Shift+R): what was sent and what came back for each request — request line, headers and body, status, response headers and body, assertion results and the requests made as part of it. Failed requests are kept by default, or choose all requests or none in Settings; a run keeps at most 500. Send once opens it on the answer. Works on stored runs too | ✅ |
 | Aggregate Report with all percentiles and a Total row, and graphs over time for each request | ⬜ |
-| Open saved result files (`.jtl` or CSV) from anywhere, compare two runs | ⬜ |
+| Open a saved results file (`.jtl` or CSV, Ctrl+Shift+O) from anywhere and look at its numbers, charts, errors and requests like a run. A file with 300,000 rows opens in seconds while the window stays usable | ✅ |
+| HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
+| Compare two runs | ⬜ |
 | Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
 | Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
 | Templates (File > Templates) | ⬜ |
@@ -82,7 +84,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 79 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 80 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |
