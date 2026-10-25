@@ -23,22 +23,31 @@ public class Display {
 }
 "@
 
-$modes = @()
-$i = 0
-while ($true) {
+$ErrorActionPreference = "Stop"
+
+function New-Mode {
     $dm = New-Object Display+DEVMODE
-    $dm.dmSize = [int][System.Runtime.InteropServices.Marshal]::SizeOf($dm)
+    $dm.dmSize = [int16][System.Runtime.InteropServices.Marshal]::SizeOf([type]"Display+DEVMODE")
+    return $dm
+}
+
+$modes = @()
+for ($i = 0; ; $i++) {
+    $dm = New-Mode
     if (-not [Display]::EnumDisplaySettings($null, $i, [ref]$dm)) { break }
-    if ($dm.dmBitsPerPel -ge 24) { $modes += [pscustomobject]@{ W = $dm.dmPelsWidth; H = $dm.dmPelsHeight; Mode = $dm } }
-    $i++
+    if ($dm.dmBitsPerPel -ge 24) { $modes += [pscustomobject]@{ Index = $i; W = [int]$dm.dmPelsWidth; H = [int]$dm.dmPelsHeight } }
 }
 "Modes offered: " + (($modes | Sort-Object W, H -Unique | ForEach-Object { "$($_.W)x$($_.H)" }) -join ", ")
 $best = $modes | Where-Object { $_.W -ge $MinWidth -and $_.H -ge $MinHeight } | Sort-Object { $_.W * $_.H } | Select-Object -First 1
 if (-not $best) { $best = $modes | Sort-Object { $_.W * $_.H } -Descending | Select-Object -First 1 }
-$dm = $best.Mode
-$dm.dmFields = 0x80000 -bor 0x100000   # width and height
-$r = [Display]::ChangeDisplaySettings([ref]$dm, 0)
-Start-Sleep -Seconds 2
+if ($best) {
+    $dm = New-Mode
+    [void][Display]::EnumDisplaySettings($null, $best.Index, [ref]$dm)
+    $dm.dmFields = 0x80000 -bor 0x100000   # width and height
+    $r = [Display]::ChangeDisplaySettings([ref]$dm, 0)
+    Start-Sleep -Seconds 2
+    "Wanted $($best.W)x$($best.H); change result $r (0 is success)"
+}
 Add-Type -AssemblyName System.Windows.Forms
 $s = [System.Windows.Forms.Screen]::PrimaryScreen
-"Wanted $($best.W)x$($best.H); change result $r; screen is now $($s.Bounds.Width)x$($s.Bounds.Height), working area $($s.WorkingArea.Width)x$($s.WorkingArea.Height)"
+"Screen is now $($s.Bounds.Width)x$($s.Bounds.Height), working area $($s.WorkingArea.Width)x$($s.WorkingArea.Height)"
