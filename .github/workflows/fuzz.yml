@@ -1,0 +1,65 @@
+name: Fuzzing
+
+# Feeds random and damaged input to the readers of files that come from outside (plans and results files) and
+# fails if anything crashes, hangs or breaks the "saved exactly as it came" promise. Each target runs for a short
+# time here; the same checks in a fixed, repeatable form are in the normal tests (tests/mutations.rs).
+on:
+  pull_request:
+    paths:
+      - "crates/jmx-model/**"
+      - "crates/plan-core/**"
+      - "crates/jvm-runtime/**"
+      - "fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/jmx-model/**"
+      - "crates/plan-core/**"
+      - "crates/jvm-runtime/**"
+      - "fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # libFuzzer needs the nightly compiler; it is pinned to a date so that a new nightly cannot break the job.
+  FUZZ_NIGHTLY: nightly-2026-10-20
+  SECONDS_PER_TARGET: "60"
+
+jobs:
+  fuzz:
+    name: Fuzz the file readers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - name: Install the nightly compiler
+        run: rustup toolchain install "$FUZZ_NIGHTLY" --profile minimal --component rust-src
+      - uses: actions/cache@v4
+        id: tool
+        with:
+          path: ~/.cargo/bin/cargo-fuzz
+          key: cargo-fuzz-0.13.2-${{ runner.os }}
+      - name: Install cargo-fuzz
+        if: steps.tool.outputs.cache-hit != 'true'
+        run: cargo +"$FUZZ_NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+      - name: Run every target
+        run: |
+          for t in jmx_parse jmx_text plan_load results_jtl; do
+            echo "::group::$t"
+            cargo +"$FUZZ_NIGHTLY" fuzz run "$t" --sanitizer none -- -max_total_time="$SECONDS_PER_TARGET" -timeout=10 -rss_limit_mb=2048 -max_len=1048576
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-crashes
+          path: fuzz/artifacts
+          if-no-files-found: ignore

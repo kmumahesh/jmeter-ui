@@ -1,0 +1,46 @@
+[package]
+name = "jmeter-ui-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+jmx-model = { path = "../crates/jmx-model" }
+jvm-runtime = { path = "../crates/jvm-runtime" }
+plan-core = { path = "../crates/plan-core" }
+
+# Not part of the main workspace: fuzzing needs the nightly compiler and is built on its own.
+[workspace]
+
+[[bin]]
+name = "jmx_parse"
+path = "fuzz_targets/jmx_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "jmx_text"
+path = "fuzz_targets/jmx_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "plan_load"
+path = "fuzz_targets/plan_load.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "results_jtl"
+path = "fuzz_targets/results_jtl.rs"
+test = false
+doc = false
+bench = false

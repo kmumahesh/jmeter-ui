@@ -11,6 +11,9 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - Safety: hostile `.jmx` and results files are handled, nothing typed into a path or setting reaches the JMeter command line, JMeter is ended when the app closes or crashes (Windows), and only folders the app made are removed.
 - Automatic checks on GitHub: build, tests (including those that start the real JMeter), clippy, known advisories, licences and code sources.
 
+### Changed
+- Damaged-input tests and libFuzzer targets for the plan and results readers; a coverage report is made on every push to `main`.
+
 ### Fixed
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).
 - A settings file saved with a byte order mark is read instead of being set aside.
