@@ -22,11 +22,11 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - uses: ./.github/actions/setup-jmeter
       - run: rustup component add llvm-tools-preview
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: tool
         with:
           path: ~/.cargo/bin/cargo-llvm-cov.exe
@@ -48,7 +48,7 @@ jobs:
           Get-Content summary.txt | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           '```' | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
       - run: cargo llvm-cov report --html --ignore-filename-regex "(third_party|spikes|[\\/]tests[\\/])"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage
           path: |
