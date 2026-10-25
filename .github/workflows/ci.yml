@@ -27,6 +27,29 @@ jobs:
       - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
       - run: cargo clippy --locked --workspace --exclude gpui-spike --exclude zed-ui-spike --all-targets -- -D warnings
 
+  # The app is written to run on Linux and macOS too, but only Windows has been used so far. These jobs find out
+  # what does not work there. They report but do not block a merge yet; make them required once they are green.
+  cross-platform:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries for the window toolkit (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake clang pkg-config libfontconfig-dev libasound2-dev libssl-dev libzstd-dev             libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libx11-xcb-dev libxcb-xkb-dev libvulkan-dev
+      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-jmeter
+      - run: cargo build --locked -p jmeter-ui
+      - run: cargo test --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
+
   supply-chain:
     name: Advisories, licences, sources
     runs-on: ubuntu-latest
