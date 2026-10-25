@@ -188,3 +188,11 @@ Built for running plans; the description for the user is `docs/RUNNING.md`.
 11. **Found by the real-window test:** a settings file with a byte order mark was set aside as damaged; the loader now ignores the mark.
 12. **Every kind of test is timed.** `tools\run-tests.ps1` runs the unit and whole-window tests, clippy, `cargo audit`, `cargo deny` and, with `-Smoke`, the real-window script, and records each part's time in `docs/TEST-TIMINGS.md` (user request, 2026-10-24; also one of the working rules above).
 
+## Fuzzing and coverage (2026-10-25)
+Added with the engineering-practice work, to test the two places that read files from outside: plans (`jmx-model`, `plan-core`) and results files (`jvm-runtime`).
+1. **Two layers.** Repeatable damage tests (`tests/mutations.rs` in each crate) run in the normal test run: the same seed always gives the same damage, so a failure can be repeated, and they take seconds. libFuzzer targets (`fuzz/`) run for a minute each on GitHub (Linux, a pinned nightly compiler) and explore much further; the fuzz crate is outside the main workspace so the app and its tests stay on the pinned stable compiler.
+2. **What is checked.** Nothing crashes, hangs or uses unlimited memory; a plan the reader accepts is saved back exactly as it came; text that is escaped and unescaped comes back unchanged; a results file read in pieces gives the same rows as the whole file.
+3. **No new schedule.** Fuzzing runs for changes to the readers and by hand, not on a timer. The only scheduled runs are the two weekly advisory and code-scanning runs.
+4. **Coverage is informational.** `coverage.yml` (every push to `main`) keeps a summary, an lcov file and an HTML report; it never fails a pull request, so that a number is never reached by writing tests that do not check anything. Look at a drop, not at the level.
+5. **The seeds are kept in `fuzz/corpus`;** what libFuzzer finds during a run is not kept, a crashing input is uploaded as an artifact and should become a normal test.
+

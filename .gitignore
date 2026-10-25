@@ -6,3 +6,8 @@ tools/jmeter-catalog/out/
 
 # Local assistant files
 .claude/
+
+# Fuzzing and coverage output
+fuzz/target/
+fuzz/artifacts/
+lcov.info

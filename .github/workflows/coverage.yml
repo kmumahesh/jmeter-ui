@@ -1,0 +1,57 @@
+name: Coverage
+
+# How much of the code the tests run. Informational: it never fails a pull request, but the numbers are kept
+# with each run (job summary, lcov file and an HTML report) so that a drop is seen.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/coverage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: Test coverage (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-jmeter
+      - run: rustup component add llvm-tools-preview
+      - uses: actions/cache@v4
+        id: tool
+        with:
+          path: ~/.cargo/bin/cargo-llvm-cov.exe
+          key: cargo-llvm-cov-0.9.1-${{ runner.os }}
+      - name: Install cargo-llvm-cov
+        if: steps.tool.outputs.cache-hit != 'true'
+        run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Run the tests with coverage
+        run: >
+          cargo llvm-cov --locked --workspace --exclude gpui-spike --exclude zed-ui-spike
+          --ignore-filename-regex "(third_party|spikes|[\\/]tests[\\/])"
+          --lcov --output-path lcov.info
+      - name: Summary
+        shell: pwsh
+        run: |
+          cargo llvm-cov report --summary-only --ignore-filename-regex "(third_party|spikes|[\\/]tests[\\/])" | Tee-Object -FilePath summary.txt
+          "### Test coverage" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          '```' | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          Get-Content summary.txt | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          '```' | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+      - run: cargo llvm-cov report --html --ignore-filename-regex "(third_party|spikes|[\\/]tests[\\/])"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            lcov.info
+            summary.txt
+            target/llvm-cov/html
