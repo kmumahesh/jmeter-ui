@@ -1,0 +1,34 @@
+name: Set up Java and JMeter
+description: >
+  Installs Java 17 and Apache JMeter 5.6.3 for the tests that run the real JMeter, and sets JMETER_HOME.
+  The JMeter download is checked against the SHA-512 published by Apache and the job fails if it differs.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+    - uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\jmeter
+        key: jmeter-5.6.3-windows
+    - name: Install JMeter 5.6.3 (checksum verified)
+      shell: pwsh
+      run: |
+        $dest = Join-Path $env:RUNNER_TEMP 'jmeter'
+        $home_ = Join-Path $dest 'apache-jmeter-5.6.3'
+        if (-not (Test-Path (Join-Path $home_ 'bin\ApacheJMeter.jar'))) {
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP 'jmeter.zip'
+          Invoke-WebRequest -Uri 'https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.zip' -OutFile $zip
+          # Published at https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.zip.sha512
+          $expected = '387fadca903ee0aa30e3f2115fdfedb3898b102e6b9fe7cc3942703094bd2e65b235df2b0c6d0d3248e74c9a7950a36e42625fd74425368342c12e40b0163076'
+          $actual = (Get-FileHash $zip -Algorithm SHA512).Hash.ToLower()
+          if ($actual -ne $expected) { throw "JMeter download has the wrong checksum: $actual" }
+          Expand-Archive -Path $zip -DestinationPath $dest
+          Remove-Item $zip
+        }
+        "JMETER_HOME=$home_" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        java -version

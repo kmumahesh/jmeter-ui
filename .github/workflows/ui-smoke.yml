@@ -1,0 +1,44 @@
+name: Real-window checks
+
+# Runs tests/ui/smoke.ps1, which starts the built app and drives it with real mouse and keyboard input.
+# Started by hand for now: shared runners have no graphics card and a small screen, so this is a trial
+# to see whether the window opens and the checks are steady enough to run on every release.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/ui-smoke.yml"
+      - ".github/actions/**"
+      - "tests/ui/**"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  smoke:
+    name: Real-window checks (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-jmeter
+      - run: cargo build --locked -p jmeter-ui
+      - name: Screen size
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          $s = [System.Windows.Forms.Screen]::PrimaryScreen
+          "Screen: $($s.Bounds.Width)x$($s.Bounds.Height), working area $($s.WorkingArea.Width)x$($s.WorkingArea.Height)"
+      - name: Run the checks
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-smoke
+          path: target/ui-smoke
+          if-no-files-found: ignore
