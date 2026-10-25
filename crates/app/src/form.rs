@@ -500,6 +500,11 @@ impl Shell {
     fn has_uncommitted_text(&self, cx: &gpui::App) -> bool {
         let Some(form) = &self.form else { return false };
         let (plan_id, node) = (form.plan, form.node);
+        // A form for an element that is gone (it was undone, or cut) has nothing to save: its boxes only differ
+        // from the plan because the plan no longer has the element.
+        if !self.plans.iter().any(|p| p.id == plan_id && p.plan.node(node).is_some()) {
+            return false;
+        }
         let name_def = FieldDef { label: "Name".into(), prop: "@name".into(), kind: Kind::Text, default: String::new() };
         let comment_def = FieldDef { label: "Comments".into(), prop: forms::COMMENTS_PROP.into(), kind: Kind::Text, default: String::new() };
         form.name.read(cx).text() != self.stored_flat(plan_id, node, &name_def)

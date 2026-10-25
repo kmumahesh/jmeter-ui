@@ -665,6 +665,58 @@ fn reindent(e: &mut Element, strip: &str, add: &str, eol: &str) {
     }
 }
 
+// ---- elements as text, for copying between plans ----
+
+/// The (element, hash tree) pairs directly inside `level`, as copies that remember how they were indented.
+fn pairs_of(level: &Element) -> Vec<Pair> {
+    pairs(level)
+        .into_iter()
+        .map(|(e, h)| {
+            let lead = lead_text(level, e).unwrap_or("");
+            Pair { element: el(level, e).clone(), hash_tree: el(level, h).clone(), lead: None, mid: None, base: Some(indent_of(lead).to_string()), template: false }
+        })
+        .collect()
+}
+
+impl Pair {
+    /// The elements directly under this one, each with everything under it, as copies.
+    pub fn children(&self) -> Vec<Pair> {
+        pairs_of(&self.hash_tree)
+    }
+
+    /// How many elements this one and everything under it come to.
+    pub fn element_count(&self) -> usize {
+        fn count(level: &Element) -> usize {
+            pairs(level).into_iter().map(|(_, h)| 1 + count(el(level, h))).sum()
+        }
+        1 + count(&self.hash_tree)
+    }
+}
+
+const EMPTY_PLAN: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<jmeterTestPlan version=\"1.2\" properties=\"5.0\" jmeter=\"5.6.3\">\n  <hashTree>\n  </hashTree>\n</jmeterTestPlan>\n";
+
+impl Document {
+    /// The elements at the top of the plan (inside its root `<hashTree>`), each with everything under it, as
+    /// copies ready to be put somewhere else. A plan has its Test Plan there; a selection saved on its own has
+    /// the elements that were selected.
+    pub fn top_pairs(&self) -> Vec<Pair> {
+        match top_index(self) {
+            Some(top) => pairs_of(el(&self.root, top)),
+            None => Vec::new(),
+        }
+    }
+
+    /// A plan file that holds only `pairs` at its top, which is what a copied selection looks like as text.
+    pub fn with_top(pairs: Vec<Pair>) -> Result<Document> {
+        let mut doc = Document::parse(EMPTY_PLAN)?;
+        doc.index_plan();
+        for (i, p) in pairs.into_iter().enumerate() {
+            doc.insert_pair(None, i, p)?;
+        }
+        Ok(doc)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1002,5 +1054,102 @@ mod tests {
         assert!(d.insert_row(s, "nope/Arguments.arguments", 0, row("a", "b")).is_err());
         assert!(d.remove_row(s, ROWS, 9).is_err());
         assert!(d.remove_row(9999, ROWS, 0).is_err());
+    }
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+
+    const SRC: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<jmeterTestPlan version=\"1.2\">\n  <hashTree>\n    <TestPlan testname=\"P\">\n      <stringProp name=\"a\">1</stringProp>\n    </TestPlan>\n    <hashTree>\n      <ThreadGroup testname=\"G\"/>\n      <hashTree>\n        <HTTPSamplerProxy testname=\"S1\">\n          <stringProp name=\"script\">line 1\n  line 2 &amp; &lt;x&gt;</stringProp>\n        </HTTPSamplerProxy>\n        <hashTree/>\n        <HTTPSamplerProxy testname=\"S2\"/>\n        <hashTree/>\n      </hashTree>\n      <Arguments testname=\"V\"/>\n      <hashTree/>\n    </hashTree>\n  </hashTree>\n</jmeterTestPlan>\n";
+
+    fn doc() -> Document {
+        let mut d = Document::parse(SRC).unwrap();
+        d.index_plan();
+        d
+    }
+
+    fn uid_of(d: &Document, name: &str) -> u32 {
+        fn find(d: &Document, parent: Option<u32>, name: &str) -> Option<u32> {
+            for uid in d.plan_children(parent)? {
+                if d.plan_element(uid)?.attr("testname").as_deref() == Some(name) {
+                    return Some(uid);
+                }
+                if let Some(u) = find(d, Some(uid), name) {
+                    return Some(u);
+                }
+            }
+            None
+        }
+        find(d, None, name).unwrap_or_else(|| panic!("no {name}"))
+    }
+
+    fn names(pairs: &[Pair]) -> Vec<String> {
+        pairs.iter().map(|p| p.element.attr("testname").unwrap_or_default()).collect()
+    }
+
+    #[test]
+    fn the_top_of_a_plan_is_its_test_plan_and_its_children_are_reachable() {
+        let d = doc();
+        let top = d.top_pairs();
+        assert_eq!(names(&top), ["P"]);
+        let kids = top[0].children();
+        assert_eq!(names(&kids), ["G", "V"]);
+        assert_eq!(names(&kids[0].children()), ["S1", "S2"]);
+        assert_eq!(top[0].element_count(), 5);
+        assert_eq!(kids[0].element_count(), 3);
+        assert_eq!(kids[1].element_count(), 1);
+    }
+
+    #[test]
+    fn copied_elements_make_a_plan_file_that_holds_only_them() {
+        let d = doc();
+        let pairs = vec![d.copy_pair(uid_of(&d, "G")).unwrap(), d.copy_pair(uid_of(&d, "V")).unwrap()];
+        let text = Document::with_top(pairs).unwrap().write();
+        let again = Document::parse(&text).unwrap_or_else(|e| panic!("{e:#}\n{text}"));
+        let top = again.top_pairs();
+        assert_eq!(names(&top), ["G", "V"]);
+        assert_eq!(names(&top[0].children()), ["S1", "S2"]);
+        assert!(text.contains("<jmeterTestPlan"), "{text}");
+    }
+
+    #[test]
+    fn text_with_lines_and_markup_survives_being_copied() {
+        let d = doc();
+        let text = Document::with_top(vec![d.copy_pair(uid_of(&d, "S1")).unwrap()]).unwrap().write();
+        let again = Document::parse(&text).unwrap();
+        let s1 = &again.top_pairs()[0];
+        let script = s1.element.elements().find(|e| e.attr("name").as_deref() == Some("script")).unwrap().text();
+        assert_eq!(script, "line 1\n  line 2 & <x>", "{text}");
+    }
+
+    #[test]
+    fn a_pair_from_another_document_can_be_put_under_an_element_and_gets_new_ids() {
+        let src = doc();
+        let mut dst = doc();
+        let mut pair = src.top_pairs()[0].children().remove(0); // G, with S1 and S2
+        dst.assign_uids(&mut pair);
+        let g2 = pair.uid();
+        let target = uid_of(&dst, "V");
+        let before = dst.plan_children(Some(target)).unwrap().len();
+        dst.insert_pair(Some(target), 0, pair).unwrap();
+        assert_eq!(dst.plan_children(Some(target)).unwrap().len(), before + 1);
+        assert_eq!(dst.plan_element(g2).unwrap().attr("testname").as_deref(), Some("G"));
+        let all: Vec<u32> = dst.plan_children(Some(g2)).unwrap();
+        assert_eq!(all.len(), 2);
+        let reparsed = Document::parse(&dst.write()).unwrap();
+        assert_eq!(reparsed.top_pairs()[0].element_count(), 8, "five elements and the three that came with the copy");
+    }
+
+    #[test]
+    fn nothing_copied_is_an_empty_plan_file() {
+        let text = Document::with_top(vec![]).unwrap().write();
+        assert!(Document::parse(&text).unwrap().top_pairs().is_empty());
+    }
+
+    #[test]
+    fn a_document_without_a_plan_tree_has_no_top_elements() {
+        assert!(Document::parse("<a><b/></a>").unwrap().top_pairs().is_empty());
+        assert!(Document::parse("<jmeterTestPlan/>").unwrap().top_pairs().is_empty());
     }
 }

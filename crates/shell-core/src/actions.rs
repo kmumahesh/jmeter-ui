@@ -2,6 +2,18 @@
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Action {
+    /// Turn cURL commands into HTTP requests in the plan.
+    ImportCurl,
+    /// Put the selected element and everything under it on the clipboard.
+    CopyElement,
+    /// Copy the selected element, then remove it.
+    CutElement,
+    /// Put the elements on the clipboard into the plan, under the selected element or next to it.
+    PasteElement,
+    /// Save the selected element and everything under it as a plan file of its own.
+    SaveSelectionAs,
+    /// Bring the elements of a plan file into this plan.
+    MergePlan,
     /// Start a new plan from an empty one or from a starter for an API or a web site.
     NewPlan,
     OpenPlan,
@@ -113,7 +125,13 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 39] = [
+    pub const ALL: [Action; 45] = [
+        Action::ImportCurl,
+        Action::CopyElement,
+        Action::CutElement,
+        Action::PasteElement,
+        Action::SaveSelectionAs,
+        Action::MergePlan,
         Action::NewPlan,
         Action::OpenPlan,
         Action::SavePlan,
@@ -157,6 +175,12 @@ impl Action {
 
     pub fn title(self) -> &'static str {
         match self {
+            Action::ImportCurl => "Import from cURL…",
+            Action::CopyElement => "Copy Element",
+            Action::CutElement => "Cut Element",
+            Action::PasteElement => "Paste Element",
+            Action::SaveSelectionAs => "Save Selection As…",
+            Action::MergePlan => "Merge Plan…",
             Action::NewPlan => "New Plan…",
             Action::OpenPlan => "Open Plan…",
             Action::SavePlan => "Save Plan",
@@ -201,7 +225,7 @@ impl Action {
 
     pub fn group(self) -> Group {
         match self {
-            Action::NewPlan | Action::OpenPlan | Action::SavePlan | Action::SavePlanAs | Action::ReloadPlan | Action::CloseTab | Action::CloseAllTabs | Action::OpenSettings | Action::Quit => Group::File,
+            Action::NewPlan | Action::OpenPlan | Action::SavePlan | Action::SavePlanAs | Action::ReloadPlan | Action::CloseTab | Action::CloseAllTabs | Action::OpenSettings | Action::Quit | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl => Group::File,
             Action::Undo
             | Action::Redo
             | Action::DeleteElement
@@ -210,6 +234,9 @@ impl Action {
             | Action::ToggleElementEnabled
             | Action::MoveElementUp
             | Action::MoveElementDown
+            | Action::CopyElement
+            | Action::CutElement
+            | Action::PasteElement
             | Action::AddElement => Group::Edit,
             Action::NextTab | Action::PrevTab | Action::FocusTree | Action::GotoElement | Action::CommandPalette => Group::Navigate,
             Action::ToggleSidebar
@@ -228,6 +255,10 @@ impl Action {
     /// Shortcut as shown to the user, for example `Ctrl+O`.
     pub fn shortcut(self) -> Option<&'static str> {
         match self {
+            Action::ImportCurl => Some("Ctrl+Shift+I"),
+            Action::CopyElement => Some("Ctrl+C"),
+            Action::CutElement => Some("Ctrl+X"),
+            Action::PasteElement => Some("Ctrl+V"),
             Action::NewPlan => Some("Ctrl+N"),
             Action::OpenPlan => Some("Ctrl+O"),
             Action::SavePlan => Some("Ctrl+S"),
@@ -263,13 +294,20 @@ impl Action {
 
     /// Shortcuts that only work while the tree has the focus, so a stray key elsewhere never changes the plan.
     pub fn tree_only(self) -> bool {
-        matches!(self, Action::DeleteElement | Action::RenameElement | Action::MoveElementUp | Action::MoveElementDown | Action::DuplicateElement | Action::ToggleElementEnabled)
+        matches!(
+            self,
+            Action::DeleteElement | Action::RenameElement | Action::MoveElementUp | Action::MoveElementDown | Action::DuplicateElement | Action::ToggleElementEnabled | Action::CopyElement | Action::CutElement | Action::PasteElement
+        )
     }
 
     pub fn availability(self, c: &AppContext) -> Availability {
         use Availability::*;
         match self {
             Action::ReloadPlan | Action::ExpandAll | Action::CollapseAll | Action::GotoElement | Action::FocusTree if !c.has_plan => Disabled("Open a plan first"),
+            Action::CopyElement | Action::CutElement | Action::PasteElement | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl if !c.has_plan => Disabled("Open a plan first"),
+            Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.has_selection => Disabled("Select an element first"),
+            Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.selection_editable => Disabled("The Test Plan itself cannot be copied; select something inside it"),
+            Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl if !c.can_edit => Disabled("Editing is not available"),
             Action::AddElement if !c.has_plan => Disabled("Open a plan first"),
             Action::AddElement if !c.can_edit => Disabled("Editing is not available"),
             Action::SavePlan | Action::SavePlanAs if !c.has_plan => Disabled("Open a plan first"),

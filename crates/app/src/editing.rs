@@ -179,7 +179,7 @@ impl Shell {
 
     /// Run an edit on the active plan. The closure returns the element to select afterwards. Errors are shown
     /// to the user and change nothing.
-    fn edit_active(&mut self, window: &mut Window, cx: &mut Context<Self>, f: impl FnOnce(&mut EditablePlan, &Plan) -> anyhow::Result<Option<NodeId>>) -> bool {
+    pub(crate) fn edit_active(&mut self, window: &mut Window, cx: &mut Context<Self>, f: impl FnOnce(&mut EditablePlan, &Plan) -> anyhow::Result<Option<NodeId>>) -> bool {
         let Some(lp) = self.plan_mut() else { return false };
         let plan = lp.plan.clone();
         match f(&mut lp.edit, &plan) {

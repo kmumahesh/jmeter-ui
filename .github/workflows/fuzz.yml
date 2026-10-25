@@ -52,7 +52,7 @@ jobs:
         run: cargo +"$FUZZ_NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
       - name: Run every target
         run: |
-          for t in jmx_parse jmx_text plan_load results_jtl; do
+          for t in jmx_parse jmx_text plan_load results_jtl curl_import paste_text; do
             echo "::group::$t"
             cargo +"$FUZZ_NIGHTLY" fuzz run "$t" --sanitizer none -- -max_total_time="$SECONDS_PER_TARGET" -timeout=10 -rss_limit_mb=2048 -max_len=1048576
             echo "::endgroup::"

@@ -45,6 +45,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources (a change to documentation only skips the build and tests, so it is checked in seconds) | ✅ |
 | Builds and passes all the automated tests on Windows, Linux and macOS for every change; the real-window checks run on Windows | ✅ |
 | Release build: a signed version tag builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, as a draft release | ✅ |
+| Import from cURL (Ctrl+Shift+I): paste one or more `curl` commands, for example from a browser's "Copy as cURL", and each becomes an HTTP request with its headers, body or form fields; what was left out is written in the request's comment; the command is only read, never run | ✅ |
+| Copy, cut and paste elements (Ctrl+C, Ctrl+X, Ctrl+V and the menus) with everything under them, inside a plan or between plans; a paste goes where JMeter's rules allow and is one undo step; save a selection as a plan file of its own; merge a plan file into the open plan | ✅ |
 | Text area for request bodies and scripts: line numbers, colours for JSON, XML and `${variables}`, indenting, scrolling and undo; an HTTP request shows the body editor while it sends a body and the parameters table otherwise | ✅ |
 | New plan (File > New Plan…, Ctrl+N): start from an API test, a web site test or an empty plan, choose where to save it, and it opens ready to edit and run | ✅ |
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
@@ -52,9 +54,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Aggregate Report with all percentiles and a Total row, and graphs over time for each request | ⬜ |
 | Open saved result files (`.jtl` or CSV) from anywhere, compare two runs | ⬜ |
 | Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
-| Copy, cut and paste elements (also between plans), merge a plan into another | ⬜ |
-| Save a selection as a Test Fragment | ⬜ |
-| Templates (File > Templates) and import from cURL | ⬜ |
+| Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
+| Templates (File > Templates) | ⬜ |
 | Search and replace across the plan | ⬜ |
 | HTTP(S) Test Script Recorder (proxy, certificate, request filtering) | ⬜ |
 | Expression tester (regex, JSON path, XPath, CSS) against a real response, variable values after a run, and the Function Helper dialog | ⬜ |
@@ -79,7 +80,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 66 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 72 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

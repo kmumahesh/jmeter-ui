@@ -1,6 +1,7 @@
 //! The test plan as the app sees it: element kinds, what can go where, the tree and its state.
 
 pub mod catalog;
+pub mod curl;
 pub mod derive;
 pub mod edit;
 pub mod files;

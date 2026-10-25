@@ -439,6 +439,42 @@ Check "and nothing is left to save" ($s.dirty -eq $false) ""
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "14. Copy and paste of elements"
+$r = New-Run "copypaste"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+Send-Keys "^p"
+Send-Query "bugdetail" $r.State
+Send-Keys "{ENTER}"
+$s = Get-State $r.State
+$before = $s.elements
+Check "a request is selected in the tree" ($s.selected -eq "BugDetail Page") "selected = $($s.selected)"
+Send-Keys "^c"
+Send-Keys "^v"
+$s = Get-State $r.State
+Check "Ctrl+C then Ctrl+V adds a copy with what is under it" ($s.elements -gt $before -and $s.dirty -eq $true) "elements $before -> $($s.elements)"
+Save-Shot $p "$($r.Dir)\pasted.png"
+Send-Keys "^z"
+$s = Get-State $r.State
+Check "one Ctrl+Z takes the whole paste away" ($s.elements -eq $before -and $s.dirty -eq $false) "elements = $($s.elements), dirty = $($s.dirty)"
+Send-Keys "^x"
+$s = Get-State $r.State
+Check "Ctrl+X removes the element" ($s.elements -lt $before) "elements = $($s.elements)"
+Send-Keys "^z"
+Stop-Ui $p
+
+Write-Host "15. Import from cURL"
+$r = New-Run "curl"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+Send-Keys "^+i"
+$s = Get-State $r.State
+Check "Ctrl+Shift+I opens the cURL dialog" ($s.dialog -and $s.dialog.kind -eq "curl") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
+Send-Keys "curl https://x.org/a"
+$s = Get-State $r.State
+Check "typing goes into the dialog's text area" ($s.dialog.text -eq "curl https://x.org/a") "text = $($s.dialog.text)"
+Save-Shot $p "$($r.Dir)\curl-dialog.png"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"

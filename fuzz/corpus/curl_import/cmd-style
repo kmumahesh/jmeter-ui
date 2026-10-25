@@ -1,0 +1,3 @@
+curl ^"https://x.org/a^" ^
+  -H ^"a: b^" ^
+  --data-raw ^"^{^\^"k^\^":1^}^"
