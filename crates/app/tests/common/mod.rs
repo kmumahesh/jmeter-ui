@@ -14,6 +14,12 @@ pub fn fixture(name: &str) -> PathBuf {
 
 pub const WEB: &str = "build-adv-web-test-plan.jmx";
 
+/// The shortcut for text editing (select all, copy, undo, word moves) as the window binds it: the app uses the
+/// platform key, which is Ctrl on Windows and Linux and Cmd on macOS. Write it with `ctrl-` here.
+pub fn secondary(keys: &str) -> String {
+    if cfg!(target_os = "macos") { keys.replace("ctrl-", "cmd-") } else { keys.to_string() }
+}
+
 pub fn temp_dir(name: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("jmeter-ui-{name}-{}-{:?}", std::process::id(), std::thread::current().id()));
     let _ = std::fs::remove_dir_all(&d);
@@ -154,7 +160,7 @@ impl App<'_> {
     /// Click into a box, replace what is in it with `text` and press Enter.
     pub fn type_into(&mut self, selector: &'static str, text: &str) {
         self.click(selector);
-        self.keys("ctrl-a");
+        self.keys(&secondary("ctrl-a"));
         self.input(text);
         self.keys("enter");
     }

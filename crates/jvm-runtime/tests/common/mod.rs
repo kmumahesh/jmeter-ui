@@ -269,6 +269,7 @@ pub fn process_alive(pid: u32) -> bool {
     }
     #[cfg(unix)]
     {
-        std::path::Path::new(&format!("/proc/{pid}")).exists()
+        // `kill -0` sends nothing; it only says whether the process exists (there is no /proc on macOS).
+        std::process::Command::new("kill").args(["-0", &pid.to_string()]).stderr(std::process::Stdio::null()).status().is_ok_and(|s| s.success())
     }
 }
