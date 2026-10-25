@@ -70,6 +70,8 @@ pub enum Dialog {
     DiscardForReload(PlanId),
     /// Which kind of plan to start.
     NewPlan,
+    /// cURL commands are being pasted in; `error` says why the last attempt did not work.
+    Curl { area: Entity<crate::textarea::TextArea>, error: Option<String> },
     /// A recovery copy was left by an earlier session.
     Recover { path: PathBuf, saved: Option<String>, recovered: String },
     /// The plan has unsaved changes and a run uses the saved file.
@@ -244,7 +246,7 @@ macro_rules! shell_actions {
 }
 
 shell_actions!(
-    NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
+    ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
     StopRunNow, ClearRunsFolder, OpenRunsFolder, Quit,
@@ -665,6 +667,12 @@ impl Shell {
         // Text typed into a box but not yet confirmed is saved first, so it is part of what happens next.
         self.flush_form(window, cx);
         match action {
+            Action::ImportCurl => self.open_curl_dialog(window, cx),
+            Action::CopyElement => self.copy_selected(window, cx),
+            Action::CutElement => self.cut_selected(window, cx),
+            Action::PasteElement => self.paste_clipboard(window, cx),
+            Action::SaveSelectionAs => self.save_selection_as(window, cx),
+            Action::MergePlan => self.merge_dialog(window, cx),
             Action::NewPlan => {
                 self.dialog = Some(Dialog::NewPlan);
             }
@@ -903,6 +911,7 @@ impl Shell {
             "dialog": self.dialog.as_ref().map(|d| match d {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
                 Dialog::NewPlan => json!({ "kind": "new_plan" }),
+                Dialog::Curl { area, error } => json!({ "kind": "curl", "error": error, "text": area.read(cx).text() }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),

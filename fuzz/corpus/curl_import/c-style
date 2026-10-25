@@ -1,0 +1,2 @@
+curl x.org -d $'aA
+	' -F f=@file.txt -b 'a=b' -A agent

@@ -2,6 +2,8 @@
 
 pub mod assets;
 pub mod combo;
+mod clipboard;
+mod curl_import;
 mod editing;
 mod new_plan;
 mod run_ctl;

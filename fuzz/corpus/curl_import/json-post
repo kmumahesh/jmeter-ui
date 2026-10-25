@@ -1,0 +1,3 @@
+curl 'https://api.example.com/login' \
+  -H 'content-type: application/json' \
+  --data-raw '{"user":"demo"}' --compressed

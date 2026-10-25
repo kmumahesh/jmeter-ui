@@ -585,6 +585,11 @@ impl Shell {
                 ),
                 vec![("dialog-new-api", "API test", true), ("dialog-new-web", "Web site test", false), ("dialog-new-empty", "Empty plan", false), ("dialog-cancel", "Cancel", false)],
             ),
+            Some(Dialog::Curl { .. }) => (
+                "Import from cURL".to_string(),
+                "Paste one or more curl commands, for example from \"Copy as cURL\" in a browser's developer tools. Each becomes an HTTP request; its headers go in an HTTP Header Manager under it.".to_string(),
+                vec![("dialog-curl-add", "Add to Plan", true), ("dialog-cancel", "Cancel", false)],
+            ),
             Some(Dialog::DiscardForReload(id)) => (
                 "Discard changes?".to_string(),
                 format!("Reloading {} replaces your unsaved changes with the file on disk.", name_of(*id)),
@@ -635,12 +640,18 @@ impl Shell {
             ),
             None => (String::new(), String::new(), Vec::new()),
         };
+        let curl = match &self.dialog {
+            Some(Dialog::Curl { area, error }) => Some((area.clone(), error.clone())),
+            _ => None,
+        };
         let buttons = buttons.into_iter().map(|(id, label, primary)| {
             let b = Button::new(id, label).style(if primary { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle });
-            div().debug_selector(move || id.to_string()).child(b.on_click(cx.listener(move |this, _, window, cx| match id {
+            div().debug_selector(move || id.to_string()).child(b.on_click(cx.listener(move |this, _, window, cx| {
+            match id {
                 "dialog-save" => this.dialog_save(window, cx),
                 "dialog-discard" => this.dialog_discard(window, cx),
                 "dialog-reload" => this.dialog_reload(window, cx),
+                "dialog-curl-add" => this.dialog_curl_add(window, cx),
                 "dialog-new-api" => this.dialog_new_plan(plan_core::starters::Starter::Api, window, cx),
                 "dialog-new-web" => this.dialog_new_plan(plan_core::starters::Starter::Web, window, cx),
                 "dialog-new-empty" => this.dialog_new_plan(plan_core::starters::Starter::Empty, window, cx),
@@ -654,6 +665,12 @@ impl Shell {
                 "dialog-delete-run" => this.dialog_delete_run(window, cx),
                 "dialog-stop-quit" => this.dialog_stop_and_quit(window, cx),
                 _ => this.dialog_cancel(cx),
+            }
+            // A question that held the keyboard focus (the cURL dialog has a text area) gives it back to the window,
+            // so the shortcuts work again without a click.
+            if this.dialog.is_none() {
+                window.focus(&this.focus, cx);
+            }
             })))
         });
         div()
@@ -668,7 +685,8 @@ impl Shell {
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .child(
                 div()
-                    .w(px(440.))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. })) { 680. } else { 440. }))
+                    .max_w_full()
                     .p(px(22.))
                     .flex()
                     .flex_col()
@@ -680,6 +698,10 @@ impl Shell {
                     .shadow_lg()
                     .child(div().text_size(px(17.)).font_weight(FontWeight::SEMIBOLD).child(title))
                     .child(div().text_color(p.muted).child(body))
+                    .when_some(curl, |d, (area, error)| {
+                        d.child(div().debug_selector(|| "curl-text".to_string()).child(area))
+                            .when_some(error, |d, e| d.child(div().debug_selector(|| "curl-error".to_string()).text_color(p.err).text_size(px(12.5)).child(e)))
+                    })
                     .child(div().flex().justify_end().gap(px(8.)).children(buttons)),
             )
     }

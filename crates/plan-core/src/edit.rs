@@ -1,12 +1,12 @@
 //! Editing a plan: every change is a step that can be undone and redone, and the plan text is only
 //! touched where the change is.
 
-use crate::catalog::Category;
+use crate::catalog::{self, Category};
 use crate::model::{NodeId, Plan};
 use crate::rules;
 use crate::templates;
-use anyhow::{Context, Result, bail};
-use jmx_model::{Document, Element, Head, PropOld, Removed, RemovedRow};
+use anyhow::{Context, Result, anyhow, bail};
+use jmx_model::{Document, Element, Head, Pair, PropOld, Removed, RemovedRow};
 use std::sync::Arc;
 
 /// Where an element sits: its parent (`None` for the top level) and its position among the siblings.
@@ -35,6 +35,8 @@ enum Step {
     RowRemove { uid: u32, table: String, index: usize, held: Option<RemovedRow> },
     /// A table row was replaced by `new`; `old` is what it was.
     RowReplace { uid: u32, table: String, index: usize, old: RemovedRow, new: Element },
+    /// Several elements were added together (a paste). While undone, `held` keeps them, in order.
+    AddMany { uids: Vec<u32>, held: Vec<Removed> },
 }
 
 /// What the app should show after an undo or redo.
@@ -82,6 +84,16 @@ impl Step {
                 doc.restore_row(old.clone())?;
                 Some(*uid)
             }
+            Step::AddMany { uids, held } => {
+                let mut removed = Vec::with_capacity(uids.len());
+                for uid in uids.iter().rev() {
+                    removed.push(doc.remove_pair(*uid)?);
+                }
+                removed.reverse();
+                let parent = removed.first().and_then(|r| r.parent);
+                *held = removed;
+                parent
+            }
         };
         Ok(Outcome { select: select.map(NodeId) })
     }
@@ -124,6 +136,12 @@ impl Step {
                 *old = doc.remove_row(*uid, table, *index)?;
                 doc.insert_row(*uid, table, *index, new.clone())?;
                 Some(*uid)
+            }
+            Step::AddMany { uids, held } => {
+                for r in held.drain(..) {
+                    doc.restore(r)?;
+                }
+                uids.first().copied()
             }
         };
         Ok(Outcome { select: select.map(NodeId) })
@@ -394,6 +412,127 @@ impl EditablePlan {
     pub fn prop(&self, id: NodeId, name: &str) -> Option<String> {
         self.doc.prop(id.0, name)
     }
+
+    // ---- copying and pasting ----
+
+    /// The elements, each with everything under it, as the text of a plan file that holds just them: what goes on
+    /// the clipboard, or into a file saved from a selection.
+    pub fn copy_text(&self, ids: &[NodeId]) -> Result<String> {
+        if ids.is_empty() {
+            bail!("nothing is selected");
+        }
+        let mut pairs = Vec::new();
+        for &id in ids {
+            if self.node(id)?.category == Category::TestPlan {
+                bail!("the Test Plan itself cannot be copied; select something inside it");
+            }
+            pairs.push(self.doc.copy_pair(id.0).context("that element is no longer in the plan")?);
+        }
+        Ok(Document::with_top(pairs)?.write())
+    }
+
+    /// Put the elements in `text` (see `copy_text`; a whole plan file works too, and then what is inside its Test
+    /// Plan is put) under `parent` at `index`. Nothing is changed unless every element may go there. It is one
+    /// step to undo.
+    pub fn paste_text(&mut self, parent: NodeId, index: usize, text: &str) -> Result<Vec<NodeId>> {
+        let pairs = pasted_pairs(text)?;
+        self.paste_pairs(parent, index, pairs)
+    }
+
+    /// Paste where it fits: under `selected` if the elements may go there (as its last children), else right after
+    /// `selected` or after the nearest element above it that they may go under.
+    pub fn paste_near(&mut self, selected: NodeId, text: &str) -> Result<Vec<NodeId>> {
+        let pairs = pasted_pairs(text)?;
+        let fits = |parent: &crate::model::Node| pairs.iter().all(|p| rules::can_add(parent.category, kind_of(p).1));
+        let sel = self.node(selected)?;
+        if fits(sel) {
+            let at = sel.children.len();
+            return self.paste_pairs(selected, at, pairs);
+        }
+        let mut target = None;
+        let mut child = selected;
+        while let Some(parent_id) = self.node(child)?.parent {
+            let parent = self.node(parent_id)?;
+            if fits(parent) {
+                let at = parent.children.iter().position(|&c| c == child).map_or(parent.children.len(), |i| i + 1);
+                target = Some((parent_id, at));
+                break;
+            }
+            child = parent_id;
+        }
+        match target {
+            Some((parent, at)) => self.paste_pairs(parent, at, pairs),
+            None => {
+                let label = kind_of(&pairs[0]).0;
+                bail!("{label} cannot go under {} or next to it", self.node(selected)?.type_label)
+            }
+        }
+    }
+
+    fn paste_pairs(&mut self, parent: NodeId, index: usize, pairs: Vec<Pair>) -> Result<Vec<NodeId>> {
+        let p = self.node(parent)?;
+        for pair in &pairs {
+            let (label, category) = kind_of(pair);
+            if !rules::can_add(p.category, category) {
+                bail!("{label} cannot go under {}", p.type_label);
+            }
+        }
+        let index = index.min(p.children.len());
+        let mut uids: Vec<u32> = Vec::with_capacity(pairs.len());
+        for (i, mut pair) in pairs.into_iter().enumerate() {
+            self.doc.assign_uids(&mut pair);
+            let uid = pair.uid();
+            if let Err(e) = self.doc.insert_pair(Some(parent.0), index + i, pair) {
+                for done in uids.iter().rev() {
+                    let _ = self.doc.remove_pair(*done);
+                }
+                return Err(e);
+            }
+            uids.push(uid);
+        }
+        if let Err(e) = self.record(Step::AddMany { uids: uids.clone(), held: Vec::new() }) {
+            // The plan cannot be read with these elements in it (damaged text that still parsed as a plan): take them
+            // out again and forget the step, so a refused paste leaves nothing behind.
+            self.undo.pop();
+            for uid in uids.iter().rev() {
+                let _ = self.doc.remove_pair(*uid);
+            }
+            let _ = self.refresh();
+            return Err(e.context("those elements do not make a valid plan"));
+        }
+        Ok(uids.into_iter().map(NodeId).collect())
+    }
+}
+
+/// The most text that is read as elements to paste.
+pub const MAX_PASTE_BYTES: usize = 64 * 1024 * 1024;
+
+/// The most elements one paste may bring.
+pub const MAX_PASTE_ELEMENTS: usize = 200_000;
+
+/// What an element is called in JMeter's menus, and its category.
+fn kind_of(p: &Pair) -> (String, Category) {
+    catalog::describe(&p.element.name, &p.element.attr("guiclass").unwrap_or_default())
+}
+
+/// The elements to paste from text, or why there are none.
+fn pasted_pairs(text: &str) -> Result<Vec<Pair>> {
+    if text.len() > MAX_PASTE_BYTES {
+        bail!("that text is too big to paste ({} MB)", text.len() / (1024 * 1024));
+    }
+    let doc = Document::parse(text).map_err(|_| anyhow!("that is not text copied from a JMeter plan"))?;
+    let mut pairs = doc.top_pairs();
+    if pairs.len() == 1 && kind_of(&pairs[0]).1 == Category::TestPlan {
+        pairs = pairs[0].children();
+    }
+    if pairs.is_empty() {
+        bail!("there are no plan elements in that text");
+    }
+    let total: usize = pairs.iter().map(Pair::element_count).sum();
+    if total > MAX_PASTE_ELEMENTS {
+        bail!("that is {total} elements; a paste may bring at most {MAX_PASTE_ELEMENTS}");
+    }
+    Ok(pairs)
 }
 
 #[cfg(test)]

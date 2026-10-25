@@ -5,6 +5,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Import from cURL: paste curl commands and get HTTP requests, with headers, bodies and form fields.
+- Copy, cut and paste elements (also between plans), save a selection as a plan file, and merge a plan file into the open plan.
 - Text area for request bodies and scripts, with line numbers and colours for JSON, XML and `${variables}`; an HTTP request shows it while it sends a body.
 - New plan (File > New Plan…, Ctrl+N): start from an API test, a web site test or an empty plan.
 - Open, edit and save `.jmx` plans: one tab per plan, a form for every element, add, delete, move, drag and drop, undo and redo, a recovery copy, Scope & Order and variable hints.
@@ -24,3 +26,6 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - The `--state` file used by the real-window checks is written in one step, so it is never read half written.
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).
 - A settings file saved with a byte order mark is read instead of being set aside.
+- A plan file that starts with a byte order mark is read and saved back with it; one with damaged text after it used to crash the reader.
+- Selecting an element with a comment or a table value of several lines no longer turns the lines into spaces when the form is saved, and undoing a paste no longer leaves the plan marked as unsaved.
+- Control characters that a plan file cannot hold are no longer written to it.

@@ -194,16 +194,22 @@ pub const MAX_DEPTH: usize = 500;
 
 impl Document {
     pub fn parse(src: &str) -> Result<Document> {
+        // A byte order mark in front (a file saved by an editor that adds one) is not XML text: the reader skips it
+        // and loses count of where it is, so it is taken off here and put back in front when the file is written.
+        let body = src.trim_start_matches('\u{feff}');
+        let (bom, src) = (&src[..src.len() - body.len()], body);
         let mut reader = Reader::from_str(src);
         let mut stack: Vec<Element> = Vec::new();
-        let mut prolog = String::new();
+        let mut prolog = String::from(bom);
         let mut root: Option<Element> = None;
         let mut epilog = String::new();
         let mut last = 0usize;
         loop {
             let ev = reader.read_event().with_context(|| format!("XML error near byte {}", reader.buffer_position()))?;
             let end = reader.buffer_position() as usize;
-            let raw = &src[last..end];
+            let Some(raw) = src.get(last..end) else {
+                bail!("the reader lost its place in the text near byte {end}");
+            };
             last = end;
             match ev {
                 Event::Eof => break,
@@ -348,4 +354,45 @@ pub fn escape(s: &str, attr: bool) -> String {
 /// Whether XML 1.0 allows the character.
 pub fn is_xml_char(c: char) -> bool {
     matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..='\u{D7FF}' | '\u{E000}'..='\u{FFFD}' | '\u{10000}'..='\u{10FFFF}')
+}
+
+#[cfg(test)]
+mod bom_tests {
+    use super::*;
+
+    #[test]
+    fn a_byte_order_mark_is_kept_and_does_not_confuse_the_reader() {
+        for text in ["\u{feff}<a/>", "\u{feff}<?xml version=\"1.0\"?>\n<a b=\"c\">text &amp; more</a>\n", "\u{feff}\u{feff}<a/>"] {
+            match Document::parse(text) {
+                Ok(d) => assert_eq!(d.write(), text, "{text:?} is written back as it came"),
+                Err(_) => {} // two marks in a row are not a document, and that is fine
+            }
+        }
+        assert!(Document::parse("\u{feff}<a>\u{feff}</a>").is_ok(), "a mark inside the text is just a character");
+        assert_eq!(Document::parse("\u{feff}<a>\u{feff}</a>").unwrap().write(), "\u{feff}<a>\u{feff}</a>");
+    }
+
+    #[test]
+    fn what_the_fuzzer_found_does_not_panic() {
+        // A mark, text that is not XML, and broken UTF-8 turned into replacement characters: the reader's position
+        // used to land inside a character and the text was sliced there.
+        let bytes: &[u8] = b"\xef\xbb\xbfw\x19<jmeteest\xff\xdfan vbrssin=0<j\xef\xbb\xbfw\xf80<jao\rd\r\xff\x00\xff?>";
+        let text = String::from_utf8_lossy(bytes).into_owned();
+        let _ = Document::parse(&text);
+        let _ = parse_fragment(&text);
+        assert_eq!(unescape(&escape(&text, false)), text.chars().filter(|&c| is_xml_char(c)).collect::<String>());
+    }
+
+    #[test]
+    fn a_slice_that_would_split_a_character_is_an_error_not_a_panic() {
+        // Whatever the reader says its position is, a bad one gives an error. Every prefix and suffix of text with
+        // multi-byte characters and marks must be read or refused, never crash.
+        let text = "\u{feff}<a x=\"\u{e9}\u{1F600}\">\u{feff}\u{e9}</a>\u{feff}";
+        for i in 0..=text.len() {
+            if text.is_char_boundary(i) {
+                let _ = Document::parse(&text[..i]);
+                let _ = Document::parse(&text[i..]);
+            }
+        }
+    }
 }

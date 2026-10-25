@@ -140,6 +140,10 @@ impl Shell {
                 MenuItem::Action(Action::SavePlanAs),
                 MenuItem::Action(Action::ReloadPlan),
                 MenuItem::Separator,
+                MenuItem::Action(Action::MergePlan),
+                MenuItem::Action(Action::ImportCurl),
+                MenuItem::Action(Action::SaveSelectionAs),
+                MenuItem::Separator,
                 MenuItem::Action(Action::CloseTab),
                 MenuItem::Action(Action::CloseAllTabs),
                 MenuItem::Separator,
@@ -149,6 +153,10 @@ impl Shell {
             ("Edit", vec![
                 MenuItem::Action(Action::Undo),
                 MenuItem::Action(Action::Redo),
+                MenuItem::Separator,
+                MenuItem::Action(Action::CutElement),
+                MenuItem::Action(Action::CopyElement),
+                MenuItem::Action(Action::PasteElement),
                 MenuItem::Separator,
                 MenuItem::Action(Action::AddElement),
                 MenuItem::Action(Action::DuplicateElement),
@@ -665,6 +673,10 @@ impl Tree {
                     });
                 menu.item(ContextMenuItem::Entry(entry))
             };
+            menu = item(menu, "Cut".into(), Action::CutElement, &shell, &ctx);
+            menu = item(menu, "Copy".into(), Action::CopyElement, &shell, &ctx);
+            menu = item(menu, "Paste".into(), Action::PasteElement, &shell, &ctx);
+            menu = menu.separator();
             menu = item(menu, "Duplicate".into(), Action::DuplicateElement, &shell, &ctx);
             menu = item(menu, "Delete".into(), Action::DeleteElement, &shell, &ctx);
             menu = item(menu, "Rename".into(), Action::RenameElement, &shell, &ctx);

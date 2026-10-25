@@ -1,0 +1,2 @@
+curl -u demo:s3cret https://x.org/private?x=1 -H 'Accept: text/plain'
+curl -X DELETE http://127.0.0.1:8080/items/7
