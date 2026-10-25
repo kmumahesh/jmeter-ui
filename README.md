@@ -42,7 +42,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Warning before the first run of a plan that contains scripts (asked once per plan file) | ✅ |
 | Safe running: nothing typed anywhere can be added to the JMeter command line, the stop port answers this machine only, JMeter never outlives the app (even after a crash), runaway output and hostile result files are bounded | ✅ |
 | Safe with hostile files: plans are read without ever fetching or reading other files, absurd nesting and sizes are refused, text typed into any box stays text, saving never writes to a file it should not | ✅ |
-| Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources | ✅ |
+| Automatic checks on GitHub for every change: build, tests, lints, known vulnerabilities, licences, code sources (a change to documentation only skips the build and tests, so it is checked in seconds) | ✅ |
 | Builds and passes all the automated tests on Windows, Linux and macOS for every change; the real-window checks run on Windows | ✅ |
 | Release build: a signed version tag builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, as a draft release | ✅ |
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
