@@ -4,6 +4,9 @@ tools/jmeter-catalog/out/
 *.jmx.bak
 *.jmx.tmp
 
+# Runs made from the guide's example plan
+docs/guide/demo/runs/
+
 # Local assistant files
 .claude/
 
