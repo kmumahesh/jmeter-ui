@@ -1,0 +1,122 @@
+name: Release
+
+# Builds the release package, a checksum file and a list of dependencies (SBOM), and, for a version tag, attaches
+# them to a DRAFT GitHub release for a person to read and publish (see docs/RELEASING.md).
+#
+#   - Tag `vX.Y.Z` pushed:     build, checksums, SBOM, signed build provenance, draft release.
+#   - Pull request or manual:  the same build as a dry run; nothing is released.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build the release package (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write       # to sign the build provenance
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag is on main
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Tag $env:GITHUB_REF_NAME is not on main; releases are made from main only." }
+
+      - name: Work out the version
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF_NAME.Substring(1) } else { $v = "dev-$($env:GITHUB_SHA.Substring(0,7))" }
+          "version=$v" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "Version: $v"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked -p jmeter-ui
+
+      - name: Make the package
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $name = "jmeter-ui-$v-windows-x64"
+          $stage = Join-Path $env:RUNNER_TEMP $name
+          New-Item -ItemType Directory -Force "$stage\third-party" | Out-Null
+          Copy-Item target\release\jmeter-ui.exe $stage
+          Copy-Item LICENSE, README.md, CHANGELOG.md $stage
+          Copy-Item third_party\zed\PROVENANCE.md "$stage\third-party\PROVENANCE.md"
+          Get-ChildItem assets\fonts -Recurse -Include 'license*', 'OFL*', 'LICENSE*' | ForEach-Object { Copy-Item $_.FullName "$stage\third-party\font-$($_.Directory.Name)-$($_.Name)" }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path $stage -DestinationPath "dist\$name.zip"
+
+      - name: List of dependencies (SBOM)
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          cargo install cargo-cyclonedx --version 0.5.9 --locked
+          cargo cyclonedx --format json --spec-version 1.5
+          $bom = Get-ChildItem crates\app -Filter '*.cdx.json' | Select-Object -First 1
+          if (-not $bom) { throw "No SBOM was written for the app." }
+          Copy-Item $bom.FullName "dist\jmeter-ui-$v-sbom.cdx.json"
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Set-Location dist
+          Get-ChildItem -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | Sort-Object Name | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Out-File SHA256SUMS.txt -Encoding ascii
+          Get-Content SHA256SUMS.txt
+
+      - name: Signed build provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.zip
+            dist/*.cdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/*
+          if-no-files-found: error
+
+  draft-release:
+    name: Draft the GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
+      - name: Create the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$TAG" \
+            --notes "Draft. Before publishing: add the changelog entry and the result of the manual security review (docs/RELEASING.md). To check a download: compare it with SHA256SUMS.txt, and run 'gh attestation verify <file> --repo $GITHUB_REPOSITORY'."
