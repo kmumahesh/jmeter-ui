@@ -27,12 +27,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: ./.github/actions/setup-jmeter
       - run: cargo build --locked -p jmeter-ui
-      - name: Screen size
+      - name: Use the largest screen size the runner offers
         shell: pwsh
-        run: |
-          Add-Type -AssemblyName System.Windows.Forms
-          $s = [System.Windows.Forms.Screen]::PrimaryScreen
-          "Screen: $($s.Bounds.Width)x$($s.Bounds.Height), working area $($s.WorkingArea.Width)x$($s.WorkingArea.Height)"
+        run: ./tests/ui/set-screen-size.ps1 -MinWidth 1400 -MinHeight 900
       - name: Run the checks
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1
