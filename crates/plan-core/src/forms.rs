@@ -21,8 +21,10 @@ pub enum Kind {
     BitChoice(&'static [(&'static str, i64)]),
     /// A single flag in an integer setting.
     BitFlag(i64),
-    /// Text that may span lines. Shown but not yet editable here.
+    /// Text that may span lines, edited in a text area.
     Multiline,
+    /// A collection or group of settings, shown as a short summary and not edited here.
+    Summary,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -34,6 +36,8 @@ pub struct Field {
     /// What the element does when the setting is missing, shown as the value then.
     pub default: &'static str,
     pub help: &'static str,
+    /// Shown only while this on/off setting of the element is in the given state.
+    pub when: Option<(&'static str, bool)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -65,6 +69,8 @@ pub struct Table {
     pub columns: &'static [Column],
     pub shape: RowShape,
     pub add_label: &'static str,
+    /// Shown only while this on/off setting of the element is in the given state.
+    pub when: Option<(&'static str, bool)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -75,11 +81,33 @@ pub struct Section {
 }
 
 const fn f(label: &'static str, prop: &'static str, kind: Kind) -> Field {
-    Field { label, prop, kind, default: "", help: "" }
+    Field { label, prop, kind, default: "", help: "", when: None }
 }
 
 const fn fd(label: &'static str, prop: &'static str, kind: Kind, default: &'static str) -> Field {
-    Field { label, prop, kind, default, help: "" }
+    Field { label, prop, kind, default, help: "", when: None }
+}
+
+/// A field that is shown only while an on/off setting of the element is in the given state.
+const fn fw(label: &'static str, prop: &'static str, kind: Kind, when: (&'static str, bool)) -> Field {
+    Field { label, prop, kind, default: "", help: "", when: Some(when) }
+}
+
+/// The on/off setting that makes an HTTP request send its parameters as one body.
+pub const RAW_BODY: &str = "HTTPSampler.postBodyRaw";
+
+/// The table of parameters of an HTTP request (or of its defaults).
+pub const PARAMETERS: &str = "HTTPsampler.Arguments/Arguments.arguments";
+
+/// The body of an HTTP request that sends one: the value of the first row of the parameters.
+pub const BODY: &str = "HTTPsampler.Arguments/Arguments.arguments/#0/Argument.value";
+
+/// Whether a field or table with this condition is shown for `node`.
+pub fn shown(when: Option<(&str, bool)>, node: &Node) -> bool {
+    match when {
+        None => true,
+        Some((prop, want)) => node.props.iter().find(|p| p.name == prop).is_some_and(|p| p.value == "true") == want,
+    }
 }
 
 const fn col(label: &'static str, prop: &'static str, kind: Kind) -> Column {
@@ -152,6 +180,7 @@ const TEST_PLAN: &[Section] = &[Section {
         columns: ARGUMENT_COLUMNS,
         shape: RowShape::Argument,
         add_label: "Add Variable",
+        when: None,
     }],
 }];
 
@@ -204,13 +233,14 @@ const HTTP_REQUEST: &[Section] = &[
     },
     Section {
         title: "Parameters",
-        fields: &[fd("Send the parameters as a body", "HTTPSampler.postBodyRaw", Bool, "false")],
+        fields: &[fd("Send the parameters as a body", RAW_BODY, Bool, "false"), fw("Body", BODY, Multiline, (RAW_BODY, true))],
         tables: &[Table {
             title: "Parameters sent with the request",
             path: "HTTPsampler.Arguments/Arguments.arguments",
             columns: HTTP_ARGUMENT_COLUMNS,
             shape: RowShape::HttpArgument,
             add_label: "Add Parameter",
+            when: Some((RAW_BODY, false)),
         }],
     },
 ];
@@ -251,6 +281,7 @@ const HTTP_DEFAULTS: &[Section] = &[
             columns: HTTP_ARGUMENT_COLUMNS,
             shape: RowShape::HttpArgument,
             add_label: "Add Parameter",
+            when: None,
         }],
     },
 ];
@@ -367,6 +398,7 @@ const RESPONSE_ASSERTION: &[Section] = &[
             columns: &[col("Pattern", "", Text)],
             shape: RowShape::Text,
             add_label: "Add Pattern",
+            when: None,
         }],
     },
     Section { title: "Custom failure message", fields: &[f("Message", "Assertion.custom_message", Text)], tables: &[] },
@@ -521,13 +553,13 @@ const CSV_DATA_SET: &[Section] = &[Section {
 const HEADER_MANAGER: &[Section] = &[Section {
     title: "Headers",
     fields: &[],
-    tables: &[Table { title: "Headers sent with every request", path: "HeaderManager.headers", columns: HEADER_COLUMNS, shape: RowShape::Header, add_label: "Add Header" }],
+    tables: &[Table { title: "Headers sent with every request", path: "HeaderManager.headers", columns: HEADER_COLUMNS, shape: RowShape::Header, add_label: "Add Header", when: None }],
 }];
 
 const USER_VARIABLES: &[Section] = &[Section {
     title: "User defined variables",
     fields: &[],
-    tables: &[Table { title: "Variables", path: "Arguments.arguments", columns: ARGUMENT_COLUMNS, shape: RowShape::Argument, add_label: "Add Variable" }],
+    tables: &[Table { title: "Variables", path: "Arguments.arguments", columns: ARGUMENT_COLUMNS, shape: RowShape::Argument, add_label: "Add Variable", when: None }],
 }];
 
 const COOKIE_MANAGER: &[Section] = &[Section {
@@ -655,7 +687,7 @@ pub fn generic_fields(node: &Node) -> Vec<GenericField> {
                 PropKind::Double => (Decimal, false),
                 PropKind::String if p.value.contains('\n') => (Multiline, false),
                 PropKind::String => (Text, false),
-                PropKind::Collection | PropKind::Nested => (Text, true),
+                PropKind::Collection | PropKind::Nested => (Summary, true),
             };
             GenericField { prop: p.name.clone(), label: label_for_prop(&p.name), kind, summary_only }
         })
@@ -696,7 +728,7 @@ mod tests {
         "SizeAssertion.response_network_size", "JSONPostProcessor.compute_concat", "JSONPostProcessor.defaultValues", "JSONPostProcessor.referenceNames", "JSONPostProcessor.jsonPathExprs",
         "JSONPostProcessor.match_numbers", "HtmlExtractor.extractor_impl", "maxSize", "clearEachIteration", "CookieManager.clearEachIteration", "CookieManager.controlledByThreadGroup",
         "ResultCollector.error_logging", "filename", "Assertion.custom_message", "Assertion.test_strings", "Asserion.test_strings", "IfController.condition", "WhileController.condition",
-        "HeaderManager.headers", "Arguments.arguments", "DEFAULT", "script", "parameters", "XPathExtractor.fragment",
+        "HeaderManager.headers", "Arguments.arguments", "DEFAULT", "script", "parameters", "XPathExtractor.fragment", "Argument.value",
     ];
 
     fn template_props(tag: &str, gui: &str) -> HashSet<String> {
@@ -830,7 +862,7 @@ mod tests {
                 ("HTTPSampler.port", Number, false),
                 ("x.rate", Decimal, false),
                 ("script", Multiline, false),
-                ("HTTPSampler.items", Text, true),
+                ("HTTPSampler.items", Summary, true),
             ],
             "the comments have their own box"
         );
@@ -974,5 +1006,86 @@ mod row_tests {
         assert!(e.add_row(s, "no/such/table", 0, new_row(RowShape::Header, &["a", "b"])).is_err());
         assert!(e.remove_row(s, PARAMS, 5).is_err());
         assert!(!e.can_undo() || e.row_count(s, PARAMS) == 0);
+    }
+}
+
+#[cfg(test)]
+mod body_tests {
+    use super::*;
+    use crate::EditablePlan;
+
+    const PLAN: &str = "<jmeterTestPlan><hashTree>\n  <TestPlan testname=\"P\"/>\n  <hashTree>\n    <ThreadGroup testname=\"G\"/>\n    <hashTree/>\n  </hashTree>\n</hashTree></jmeterTestPlan>";
+
+    fn request() -> (EditablePlan, crate::NodeId) {
+        let mut e = EditablePlan::open(PLAN).unwrap();
+        let g = e.plan().find_by_name("G").unwrap();
+        let s = e.add(g, "HTTPSamplerProxy", "HttpTestSampleGui").unwrap();
+        (e, s)
+    }
+
+    fn node(e: &EditablePlan, id: crate::NodeId) -> &Node {
+        e.plan().node(id).unwrap()
+    }
+
+    #[test]
+    fn the_body_and_the_parameters_table_show_in_turn() {
+        let (mut e, s) = request();
+        assert!(shown(Some((RAW_BODY, false)), node(&e, s)), "no body setting means the table");
+        assert!(!shown(Some((RAW_BODY, true)), node(&e, s)));
+        e.set_prop(s, RAW_BODY, "boolProp", "true").unwrap();
+        assert!(shown(Some((RAW_BODY, true)), node(&e, s)));
+        assert!(!shown(Some((RAW_BODY, false)), node(&e, s)));
+        e.set_prop(s, RAW_BODY, "boolProp", "false").unwrap();
+        assert!(shown(Some((RAW_BODY, false)), node(&e, s)));
+        assert!(shown(None, node(&e, s)));
+    }
+
+    #[test]
+    fn the_http_request_form_has_a_body_that_is_edited_as_text() {
+        let sections = curated("HTTPSamplerProxy", "HttpTestSampleGui").unwrap();
+        let body = sections.iter().flat_map(|s| s.fields.iter()).find(|f| f.prop == BODY).expect("a body field");
+        assert_eq!(body.kind, Multiline);
+        assert_eq!(body.when, Some((RAW_BODY, true)));
+        let table = sections.iter().flat_map(|s| s.tables.iter()).find(|t| t.path == PARAMETERS).unwrap();
+        assert_eq!(table.when, Some((RAW_BODY, false)));
+    }
+
+    #[test]
+    fn the_body_path_reaches_the_value_of_the_first_row() {
+        let (mut e, s) = request();
+        assert_eq!(e.prop(s, BODY), None, "no row yet");
+        assert!(e.set_prop(s, BODY, "stringProp", "x").is_err(), "a row has to be added first");
+        e.add_row(s, PARAMETERS, 0, new_row(RowShape::HttpArgument, &["", "", "false", "false"])).unwrap();
+        e.set_prop(s, BODY, "stringProp", "{\n  \"a\": 1\n}").unwrap();
+        assert_eq!(e.prop(s, BODY).as_deref(), Some("{\n  \"a\": 1\n}"));
+        let text = e.to_text();
+        assert!(crate::Plan::from_jmx_str(&text).is_ok());
+        let again = EditablePlan::open(&text).unwrap();
+        assert_eq!(again.prop(again.plan().find_by_name("HTTP Request").unwrap(), BODY).as_deref(), Some("{\n  \"a\": 1\n}"), "the lines survive a save and a reload");
+    }
+
+    #[test]
+    fn a_body_with_markup_stays_text() {
+        let (mut e, s) = request();
+        e.add_row(s, PARAMETERS, 0, new_row(RowShape::HttpArgument, &["", ""])).unwrap();
+        let body = "<soap:Envelope a=\"1\">&amp;<![CDATA[x]]></soap:Envelope>\n</stringProp><evil/>";
+        e.set_prop(s, BODY, "stringProp", body).unwrap();
+        let again = EditablePlan::open(&e.to_text()).unwrap();
+        let id = again.plan().find_by_name("HTTP Request").unwrap();
+        assert_eq!(again.prop(id, BODY).as_deref(), Some(body));
+        assert_eq!(again.plan().len(), 3, "the body did not add elements");
+    }
+
+    #[test]
+    fn collections_and_groups_are_summaries_and_long_text_is_editable() {
+        let plan = crate::Plan::from_jmx_str(
+            "<jmeterTestPlan><hashTree><TestPlan testname=\"T\"/><hashTree><ThreadGroup testname=\"G\"/><hashTree><HTTPSamplerProxy guiclass=\"HttpTestSampleGui\" testname=\"S\"><stringProp name=\"script\">a\nb</stringProp><collectionProp name=\"c\"/><elementProp name=\"n\" elementType=\"X\"/></HTTPSamplerProxy><hashTree/></hashTree></hashTree></hashTree></jmeterTestPlan>",
+        )
+        .unwrap();
+        let g = generic_fields(plan.node(plan.find_by_name("S").unwrap()).unwrap());
+        let by = |p: &str| g.iter().find(|f| f.prop == p).unwrap();
+        assert_eq!((by("script").kind, by("script").summary_only), (Multiline, false));
+        assert_eq!((by("c").kind, by("c").summary_only), (Summary, true));
+        assert_eq!((by("n").kind, by("n").summary_only), (Summary, true));
     }
 }

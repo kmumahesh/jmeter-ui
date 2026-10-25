@@ -361,7 +361,7 @@ fn elements_without_a_hand_made_form_get_one_from_their_settings(cx: &mut TestAp
 }
 
 #[gpui::test]
-fn long_text_is_shown_but_not_edited(cx: &mut TestAppContext) {
+fn a_script_is_edited_in_a_text_area(cx: &mut TestAppContext) {
     let mut app = start(cx, Some(copy_of("form-script", WEB)), None);
     goto(&mut app, "jmeter users");
     app.keys("ctrl-k");
@@ -370,9 +370,9 @@ fn long_text_is_shown_but_not_edited(cx: &mut TestAppContext) {
     let shell = app.shell.clone();
     let multiline = app.cx.update(|_, cx| {
         let f = shell.read(cx).form.as_ref().unwrap();
-        f.sections.iter().flat_map(|s| s.items.iter()).any(|i| matches!(&i.widget, jmeter_ui::form::Widget::ReadOnly(_)) && i.def.prop == "script")
+        f.sections.iter().flat_map(|s| s.items.iter()).any(|i| matches!(&i.widget, jmeter_ui::form::Widget::Area(_)) && i.def.prop == "script")
     });
-    assert!(multiline, "the script is a read-only item");
+    assert!(multiline, "the script is edited in a text area");
 }
 
 #[gpui::test]

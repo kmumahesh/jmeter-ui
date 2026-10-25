@@ -44,6 +44,10 @@ pub struct Server {
     pub requests: Arc<AtomicU64>,
     /// The path of every request received, in order.
     pub paths: Arc<Mutex<Vec<String>>>,
+    /// The body of every request received, as text, in order.
+    pub bodies: Arc<Mutex<Vec<String>>>,
+    /// The request line and headers of every request received, in order.
+    pub heads: Arc<Mutex<Vec<String>>>,
     stop: Arc<AtomicBool>,
 }
 
@@ -55,19 +59,21 @@ impl Server {
         let requests = Arc::new(AtomicU64::new(0));
         let paths = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
-        let (r, s, pa) = (requests.clone(), stop.clone(), paths.clone());
+        let bodies = Arc::new(Mutex::new(Vec::new()));
+        let heads = Arc::new(Mutex::new(Vec::new()));
+        let (r, s, pa, bo, he) = (requests.clone(), stop.clone(), paths.clone(), bodies.clone(), heads.clone());
         std::thread::spawn(move || {
             while !s.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((conn, _)) => {
-                        let (r, s, pa) = (r.clone(), s.clone(), pa.clone());
-                        std::thread::spawn(move || serve(conn, r, s, pa));
+                        let (r, s, pa, bo, he) = (r.clone(), s.clone(), pa.clone(), bo.clone(), he.clone());
+                        std::thread::spawn(move || serve(conn, r, s, pa, bo, he));
                     }
                     Err(_) => std::thread::sleep(Duration::from_millis(10)),
                 }
             }
         });
-        Server { port, requests, paths, stop }
+        Server { port, requests, paths, bodies, heads, stop }
     }
 }
 
@@ -77,7 +83,7 @@ impl Drop for Server {
     }
 }
 
-fn serve(mut conn: TcpStream, requests: Arc<AtomicU64>, stop: Arc<AtomicBool>, paths: Arc<Mutex<Vec<String>>>) {
+fn serve(mut conn: TcpStream, requests: Arc<AtomicU64>, stop: Arc<AtomicBool>, paths: Arc<Mutex<Vec<String>>>, bodies: Arc<Mutex<Vec<String>>>, heads: Arc<Mutex<Vec<String>>>) {
     let _ = conn.set_nonblocking(false);
     let _ = conn.set_read_timeout(Some(Duration::from_millis(500)));
     let mut buf = Vec::new();
@@ -95,6 +101,8 @@ fn serve(mut conn: TcpStream, requests: Arc<AtomicU64>, stop: Arc<AtomicBool>, p
             if buf.len() < end + 4 + body_len {
                 break;
             }
+            bodies.lock().unwrap().push(String::from_utf8_lossy(&buf[end + 4..end + 4 + body_len]).to_string());
+            heads.lock().unwrap().push(head.clone());
             buf.drain(..end + 4 + body_len);
             requests.fetch_add(1, Ordering::Relaxed);
             let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();

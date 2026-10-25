@@ -119,6 +119,16 @@ fn pasting_multiple_lines_gives_one_line(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn characters_a_plan_cannot_hold_are_dropped_when_typed_or_pasted(cx: &mut TestAppContext) {
+    let (f, cx) = field(cx, "", None);
+    cx.simulate_input("a\u{0}b\u{1}c");
+    assert_eq!(text(&f, cx), "abc");
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("d\u{b}e\u{c}f\u{1f}g\u{FFFE}h".into()));
+    cx.simulate_keystrokes(&secondary("ctrl-v"));
+    assert_eq!(text(&f, cx), "abcdefgh");
+}
+
+#[gpui::test]
 fn enter_and_escape_emit_events(cx: &mut TestAppContext) {
     let (f, cx) = field(cx, "x", None);
     let events = Rc::new(RefCell::new(Vec::new()));

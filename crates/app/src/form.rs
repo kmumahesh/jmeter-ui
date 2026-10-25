@@ -7,6 +7,7 @@
 use crate::combo::{ComboBox, ComboEvent};
 use crate::fields::{TextField, TextFieldEvent};
 use crate::shell::{Severity, Shell};
+use crate::textarea::{TextArea, TextAreaEvent};
 use gpui::{AppContext as _, Context, Entity, Subscription, Window};
 use plan_core::forms::{self, Column, Kind, RowShape};
 use plan_core::{NodeId, Plan};
@@ -32,6 +33,8 @@ pub enum Widget {
     Text(Entity<TextField>),
     Check,
     Combo(Entity<ComboBox>),
+    /// Several lines of text, for a request body or a script.
+    Area(Entity<TextArea>),
     /// Shown but not editable in this form.
     ReadOnly(String),
 }
@@ -95,9 +98,18 @@ impl Form {
         v
     }
 
+    /// Every text area in the form.
+    pub fn areas(&self) -> Vec<Entity<TextArea>> {
+        self.sections.iter().flat_map(|s| s.items.iter()).filter_map(|i| if let Widget::Area(a) = &i.widget { Some(a.clone()) } else { None }).collect()
+    }
+
     /// The name of the box that has the keyboard focus, if it is one of this form's.
     fn focused_field(&self, window: &Window, cx: &gpui::App) -> Option<String> {
-        self.text_fields().into_iter().find(|f| f.read(cx).is_focused(window)).map(|f| f.read(cx).field_id())
+        self.text_fields()
+            .into_iter()
+            .find(|f| f.read(cx).is_focused(window))
+            .map(|f| f.read(cx).field_id())
+            .or_else(|| self.areas().into_iter().find(|a| a.read(cx).is_focused(window)).map(|a| a.read(cx).field_id()))
     }
 }
 
@@ -110,10 +122,14 @@ fn sections_for(plan: &Plan, node: NodeId) -> Vec<(String, Vec<FieldDef>, Vec<fo
     let Some(n) = plan.node(node) else { return vec![] };
     let def = |f: &forms::Field| FieldDef { label: f.label.to_string(), prop: f.prop.to_string(), kind: f.kind, default: f.default.to_string() };
     match forms::curated(&n.tag, &n.guiclass) {
-        Some(sections) => sections.iter().map(|s| (s.title.to_string(), s.fields.iter().map(def).collect(), s.tables.to_vec())).collect(),
+        // Fields and tables that depend on another setting (the body or the parameters of a request) show in turn.
+        Some(sections) => sections
+            .iter()
+            .map(|s| (s.title.to_string(), s.fields.iter().filter(|f| forms::shown(f.when, n)).map(def).collect(), s.tables.iter().filter(|t| forms::shown(t.when, n)).copied().collect()))
+            .collect(),
         None => {
             let fields: Vec<FieldDef> =
-                forms::generic_fields(n).into_iter().map(|g| FieldDef { label: g.label, prop: g.prop, kind: if g.summary_only { Kind::Multiline } else { g.kind }, default: String::new() }).collect();
+                forms::generic_fields(n).into_iter().map(|g| FieldDef { label: g.label, prop: g.prop, kind: if g.summary_only { Kind::Summary } else { g.kind }, default: String::new() }).collect();
             if fields.is_empty() { vec![] } else { vec![("Settings".to_string(), fields, vec![])] }
         }
     }
@@ -163,10 +179,12 @@ impl Shell {
         // A rebuilt form has new boxes; the one being typed in keeps the keyboard focus by name.
         let focused = self.form.as_ref().and_then(|f| f.focused_field(window, cx));
         let form = self.build_form(key.0, key.1, window, cx);
-        if let Some(name) = focused
-            && let Some(f) = form.text_fields().into_iter().find(|f| f.read(cx).field_id() == name)
-        {
-            f.update(cx, |f, cx| f.focus(window, cx));
+        if let Some(name) = focused {
+            if let Some(f) = form.text_fields().into_iter().find(|f| f.read(cx).field_id() == name) {
+                f.update(cx, |f, cx| f.focus(window, cx));
+            } else if let Some(a) = form.areas().into_iter().find(|a| a.read(cx).field_id() == name) {
+                a.update(cx, |a, cx| a.focus(window, cx));
+            }
         }
         self.form = Some(form);
         self.form_stale = false;
@@ -192,6 +210,8 @@ impl Shell {
         let generated = lp.plan.node(node).is_some_and(|n| forms::curated(&n.tag, &n.guiclass).is_none());
         let mut v = vec![if generated { lp.plan.node(node).map_or(0, |n| n.props.len()) } else { 0 }];
         for (_, fields, tables) in sections_for(&lp.plan, node) {
+            // Which fields and tables show can change (a request sends a body or a table of parameters).
+            v.push(fields.len() * 1000 + tables.len());
             for def in fields {
                 // A value that is not one of the listed choices gets a choice of its own, so the form
                 // has to be built again when that changes.
@@ -216,8 +236,11 @@ impl Shell {
             _ => None,
         };
         let (placeholder, text) = (placeholder.to_string(), text.to_string());
+        // A one-line box would turn the lines of this text into spaces. It is shown as it is, and cannot be edited
+        // here, so that looking at an element never changes it.
+        let lossy = shell_core::text_buffer::single_line(&text) != text;
         let field = cx.new(|cx| {
-            let f = TextField::new(cx, gpui::SharedString::from(id), &placeholder, &text);
+            let f = TextField::new(cx, gpui::SharedString::from(id), &placeholder, &text).read_only(lossy);
             match spec {
                 Some(s) => f.number(s),
                 None => f,
@@ -283,6 +306,14 @@ impl Shell {
                         Widget::Combo(combo)
                     }
                     Kind::Multiline => {
+                        let stored = self.plans.iter().find(|p| p.id == plan_id).and_then(|lp| lp.edit.prop(node, &def.prop)).unwrap_or_default();
+                        let rows = if def.prop == forms::BODY { 12 } else { 14 };
+                        let area = cx.new(|cx| TextArea::new(cx, gpui::SharedString::from(format!("area-{}", def.prop)), "", &stored).rows(rows));
+                        area.update(cx, |a, cx| a.watch_blur(window, cx));
+                        subs.push(self.watch_area(&area, plan_id, node, def.clone(), window, cx));
+                        Widget::Area(area)
+                    }
+                    Kind::Summary => {
                         let first = current.lines().next().unwrap_or("").to_string();
                         let more = current.lines().count().saturating_sub(1);
                         Widget::ReadOnly(if more > 0 { format!("{first}  (+{more} more lines)") } else { first })
@@ -351,6 +382,19 @@ impl Shell {
         TableForm { title: t.title.to_string(), path: t.path.to_string(), shape: t.shape, columns: t.columns.to_vec(), rows, add_label: t.add_label.to_string() }
     }
 
+    fn watch_area(&mut self, area: &Entity<TextArea>, plan_id: PlanId, node: NodeId, def: FieldDef, window: &mut Window, cx: &mut Context<Self>) -> Subscription {
+        cx.subscribe_in(area, window, move |this, area, e: &TextAreaEvent, window, cx| match e {
+            TextAreaEvent::Blurred => {
+                let text = area.read(cx).text().to_string();
+                this.commit_text(plan_id, node, &def, &text, window, cx);
+            }
+            TextAreaEvent::Changed => {
+                this.refresh_dirty_mark(cx);
+                this.schedule_live_commit(window, cx);
+            }
+        })
+    }
+
     fn watch_text(&mut self, field: &Entity<TextField>, plan_id: PlanId, node: NodeId, def: FieldDef, window: &mut Window, cx: &mut Context<Self>) -> Subscription {
         cx.subscribe_in(field, window, move |this, field, e: &TextFieldEvent, window, cx| match e {
             TextFieldEvent::Submitted | TextFieldEvent::Blurred => {
@@ -400,7 +444,7 @@ impl Shell {
         let Some(n) = lp.plan.node(node) else { return };
         let set = |f: &Entity<TextField>, text: &str, window: &Window, cx: &mut Context<Shell>| {
             let focused = f.read(cx).is_focused(window);
-            if !focused && f.read(cx).text() != text {
+            if !focused && f.read(cx).text() != shell_core::text_buffer::single_line(text) {
                 f.update(cx, |f, cx| f.set_text(text, cx));
             }
         };
@@ -411,6 +455,12 @@ impl Shell {
                 let cur = value_in(&lp.edit, node, &item.def);
                 match (&item.widget, item.def.kind) {
                     (Widget::Text(f), _) => set(f, &lp.edit.prop(node, &item.def.prop).unwrap_or_default(), window, cx),
+                    (Widget::Area(a), _) => {
+                        let text = lp.edit.prop(node, &item.def.prop).unwrap_or_default();
+                        if !a.read(cx).is_focused(window) && a.read(cx).text() != text {
+                            a.update(cx, |a, cx| a.set_text(&text, cx));
+                        }
+                    }
                     (Widget::Combo(c), Kind::Choice(opts)) => {
                         let at = opts.iter().position(|(_, v)| *v == cur);
                         if let Some(at) = at {
@@ -452,9 +502,10 @@ impl Shell {
         let (plan_id, node) = (form.plan, form.node);
         let name_def = FieldDef { label: "Name".into(), prop: "@name".into(), kind: Kind::Text, default: String::new() };
         let comment_def = FieldDef { label: "Comments".into(), prop: forms::COMMENTS_PROP.into(), kind: Kind::Text, default: String::new() };
-        form.name.read(cx).text() != self.stored(plan_id, node, &name_def)
-            || form.comment.read(cx).text() != self.stored(plan_id, node, &comment_def)
-            || form.sections.iter().flat_map(|s| s.items.iter()).any(|i| matches!(&i.widget, Widget::Text(f) if f.read(cx).text() != self.stored(plan_id, node, &i.def)))
+        form.name.read(cx).text() != self.stored_flat(plan_id, node, &name_def)
+            || form.comment.read(cx).text() != self.stored_flat(plan_id, node, &comment_def)
+            || form.sections.iter().flat_map(|s| s.items.iter()).any(|i| matches!(&i.widget, Widget::Text(f) if f.read(cx).text() != self.stored_flat(plan_id, node, &i.def)))
+            || form.sections.iter().flat_map(|s| s.items.iter()).any(|i| matches!(&i.widget, Widget::Area(a) if a.read(cx).text() != self.stored(plan_id, node, &i.def)))
             || !self.uncommitted_cells(cx).is_empty()
     }
 
@@ -474,7 +525,7 @@ impl Shell {
                     let Some(col) = t.columns.get(ci) else { continue };
                     let stored = if t.shape == RowShape::Text { lp.edit.row_text(form.node, &t.path, ri) } else { cells.iter().find(|(n, _)| n == col.prop).map(|(_, v)| v.clone()).unwrap_or_default() };
                     let text = f.read(cx).text();
-                    if text != stored {
+                    if text != shell_core::text_buffer::single_line(&stored) {
                         out.push((t.path.clone(), t.shape, ri, col.prop.to_string(), text.to_string()));
                     }
                 }
@@ -523,6 +574,12 @@ impl Shell {
             for item in &s.items {
                 if let Widget::Text(f) = &item.widget {
                     let text = f.read(cx).text().to_string();
+                    if text != self.stored_flat(plan_id, node, &item.def) {
+                        pending.push((item.def.clone(), text));
+                    }
+                }
+                if let Widget::Area(a) = &item.widget {
+                    let text = a.read(cx).text().to_string();
                     if text != self.stored(plan_id, node, &item.def) {
                         pending.push((item.def.clone(), text));
                     }
@@ -533,10 +590,10 @@ impl Shell {
         let comment_text = form.comment.read(cx).text().to_string();
         let name_def = FieldDef { label: "Name".into(), prop: "@name".into(), kind: Kind::Text, default: String::new() };
         let comment_def = FieldDef { label: "Comments".into(), prop: forms::COMMENTS_PROP.into(), kind: Kind::Text, default: String::new() };
-        if name_text != self.stored(plan_id, node, &name_def) {
+        if name_text != self.stored_flat(plan_id, node, &name_def) {
             pending.push((name_def, name_text));
         }
-        if comment_text != self.stored(plan_id, node, &comment_def) {
+        if comment_text != self.stored_flat(plan_id, node, &comment_def) {
             pending.push((comment_def, comment_text));
         }
         let cells = self.uncommitted_cells(cx);
@@ -547,6 +604,11 @@ impl Shell {
             self.commit_cell(plan_id, node, &path, shape, row, &prop, &text, window, cx);
         }
         self.refresh_dirty_mark(cx);
+    }
+
+    /// What the plan has for a setting as a one-line box shows it (line breaks as spaces), to compare with the box.
+    fn stored_flat(&self, plan_id: PlanId, node: NodeId, def: &FieldDef) -> String {
+        shell_core::text_buffer::single_line(&self.stored(plan_id, node, def))
     }
 
     /// What the plan has for a setting, as text ("" when the setting is not there).
@@ -582,7 +644,9 @@ impl Shell {
         }
         let stored = self.stored(plan_id, node, def);
         let exists = self.plans.iter().find(|p| p.id == plan_id).is_some_and(|lp| lp.edit.prop(node, &def.prop).is_some());
-        if stored == text || (!exists && text.is_empty()) {
+        // A one-line box shows lines as spaces: text that is only that is not a change.
+        let same_in_a_box = def.kind != Kind::Multiline && shell_core::text_buffer::single_line(&stored) == text;
+        if stored == text || same_in_a_box || (!exists && text.is_empty()) {
             return;
         }
         self.save_value(plan_id, node, def, text, window, cx);
@@ -592,7 +656,20 @@ impl Shell {
     fn save_value(&mut self, plan_id: PlanId, node: NodeId, def: &FieldDef, value: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (prop, kind) = (def.prop.clone(), new_kind(def.kind));
         let value = value.to_string();
-        self.with_plan(plan_id, window, cx, |this, window, cx| this.set_element_prop(node, &prop, kind, &value, window, cx));
+        // A request body is the first row of the parameters. Sending a body, or typing one, makes that row if
+        // there is none yet.
+        let body_row = (prop == forms::BODY || (prop == forms::RAW_BODY && value == "true"))
+            && self.plans.iter().find(|p| p.id == plan_id).is_some_and(|lp| lp.edit.row_count(node, forms::PARAMETERS) == 0);
+        self.with_plan(plan_id, window, cx, |this, window, cx| {
+            if body_row {
+                let Some(lp) = this.plan_mut() else { return };
+                if let Err(e) = lp.edit.add_row(node, forms::PARAMETERS, 0, forms::new_row(RowShape::HttpArgument, &["", "", "false", "false"])) {
+                    this.notify(format!("{e:#}"), Severity::Error, window, cx);
+                    return;
+                }
+            }
+            this.set_element_prop(node, &prop, kind, &value, window, cx)
+        });
     }
 
     /// Run an edit on a plan that may not be the one in front (a field is saved when it loses focus, which can
@@ -630,7 +707,7 @@ impl Shell {
         }
         let path = path.to_string();
         if shape == RowShape::Text {
-            if lp.edit.row_text(node, &path, row) == text {
+            if shell_core::text_buffer::single_line(&lp.edit.row_text(node, &path, row)) == text {
                 return;
             }
             let new = forms::new_row(RowShape::Text, &[text]);
@@ -645,7 +722,7 @@ impl Shell {
             return;
         }
         let current = lp.edit.row_cells(node, &path, row).into_iter().find(|(n, _)| n == cell_prop).map(|(_, v)| v);
-        if current.as_deref().unwrap_or("") == text {
+        if shell_core::text_buffer::single_line(current.as_deref().unwrap_or("")) == text {
             return;
         }
         let setting = format!("{path}/#{row}/{cell_prop}");

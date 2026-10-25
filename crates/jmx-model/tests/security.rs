@@ -173,6 +173,11 @@ fn mutated_plans_never_panic_and_always_write_back_what_was_read() {
 }
 
 /// Text that tries to break out of the place it is written to.
+/// The text as it comes back after writing: characters XML 1.0 cannot hold are not written.
+fn kept(h: &str) -> String {
+    h.chars().filter(|&c| jmx_model::xml::is_xml_char(c)).collect()
+}
+
 const HOSTILE: &[&str] = &[
     "</stringProp><evil/>",
     "\"><evil a=\"",
@@ -200,7 +205,7 @@ fn hostile_text_in_an_element_stays_text() {
         let again = Document::parse(&out).unwrap_or_else(|e| panic!("{h:?} gives broken XML: {e:#}\n{out}"));
         assert_eq!(count(&again.root), 2, "{h:?} added or removed elements:\n{out}");
         let Some(Node::Element(v2)) = again.root.children.iter().find(|c| matches!(c, Node::Element(_))) else { panic!() };
-        assert_eq!(v2.text(), *h,"{h:?} did not come back as it went in:\n{out}");
+        assert_eq!(v2.text(), kept(h), "{h:?} did not come back as it went in (without what XML cannot hold):\n{out}");
     }
 }
 
@@ -215,7 +220,7 @@ fn hostile_text_in_an_attribute_stays_in_that_attribute() {
         assert_eq!(count(&again.root), 2, "{h:?}\n{out}");
         let Some(Node::Element(v2)) = again.root.children.iter().find(|c| matches!(c, Node::Element(_))) else { panic!() };
         assert_eq!(v2.attr("evil"), None, "{h:?} added an attribute:\n{out}");
-        assert_eq!(v2.attr("testname").as_deref(), Some(*h), "{h:?}\n{out}");
+        assert_eq!(v2.attr("testname").as_deref(), Some(kept(h).as_str()), "{h:?}\n{out}");
         assert_eq!(v2.attr("enabled").as_deref(), Some("true"));
     }
 }
@@ -227,6 +232,24 @@ fn escaping_never_leaves_a_character_that_can_end_the_value() {
         assert!(!t.contains('<') && !t.contains('>'), "{t:?}");
         let a = escape(h, true);
         assert!(!a.contains('<') && !a.contains('>') && !a.contains('"') && !a.contains('\n'), "{a:?}");
-        assert_eq!(unescape(&a), *h, "escape then unescape is the identity for {h:?}");
+        assert_eq!(unescape(&a), kept(h), "escape then unescape is the identity for {h:?}, apart from what XML cannot hold");
+    }
+}
+
+#[test]
+fn characters_xml_cannot_hold_are_never_written() {
+    for bad in ['\u{0}', '\u{1}', '\u{8}', '\u{b}', '\u{c}', '\u{e}', '\u{1f}', '\u{FFFE}', '\u{FFFF}'] {
+        let h = format!("a{bad}b");
+        assert_eq!(escape(&h, false), "ab", "{bad:?} in text");
+        assert_eq!(escape(&h, true), "ab", "{bad:?} in an attribute");
+        let mut d = Document::parse("<r><v>old</v></r>").unwrap();
+        let Some(Node::Element(v)) = d.root.children.iter_mut().find(|c| matches!(c, Node::Element(_))) else { panic!() };
+        v.set_text(&h);
+        let out = d.write();
+        assert!(out.chars().all(jmx_model::xml::is_xml_char), "{bad:?} reached the file: {out:?}");
+        assert!(Document::parse(&out).is_ok());
+    }
+    for fine in ['\t', '\n', '\u{7f}', '\u{e9}', '\u{1F600}', '\u{202e}'] {
+        assert!(jmx_model::xml::is_xml_char(fine), "{fine:?}");
     }
 }
