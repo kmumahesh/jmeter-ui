@@ -88,6 +88,62 @@ pub fn parse_java_major(line: &str) -> Option<u32> {
     if first == 1 { parts.next()?.parse().ok() } else { Some(first) }
 }
 
+/// A folder that holds a JMeter install: it has `bin/ApacheJMeter.jar`.
+fn is_jmeter_home(dir: &Path) -> bool {
+    dir.join("bin").join("ApacheJMeter.jar").is_file()
+}
+
+/// The version in a folder name such as `apache-jmeter-5.6.3`, as numbers to compare.
+fn folder_version(name: &str) -> Option<Vec<u32>> {
+    let v = name.strip_prefix("apache-jmeter-")?;
+    let nums: Vec<u32> = v.split('.').map(|p| p.parse().ok()).collect::<Option<_>>()?;
+    (!nums.is_empty()).then_some(nums)
+}
+
+/// Look for a JMeter install without being told where: the folder named by `JMETER_HOME`, then folders named
+/// `apache-jmeter-X.Y.Z` directly inside any of `roots`, the newest version first. Nothing is run and nothing outside
+/// those folders is read.
+pub fn find_jmeter_home_in(env_home: Option<&Path>, roots: &[PathBuf]) -> Option<PathBuf> {
+    if let Some(h) = env_home.filter(|h| is_jmeter_home(h)) {
+        return Some(h.to_path_buf());
+    }
+    let mut found: Vec<(Vec<u32>, PathBuf)> = Vec::new();
+    for root in roots {
+        let Ok(rd) = std::fs::read_dir(root) else { continue };
+        for e in rd.flatten().take(5000) {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if let Some(v) = folder_version(&name)
+                && is_jmeter_home(&e.path())
+            {
+                found.push((v, e.path()));
+            }
+        }
+    }
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found.into_iter().next().map(|(_, p)| p)
+}
+
+/// The usual places a JMeter download is unpacked on this computer.
+pub fn usual_jmeter_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
+    if let Some(h) = &home {
+        roots.extend([h.join("Downloads"), h.clone(), h.join("Desktop"), h.join("tools"), h.join("Documents")]);
+    }
+    if cfg!(windows) {
+        roots.extend(["C:\\", "C:\\tools", "C:\\Program Files", "C:\\Program Files (x86)", "D:\\", "D:\\tools"].map(PathBuf::from));
+    } else {
+        roots.extend(["/opt", "/usr/local", "/usr/share", "/Applications"].map(PathBuf::from));
+    }
+    roots
+}
+
+/// The JMeter install to use when none was chosen.
+pub fn find_jmeter_home() -> Option<PathBuf> {
+    let env = std::env::var_os("JMETER_HOME").map(PathBuf::from);
+    find_jmeter_home_in(env.as_deref(), &usual_jmeter_roots())
+}
+
 /// Check a JMeter install and read its version by running `ApacheJMeter.jar --version`.
 pub fn inspect_jmeter(home: &Path, java: &JavaInfo) -> Result<JMeterInfo> {
     let jar = home.join("bin").join("ApacheJMeter.jar");
@@ -111,6 +167,65 @@ pub fn inspect_jmeter(home: &Path, java: &JavaInfo) -> Result<JMeterInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fake_home(root: &Path, name: &str) -> PathBuf {
+        let h = root.join(name);
+        std::fs::create_dir_all(h.join("bin")).unwrap();
+        std::fs::write(h.join("bin").join("ApacheJMeter.jar"), b"jar").unwrap();
+        h
+    }
+
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("jmeter-ui-locate-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn the_newest_install_in_the_usual_places_is_found() {
+        let a = temp("roots-a");
+        let b = temp("roots-b");
+        fake_home(&a, "apache-jmeter-5.4.1");
+        let newest = fake_home(&b, "apache-jmeter-5.6.3");
+        fake_home(&b, "apache-jmeter-5.10.0-RC1x"); // not a version
+        let ten = fake_home(&a, "apache-jmeter-5.10.0");
+        // 5.10.0 is newer than 5.6.3: versions are compared as numbers, not as text.
+        assert_eq!(find_jmeter_home_in(None, &[a.clone(), b.clone()]), Some(ten));
+        assert_eq!(find_jmeter_home_in(None, &[b]), Some(newest));
+        assert_eq!(find_jmeter_home_in(None, &[temp("roots-empty")]), None);
+        assert_eq!(find_jmeter_home_in(None, &[PathBuf::from("no/such/folder")]), None);
+    }
+
+    #[test]
+    fn a_folder_that_only_looks_like_jmeter_is_not_taken() {
+        let r = temp("fake");
+        std::fs::create_dir_all(r.join("apache-jmeter-5.6.3").join("bin")).unwrap(); // no jar
+        std::fs::create_dir_all(r.join("jmeter")).unwrap();
+        std::fs::write(r.join("apache-jmeter-9.9.9"), b"a file, not a folder").unwrap();
+        assert_eq!(find_jmeter_home_in(None, &[r]), None);
+    }
+
+    #[test]
+    fn jmeter_home_in_the_environment_comes_first_when_it_is_an_install() {
+        let r = temp("env");
+        let chosen = fake_home(&r, "my-jmeter");
+        let other = temp("env-other");
+        fake_home(&other, "apache-jmeter-5.6.3");
+        assert_eq!(find_jmeter_home_in(Some(&chosen), std::slice::from_ref(&other)), Some(chosen));
+        // An environment value that is not an install is ignored.
+        let nothing = temp("env-bad");
+        assert_eq!(find_jmeter_home_in(Some(&nothing), std::slice::from_ref(&other)).map(|p| p.ends_with("apache-jmeter-5.6.3")), Some(true));
+    }
+
+    #[test]
+    fn folder_names_give_versions_that_compare_as_numbers() {
+        assert_eq!(folder_version("apache-jmeter-5.6.3"), Some(vec![5, 6, 3]));
+        assert!(folder_version("apache-jmeter-5.10.0") > folder_version("apache-jmeter-5.6.3"));
+        for bad in ["apache-jmeter-", "apache-jmeter-x", "apache-jmeter-5.6.3-RC1", "jmeter-5.6.3", "apache-jmeter-5..3", ""] {
+            assert_eq!(folder_version(bad), None, "{bad:?}");
+        }
+    }
 
     #[test]
     fn java_versions() {

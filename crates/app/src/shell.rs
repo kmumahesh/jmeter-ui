@@ -198,6 +198,8 @@ pub struct Shell {
     pub notice: Option<Notice>,
     notice_seq: u64,
     pub runtime: RuntimeStatus,
+    /// The look for Java and JMeter has finished at least once, so the welcome screen can say what is missing.
+    pub runtime_checked: bool,
     pub focus: FocusHandle,
     pub tree_focus: FocusHandle,
     pub tree_scroll: UniformListScrollHandle,
@@ -398,6 +400,7 @@ impl Shell {
             notice: None,
             notice_seq: 0,
             runtime: RuntimeStatus::default(),
+            runtime_checked: false,
             focus: focus.clone(),
             tree_focus,
             tree_scroll: UniformListScrollHandle::new(),
@@ -942,9 +945,27 @@ impl Shell {
         let java_path = self.settings.java_path.clone().map(PathBuf::from);
         let home = self.settings.jmeter_home.clone().map(PathBuf::from);
         cx.spawn_in(window, async move |this, cx| {
-            let status = cx.background_executor().spawn(async move { check_runtime(java_path.as_deref(), home.as_deref()) }).await;
+            // With no JMeter folder chosen, the usual places are looked in, so a first start needs no setup when JMeter is
+            // unpacked in Downloads, for example.
+            let (status, found) = cx
+                .background_executor()
+                .spawn(async move {
+                    let found = if home.is_none() { jvm_runtime::locate::find_jmeter_home() } else { None };
+                    let status = check_runtime(java_path.as_deref(), home.as_deref().or(found.as_deref()));
+                    (status, found)
+                })
+                .await;
             this.update(cx, |this, cx| {
                 this.runtime = status;
+                this.runtime_checked = true;
+                if let Some(h) = found.filter(|_| this.settings.jmeter_home.is_none() && this.runtime.jmeter.is_some()) {
+                    let shown = display_path(&h);
+                    this.settings.jmeter_home = Some(shown.clone());
+                    this.save_settings();
+                    this.notice = None;
+                    this.notice_seq += 1;
+                    this.notice = Some(Notice { text: format!("Found JMeter in {shown}"), severity: Severity::Info, id: this.notice_seq });
+                }
                 cx.notify();
             })
             .ok();
@@ -1056,6 +1077,9 @@ impl Shell {
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,
             "runtime_ready": self.runtime_ready(),
+            "runtime_checked": self.runtime_checked,
+            "setup_headline": self.setup_headline(),
+            "jmeter_home": self.settings.jmeter_home,
             "can_undo": self.plan().is_some_and(|lp| lp.edit.can_undo()),
             "can_redo": self.plan().is_some_and(|lp| lp.edit.can_redo()),
             "dirty": self.typing_dirty || self.plan().is_some_and(|lp| lp.is_dirty()),
