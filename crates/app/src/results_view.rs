@@ -62,6 +62,7 @@ impl Shell {
         }
         self.run = Some(RunSession::from_results(&path));
         self.req_sel = 0;
+        self.run_label = None;
         self.show_run_panel();
         let key = path.clone();
         cx.spawn_in(window, async move |this, cx| {
