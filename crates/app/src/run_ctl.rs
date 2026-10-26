@@ -263,6 +263,7 @@ impl Shell {
         session.details_off = mode == details::Mode::Off;
         self.run = Some(session);
         self.req_sel = 0;
+        self.run_label = None;
         self.show_run_panel();
         self.refresh_history();
         self.schedule_run_tick(window, cx);
@@ -400,6 +401,7 @@ impl Shell {
         let results = entry.dir.join("results.jtl");
         let details_file = entry.dir.join(crate::running::DETAILS_FILE);
         self.req_sel = 0;
+        self.run_label = None;
         let key = entry.dir.clone();
         cx.spawn_in(window, async move |this, cx| {
             let loaded = cx.background_executor().spawn(async move { LiveStats::from_file(&results).map_err(|e| format!("{e:#}")) }).await;

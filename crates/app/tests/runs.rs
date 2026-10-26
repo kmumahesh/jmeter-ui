@@ -1454,3 +1454,77 @@ fn another_element_opens_at_the_top_of_its_form(cx: &mut TestAppContext) {
     goto(&mut app, "Search");
     assert_eq!(app.state()["editor_scroll_y"].as_f64().unwrap(), 0.0, "the next element starts at the top");
 }
+
+// ---- the aggregate report ----
+
+#[gpui::test]
+fn a_request_chosen_in_the_table_is_charted_and_the_total_row_shows_all_again(cx: &mut TestAppContext) {
+    let s = setup("agg-pick", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "agg.csv", 400);
+    let mut app = open(cx, &s, false);
+    open_results(&mut app, &file);
+    wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    app.click("run-tab-labels");
+    for sel in ["run-label-row-0", "run-label-row-1", "run-labels-total", "run-copy-table"] {
+        assert!(app.has(sel), "{sel}");
+    }
+    assert!(!app.has("chart-note"), "all requests are charted at first");
+    app.click("run-label-row-0");
+    assert_eq!(app.state()["run"]["chart_label"], "Home");
+    assert!(app.has("chart-note") && app.has("chart-all"));
+    // The note above the charts pushes the table down, out of the small test window, so the second pick is made directly.
+    let shell = app.shell.clone();
+    app.cx.update(|_, cx| shell.update(cx, |sh, cx| sh.chart_label(Some("Search".into()), cx)));
+    assert_eq!(app.state()["run"]["chart_label"], "Search");
+    app.click("chart-all");
+    assert!(app.state()["run"]["chart_label"].is_null() && !app.has("chart-note"));
+    // Another run starts with all requests charted.
+    let shell = app.shell.clone();
+    app.cx.update(|_, cx| shell.update(cx, |sh, cx| sh.chart_label(Some("Search".into()), cx)));
+    let other = csv_file(&s.dir, "other.csv", 30);
+    open_results(&mut app, &other);
+    wait_until(&mut app, Duration::from_secs(30), "the second file", |st| st["run"]["samples"] == 30);
+    assert!(app.state()["run"]["chart_label"].is_null());
+}
+
+#[gpui::test]
+fn the_table_is_copied_as_csv_with_a_total_row(cx: &mut TestAppContext) {
+    let s = setup("agg-copy", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "agg.csv", 100);
+    let mut app = open(cx, &s, false);
+    open_results(&mut app, &file);
+    wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    app.click("run-tab-labels");
+    app.click("run-copy-table");
+    let text = app.cx.update(|_, cx| cx.read_from_clipboard().and_then(|c| c.text())).expect("the table is on the clipboard");
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 4, "{text}");
+    assert!(lines[0].starts_with("Label,# Samples,Average,Median,"));
+    assert!(lines[1].starts_with("Home,50,") && lines[2].starts_with("Search,50,") && lines[3].starts_with("TOTAL,100,"), "{text}");
+    assert!(app.state()["notice"].as_str().unwrap().contains("Copied 2 requests as CSV"));
+}
+
+#[gpui::test]
+fn a_run_with_a_thousand_requests_opens_quickly_and_lists_a_limited_number(cx: &mut TestAppContext) {
+    let s = setup("agg-many", &shop_plan(1, 1, 1), None, |_| {});
+    let mut text = String::from(FULL_HEADER);
+    text.push('\n');
+    for i in 0..100_000u64 {
+        text.push_str(&format!("{},{},Request {},200,OK,Users 1-1,text,true,,100,100,5,5,http://x/,3,0,1\n", 1_700_000_000_000u64 + i * 5, 5 + i % 40, i % 1000));
+    }
+    let file = s.dir.join("many.csv");
+    std::fs::write(&file, text).unwrap();
+    let mut app = open(cx, &s, false);
+    let t = Instant::now();
+    open_results(&mut app, &file);
+    let st = wait_until(&mut app, Duration::from_secs(60), "the results to load", |st| st["run"]["phase"] == "Finished");
+    assert_eq!((st["run"]["samples"].clone(), st["run"]["labels"].clone()), (100_000.into(), 1000.into()));
+    app.click("run-tab-labels");
+    app.click("run-label-row-0");
+    app.click("run-copy-table");
+    eprintln!("100,000 samples over 1,000 requests opened, charted and copied in {:?}", t.elapsed());
+    assert!(t.elapsed() < Duration::from_secs(30), "{:?}", t.elapsed());
+    assert!(!app.has("run-label-row-200"), "the table lists a limited number of rows");
+    let text = app.cx.update(|_, cx| cx.read_from_clipboard().and_then(|c| c.text())).unwrap();
+    assert_eq!(text.lines().count(), 1002, "but the copy has every request");
+}

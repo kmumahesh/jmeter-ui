@@ -12,6 +12,8 @@ pub const MAX_LABELS: usize = 1000;
 pub const OTHER_LABELS: &str = "(other labels)";
 /// Most recent failed samples kept.
 pub const MAX_ERRORS: usize = 200;
+/// Most labels that keep a time series of their own for a chart; the others show in the table only.
+pub const MAX_SERIES_LABELS: usize = 100;
 /// Response times longer than this are counted as this long.
 const MAX_MS: u64 = 3_600_000;
 
@@ -24,6 +26,11 @@ pub struct Stats {
     pub min_ms: u64,
     pub max_ms: u64,
     pub bytes: u64,
+    /// When the first of these samples started and the last one ended, in milliseconds since 1970 (0 for none).
+    pub first_ms: u64,
+    pub last_ms: u64,
+    /// The sum of the squares of the response times, for the standard deviation.
+    sum_sq: f64,
     /// How many samples took each number of milliseconds.
     times: BTreeMap<u32, u64>,
 }
@@ -31,6 +38,14 @@ pub struct Stats {
 impl Stats {
     fn add(&mut self, s: &Sample) {
         let ms = s.elapsed_ms.min(MAX_MS);
+        let end = s.timestamp_ms.saturating_add(ms);
+        if self.count == 0 {
+            (self.first_ms, self.last_ms) = (s.timestamp_ms, end);
+        } else {
+            self.first_ms = self.first_ms.min(s.timestamp_ms);
+            self.last_ms = self.last_ms.max(end);
+        }
+        self.sum_sq += (ms as f64) * (ms as f64);
         if self.count == 0 || ms < self.min_ms {
             self.min_ms = ms;
         }
@@ -46,6 +61,39 @@ impl Stats {
 
     pub fn avg_ms(&self) -> u64 {
         if self.count == 0 { 0 } else { (self.sum_ms as f64 / self.count as f64).round() as u64 }
+    }
+
+    /// The middle response time: half the samples were not slower.
+    pub fn median_ms(&self) -> u64 {
+        self.percentile(50.0)
+    }
+
+    /// How far response times spread around the average, in milliseconds.
+    pub fn std_dev_ms(&self) -> f64 {
+        if self.count < 2 {
+            return 0.0;
+        }
+        let n = self.count as f64;
+        let mean = self.sum_ms as f64 / n;
+        ((self.sum_sq / n) - mean * mean).max(0.0).sqrt()
+    }
+
+    /// Seconds from the start of the first sample to the end of the last one.
+    pub fn span_secs(&self) -> f64 {
+        self.last_ms.saturating_sub(self.first_ms) as f64 / 1000.0
+    }
+
+    /// Samples per second over the time these samples took (as JMeter's Aggregate Report counts it).
+    pub fn throughput(&self) -> f64 {
+        let s = self.span_secs();
+        if s <= 0.0 { self.count as f64 } else { self.count as f64 / s }
+    }
+
+    /// Kilobytes received per second over the same time.
+    pub fn received_kb_per_sec(&self) -> f64 {
+        let s = self.span_secs();
+        let kb = self.bytes as f64 / 1024.0;
+        if s <= 0.0 { kb } else { kb / s }
     }
 
     pub fn error_pct(&self) -> f64 {
@@ -97,10 +145,46 @@ pub struct ErrorRow {
     pub thread: String,
 }
 
+/// Count one sample in the step of `series` that starts at `step_start`, adding the step when it is the newest.
+fn count_in_series(series: &mut Vec<Point>, step_start: u32, s: &Sample) {
+    if series.last().is_none_or(|p| p.at_secs < step_start) {
+        series.push(Point { at_secs: step_start, samples: 0, errors: 0, sum_ms: 0, threads: 0 });
+    }
+    // Rows can arrive slightly out of order; put the sample in the step it belongs to.
+    let idx = series.iter().rposition(|p| p.at_secs <= step_start).unwrap_or(0);
+    let p = &mut series[idx];
+    p.samples += 1;
+    p.sum_ms += s.elapsed_ms.min(MAX_MS);
+    p.threads = p.threads.max(s.all_threads);
+    if !s.success {
+        p.errors += 1;
+    }
+}
+
+/// Join neighbouring steps of `series` into steps of `step` seconds.
+fn merge_points(series: &mut Vec<Point>, step: u32) {
+    let mut merged: Vec<Point> = Vec::with_capacity(series.len() / 2 + 1);
+    for p in series.drain(..) {
+        let start = p.at_secs / step * step;
+        match merged.last_mut() {
+            Some(m) if m.at_secs == start => {
+                m.samples += p.samples;
+                m.errors += p.errors;
+                m.sum_ms += p.sum_ms;
+                m.threads = m.threads.max(p.threads);
+            }
+            _ => merged.push(Point { at_secs: start, ..p }),
+        }
+    }
+    *series = merged;
+}
+
 #[derive(Clone, Debug)]
 pub struct LiveStats {
     total: Stats,
     labels: HashMap<String, Stats>,
+    /// The time series of the first [`MAX_SERIES_LABELS`] labels, on the same steps as `series`.
+    label_series: HashMap<String, Vec<Point>>,
     series: Vec<Point>,
     step_secs: u32,
     errors: VecDeque<ErrorRow>,
@@ -113,7 +197,7 @@ pub struct LiveStats {
 
 impl Default for LiveStats {
     fn default() -> Self {
-        LiveStats { total: Stats::default(), labels: HashMap::new(), series: Vec::new(), step_secs: 1, errors: VecDeque::new(), first_ms: None, last_ms: 0, threads: 0, peak_threads: 0 }
+        LiveStats { total: Stats::default(), labels: HashMap::new(), label_series: HashMap::new(), series: Vec::new(), step_secs: 1, errors: VecDeque::new(), first_ms: None, last_ms: 0, threads: 0, peak_threads: 0 }
     }
 }
 
@@ -142,17 +226,11 @@ impl LiveStats {
         // A sample belongs to the step in which it finished.
         let at = (end.saturating_sub(first) / 1000) as u32;
         let step_start = at / self.step_secs * self.step_secs;
-        if self.series.last().is_none_or(|p| p.at_secs < step_start) {
-            self.series.push(Point { at_secs: step_start, samples: 0, errors: 0, sum_ms: 0, threads: 0 });
+        count_in_series(&mut self.series, step_start, s);
+        if self.label_series.contains_key(&s.label) || (self.label_series.len() < MAX_SERIES_LABELS && key == s.label) {
+            count_in_series(self.label_series.entry(s.label.clone()).or_default(), step_start, s);
         }
-        // Rows can arrive slightly out of order; put the sample in the step it belongs to.
-        let idx = self.series.iter().rposition(|p| p.at_secs <= step_start).unwrap_or(0);
-        let p = &mut self.series[idx];
-        p.samples += 1;
-        p.sum_ms += s.elapsed_ms.min(MAX_MS);
-        p.threads = p.threads.max(s.all_threads);
         if !s.success {
-            p.errors += 1;
             if self.errors.len() == MAX_ERRORS {
                 self.errors.pop_front();
             }
@@ -165,20 +243,17 @@ impl LiveStats {
 
     fn merge(&mut self) {
         self.step_secs *= 2;
-        let mut merged: Vec<Point> = Vec::with_capacity(self.series.len() / 2 + 1);
-        for p in self.series.drain(..) {
-            let start = p.at_secs / self.step_secs * self.step_secs;
-            match merged.last_mut() {
-                Some(m) if m.at_secs == start => {
-                    m.samples += p.samples;
-                    m.errors += p.errors;
-                    m.sum_ms += p.sum_ms;
-                    m.threads = m.threads.max(p.threads);
-                }
-                _ => merged.push(Point { at_secs: start, ..p }),
-            }
+        let step = self.step_secs;
+        merge_points(&mut self.series, step);
+        for s in self.label_series.values_mut() {
+            merge_points(s, step);
         }
-        self.series = merged;
+    }
+
+    /// The time series of one label, on the same steps as the charts of the whole run, or `None` when the label is not
+    /// charted (there are more labels than [`MAX_SERIES_LABELS`], or the name is unknown).
+    pub fn label_series(&self, name: &str) -> Option<&[Point]> {
+        self.label_series.get(name).map(Vec::as_slice)
     }
 
     pub fn total(&self) -> &Stats {
@@ -276,6 +351,94 @@ mod tests {
         }
         assert_eq!((l.threads(), l.peak_threads()), (1, 10), "at the end the users have gone, the peak is what the run had");
         assert_eq!(LiveStats::new().peak_threads(), 0);
+    }
+
+    #[test]
+    fn the_aggregate_numbers_of_a_label_match_what_jmeter_reports() {
+        let mut l = LiveStats::new();
+        // A: 4 samples of 100, 200, 300, 400 ms starting every 500 ms from t=1000; bytes 100 each.
+        for (i, ms) in [100u64, 200, 300, 400].into_iter().enumerate() {
+            l.add(&sample("A", 1_000 + i as u64 * 500, ms, true, 2));
+        }
+        let a = l.label("A").unwrap();
+        assert_eq!((a.median_ms(), a.avg_ms(), a.min_ms, a.max_ms), (200, 250, 100, 400));
+        // The standard deviation of 100,200,300,400 (population) is about 111.8.
+        assert!((a.std_dev_ms() - 111.803).abs() < 0.01, "{}", a.std_dev_ms());
+        // From the start of the first (1000) to the end of the last (2500 + 400 = 2900): 1.9 s for 4 samples.
+        assert!((a.span_secs() - 1.9).abs() < 1e-9);
+        assert!((a.throughput() - 4.0 / 1.9).abs() < 1e-9);
+        assert!((a.received_kb_per_sec() - (400.0 / 1024.0) / 1.9).abs() < 1e-9);
+        // One sample, no time covered: the rate is the count, never a division by zero.
+        let mut one = LiveStats::new();
+        one.add(&sample("B", 5_000, 0, true, 1));
+        let b = one.label("B").unwrap();
+        assert_eq!((b.throughput(), b.std_dev_ms(), b.median_ms()), (1.0, 0.0, 0));
+        assert!(b.received_kb_per_sec().is_finite());
+    }
+
+    #[test]
+    fn two_labels_have_their_own_time_ranges_and_series() {
+        let mut l = LiveStats::new();
+        for i in 0..10u64 {
+            l.add(&sample("Early", 1_000 + i * 100, 50, true, 1));
+        }
+        for i in 0..10u64 {
+            l.add(&sample("Late", 20_000 + i * 100, 50, i != 9, 1));
+        }
+        let (e, late) = (l.label("Early").unwrap(), l.label("Late").unwrap());
+        assert!(e.last_ms < late.first_ms, "each label has the time it took");
+        assert!(e.throughput() > 5.0 && late.throughput() > 5.0, "a label is not slowed by the time the other one took");
+        let es = l.label_series("Early").unwrap();
+        let ls = l.label_series("Late").unwrap();
+        assert_eq!(es.iter().map(|p| p.samples as u64).sum::<u64>(), 10);
+        assert_eq!((ls.iter().map(|p| p.samples as u64).sum::<u64>(), ls.iter().map(|p| p.errors as u64).sum::<u64>()), (10, 1));
+        assert!(es.last().unwrap().at_secs < ls.first().unwrap().at_secs, "on the same time line as the whole run");
+        assert!(l.label_series("Nothing").is_none());
+    }
+
+    #[test]
+    fn label_series_follow_the_whole_run_when_it_merges_steps() {
+        let mut l = LiveStats::new();
+        for i in 0..5000u64 {
+            let label = if i % 2 == 0 { "A" } else { "B" };
+            l.add(&sample(label, 1_000 + i * 1_000, 10, i % 7 != 0, 3));
+        }
+        assert!(l.step_secs() > 1, "the run was long enough to merge");
+        let total_points = l.series().len();
+        for name in ["A", "B"] {
+            let s = l.label_series(name).unwrap();
+            assert!(s.len() <= total_points + 1);
+            assert_eq!(s.iter().map(|p| p.samples as u64).sum::<u64>(), l.label(name).unwrap().count, "{name}");
+            assert!(s.iter().all(|p| p.at_secs % l.step_secs() == 0), "{name} is on the steps of the whole run");
+        }
+        assert_eq!(l.label_series("A").unwrap().iter().map(|p| p.samples as u64).sum::<u64>() + l.label_series("B").unwrap().iter().map(|p| p.samples as u64).sum::<u64>(), l.total().count);
+    }
+
+    #[test]
+    fn only_the_first_labels_get_a_series_so_memory_stays_bounded() {
+        let mut l = LiveStats::new();
+        for i in 0..(MAX_SERIES_LABELS + 50) {
+            l.add(&sample(&format!("L{i:04}"), 1_000 + i as u64, 5, true, 1));
+        }
+        assert_eq!(l.labels().len(), MAX_SERIES_LABELS + 50, "every label is in the table");
+        assert!(l.label_series("L0000").is_some() && l.label_series(&format!("L{:04}", MAX_SERIES_LABELS - 1)).is_some());
+        assert!(l.label_series(&format!("L{:04}", MAX_SERIES_LABELS)).is_none(), "the ones after the limit are not charted");
+        // A label that has a series keeps getting samples in it after the limit is reached.
+        l.add(&sample("L0000", 9_000, 5, true, 1));
+        assert_eq!(l.label_series("L0000").unwrap().iter().map(|p| p.samples).sum::<u32>(), 2);
+    }
+
+    #[test]
+    fn many_labels_and_samples_stay_fast() {
+        let mut l = LiveStats::new();
+        let t = std::time::Instant::now();
+        for i in 0..400_000u64 {
+            l.add(&sample(&format!("Request {}", i % 1000), 1_000 + i * 3, 1 + i % 200, i % 50 != 0, 10));
+        }
+        eprintln!("400,000 samples over 1,000 labels: {:?}", t.elapsed());
+        assert!(t.elapsed() < std::time::Duration::from_secs(20), "{:?}", t.elapsed());
+        assert_eq!(l.total().count, 400_000);
+        assert!(l.label_series("Request 0").is_some());
     }
 
     #[test]
