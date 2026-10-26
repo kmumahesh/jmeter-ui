@@ -1427,3 +1427,30 @@ fn a_chosen_file_is_written_in_the_form_relative_when_it_is_next_to_the_plan(cx:
     app.cx.update(|window, cx| shell.update(cx, |sh, cx| sh.set_file_field("variableNames", &outside, window, cx)));
     assert_eq!(app.prop("variableNames").as_deref(), Some("user"));
 }
+
+// ---- small fixes ----
+
+#[gpui::test]
+fn the_per_request_table_has_a_total_row_and_scrolls_instead_of_cutting_columns(cx: &mut TestAppContext) {
+    let s = setup("fix-table", &shop_plan(1, 1, 1), None, |_| {});
+    let file = csv_file(&s.dir, "table.csv", 100);
+    let mut app = open(cx, &s, false);
+    open_results(&mut app, &file);
+    wait_until(&mut app, Duration::from_secs(30), "the results to load", |st| st["run"]["phase"] == "Finished");
+    app.click("run-tab-labels");
+    assert!(app.has("run-labels"), "the table scrolls sideways");
+    assert!(app.has("run-labels-total"), "and ends with a Total row");
+}
+
+#[gpui::test]
+fn another_element_opens_at_the_top_of_its_form(cx: &mut TestAppContext) {
+    let s = setup("fix-scroll", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    goto(&mut app, "Home");
+    let shell = app.shell.clone();
+    app.cx.update(|_, cx| shell.update(cx, |sh, _| sh.editor_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(-300.)))));
+    let scrolled = app.state()["editor_scroll_y"].as_f64().unwrap();
+    assert!(scrolled < 0.0, "the form was scrolled: {scrolled}");
+    goto(&mut app, "Search");
+    assert_eq!(app.state()["editor_scroll_y"].as_f64().unwrap(), 0.0, "the next element starts at the top");
+}

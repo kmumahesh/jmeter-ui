@@ -179,6 +179,10 @@ impl Shell {
         // A rebuilt form has new boxes; the one being typed in keeps the keyboard focus by name.
         let focused = self.form.as_ref().and_then(|f| f.focused_field(window, cx));
         let form = self.build_form(key.0, key.1, window, cx);
+        if !same {
+            // Another element starts at the top, not where the last one was scrolled to.
+            self.editor_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
+        }
         if let Some(name) = focused {
             if let Some(f) = form.text_fields().into_iter().find(|f| f.read(cx).field_id() == name) {
                 f.update(cx, |f, cx| f.focus(window, cx));
@@ -276,7 +280,13 @@ impl Shell {
                 let widget = match def.kind {
                     Kind::Text | Kind::Number | Kind::Decimal => {
                         let stored = self.plans.iter().find(|p| p.id == plan_id).and_then(|lp| lp.edit.prop(node, &def.prop)).unwrap_or_default();
-                        let f = self.make_field(id, &def.default, &stored, def.kind, window, cx);
+                        // An empty setting of an HTTP Request that HTTP Request Defaults supplies shows that value as a hint.
+                        let hint = if stored.trim().is_empty() && def.default.is_empty() {
+                            self.plans.iter().find(|p| p.id == plan_id).and_then(|lp| plan_core::scope::inherited_http(&lp.edit, node, &def.prop)).map(|(v, from)| format!("{v}  (from {from})"))
+                        } else {
+                            None
+                        };
+                        let f = self.make_field(id, hint.as_deref().unwrap_or(&def.default), &stored, def.kind, window, cx);
                         subs.push(self.watch_text(&f, plan_id, node, def.clone(), window, cx));
                         Widget::Text(f)
                     }

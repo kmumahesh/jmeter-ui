@@ -132,7 +132,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 6 | Expression tester, variable values after a run | done |
 | 7 | Open result files, make and open the HTML report | done |
 | 8 | File pickers for CSV data, properties and `-J` overrides | done |
-| 9 | The small fixes found in the guide | to do |
+| 9 | The small fixes found in the guide | done |
 | 10 | HTTP(S) Test Script Recorder | to do |
 | 11 | Templates, Add Think Times to children | to do |
 | 12 | Aggregate Report and graphs for each request | to do |

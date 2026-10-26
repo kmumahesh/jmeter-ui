@@ -70,7 +70,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Log viewer, Start no pauses, Add Think Times to children | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
 | Keep the window responsive when opening very large plans (15,000 requests take 11 seconds, 40,000 do not finish in a minute) | ⬜ |
-| Small fixes found in the guide: the Users tile after a run, the cut-off per-request table, inherited settings shown in the request form, a palette hint for add mode, long names with an ellipsis, the form scrolling back to the top | ⬜ |
+| Small fixes found in the guide: the Users tile shows the peak after a run, the per-request table has a Total row and scrolls sideways, an empty HTTP Request setting shows the value it takes from HTTP Request Defaults, the palette hints at `+` when nothing matches, long element names end in an ellipsis, and another element opens at the top of its form | ✅ |
 | File pickers for CSV, include and script files | ⬜ |
 | Opening the HTML dashboard report only as a local file, with its own security check (arrives with the report viewer) | ⬜ |
 | Security review before every release (see `docs/PROGRESS.md`) | ⬜ |

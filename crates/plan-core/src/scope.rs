@@ -122,6 +122,31 @@ pub fn for_sampler(plan: &Plan, sampler: NodeId) -> Vec<Entry> {
     out
 }
 
+/// The settings of an HTTP Request that HTTP Request Defaults can supply.
+pub const HTTP_DEFAULTED: [&str; 7] = ["HTTPSampler.domain", "HTTPSampler.port", "HTTPSampler.protocol", "HTTPSampler.path", "HTTPSampler.contentEncoding", "HTTPSampler.connect_timeout", "HTTPSampler.response_timeout"];
+
+/// What an HTTP Request would use for the setting `prop` when it leaves it empty: the value in the nearest HTTP Request
+/// Defaults that takes part in running it and has one, and the name of that element.
+pub fn inherited_http(edit: &crate::edit::EditablePlan, sampler: NodeId, prop: &str) -> Option<(String, String)> {
+    if !HTTP_DEFAULTED.contains(&prop) {
+        return None;
+    }
+    let plan = edit.plan();
+    for e in for_sampler(plan, sampler) {
+        if e.phase != Phase::Config || !e.active {
+            continue;
+        }
+        let Some(n) = plan.node(e.node) else { continue };
+        if n.type_label != "HTTP Request Defaults" {
+            continue;
+        }
+        if let Some(v) = edit.prop(e.node, prop).filter(|v| !v.trim().is_empty()) {
+            return Some((v, n.name.clone()));
+        }
+    }
+    None
+}
+
 /// Put entries listed innermost level first into outermost level first, keeping tree order within a level.
 fn regroup_outer_first(plan: &Plan, entries: Vec<Entry>) -> Vec<Entry> {
     let mut levels: Vec<(NodeId, Vec<Entry>)> = Vec::new();
