@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-26
+
+The first test version, for performance engineers to try on Windows with HTTP and HTTPS web and API testing. Start with `docs/GETTING-STARTED.md`.
+
 ### Added
 - Getting started page for testers, shipped in the download. The welcome screen says whether Java and JMeter are found and what to do when one is not; a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself.
 - Compare two runs: choose a baseline in the History tab and another run, and see each request side by side with how it changed, the worst first.
