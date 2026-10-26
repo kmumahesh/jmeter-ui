@@ -121,3 +121,26 @@ fn a_jmeter_in_the_usual_places_is_found_and_remembered_without_any_setup(cx: &m
     assert_eq!(std::path::PathBuf::from(&saved).canonicalize().ok(), found.canonicalize().ok());
     assert!(st["notice"].as_str().unwrap_or("").starts_with("Found JMeter in"), "{}", st["notice"]);
 }
+
+#[gpui::test]
+fn applying_settings_with_an_empty_jmeter_folder_does_not_fill_it_in(cx: &mut TestAppContext) {
+    // What was typed in Settings is taken as it is: an emptied folder stays empty even when JMeter is in Downloads.
+    let dir = temp_dir("setup-empty");
+    let settings_path = dir.join("settings.json");
+    settings::save(&settings_path, &Settings::default()).unwrap();
+    let mut app = start(cx, None, Some(settings_path.clone()));
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| shell.update(cx, |sh, cx| sh.detect_runtime_with(false, window, cx)));
+    for _ in 0..200 {
+        app.cx.executor().advance_clock(std::time::Duration::from_millis(100));
+        app.cx.run_until_parked();
+        if app.state()["runtime_checked"] == true {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert_eq!(app.state()["runtime_checked"], true);
+    assert!(app.state()["jmeter_home"].is_null(), "{}", app.state()["jmeter_home"]);
+    assert!(settings::load(&settings_path).settings.jmeter_home.is_none());
+    assert!(!app.state()["notice"].as_str().unwrap_or("").starts_with("Found JMeter"));
+}

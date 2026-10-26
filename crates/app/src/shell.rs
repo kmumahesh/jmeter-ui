@@ -916,7 +916,7 @@ impl Shell {
             }
         }
         self.save_settings();
-        self.detect_runtime(window, cx);
+        self.detect_runtime_with(false, window, cx);
         self.notify("Settings saved", Severity::Info, window, cx);
     }
 
@@ -942,6 +942,12 @@ impl Shell {
 
     /// Look for Java and JMeter without blocking the window.
     pub fn detect_runtime(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.detect_runtime_with(true, window, cx);
+    }
+
+    /// Look for Java and JMeter. With `discover`, a JMeter in the usual places is used and remembered when none is chosen;
+    /// applying what was typed in Settings does not discover, so an emptied JMeter folder stays empty.
+    pub fn detect_runtime_with(&mut self, discover: bool, window: &mut Window, cx: &mut Context<Self>) {
         let java_path = self.settings.java_path.clone().map(PathBuf::from);
         let home = self.settings.jmeter_home.clone().map(PathBuf::from);
         cx.spawn_in(window, async move |this, cx| {
@@ -950,7 +956,7 @@ impl Shell {
             let (status, found) = cx
                 .background_executor()
                 .spawn(async move {
-                    let found = if home.is_none() { jvm_runtime::locate::find_jmeter_home() } else { None };
+                    let found = if discover && home.is_none() { jvm_runtime::locate::find_jmeter_home() } else { None };
                     let status = check_runtime(java_path.as_deref(), home.as_deref().or(found.as_deref()));
                     (status, found)
                 })
@@ -1138,11 +1144,13 @@ mod tests {
 
     #[test]
     fn shortcut_conversion() {
-        assert_eq!(to_gpui_keys("Ctrl+O"), "ctrl-o");
-        assert_eq!(to_gpui_keys("Ctrl+Shift+Tab"), "ctrl-shift-tab");
-        assert_eq!(to_gpui_keys("F5"), "f5");
-        assert_eq!(to_gpui_keys("Ctrl+,"), "ctrl-,");
-        assert_eq!(to_gpui_keys("Ctrl+\\"), "ctrl-\\");
+        // As written for Windows and Linux; the Mac's keys are checked in their own test.
+        let k = |s: &str| to_gpui_keys_for(s, false);
+        assert_eq!(k("Ctrl+O"), "ctrl-o");
+        assert_eq!(k("Ctrl+Shift+Tab"), "ctrl-shift-tab");
+        assert_eq!(k("F5"), "f5");
+        assert_eq!(k("Ctrl+,"), "ctrl-,");
+        assert_eq!(k("Ctrl+\\"), "ctrl-\\");
     }
 
     #[test]
