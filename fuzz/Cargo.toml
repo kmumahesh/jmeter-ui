@@ -65,3 +65,10 @@ path = "fuzz_targets/details_file.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "har_import"
+path = "fuzz_targets/har_import.rs"
+test = false
+doc = false
+bench = false

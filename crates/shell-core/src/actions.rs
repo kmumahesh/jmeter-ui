@@ -70,6 +70,8 @@ pub enum Action {
     HtmlReport,
     /// Edit the properties (`name=value`) the runs of the open plan are given.
     RunProperties,
+    /// Add the requests of a HAR file (saved from a browser's developer tools) to the plan.
+    ImportHar,
     Quit,
 }
 
@@ -139,7 +141,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 50] = [
+    pub const ALL: [Action; 51] = [
         Action::ImportCurl,
         Action::CopyElement,
         Action::CutElement,
@@ -189,6 +191,7 @@ impl Action {
         Action::OpenResults,
         Action::HtmlReport,
         Action::RunProperties,
+        Action::ImportHar,
         Action::Quit,
     ];
 
@@ -243,6 +246,7 @@ impl Action {
             Action::OpenResults => "Open Results File\u{2026}",
             Action::HtmlReport => "Open HTML Report",
             Action::RunProperties => "Run Properties\u{2026}",
+            Action::ImportHar => "Import from HAR File\u{2026}",
             Action::Quit => "Quit",
         }
     }
@@ -273,7 +277,7 @@ impl Action {
             | Action::ThemeLight => Group::View,
             Action::RunPlan | Action::ValidatePlan | Action::SendOnce | Action::StopRun | Action::StopRunNow | Action::ClearRunsFolder | Action::OpenRunsFolder | Action::ViewRequests => Group::Run,
             Action::TestExpression => Group::Tools,
-            Action::OpenResults => Group::File,
+            Action::OpenResults | Action::ImportHar => Group::File,
             Action::HtmlReport | Action::RunProperties => Group::Run,
             Action::About => Group::Help,
         }
@@ -336,10 +340,10 @@ impl Action {
         use Availability::*;
         match self {
             Action::ReloadPlan | Action::ExpandAll | Action::CollapseAll | Action::GotoElement | Action::FocusTree if !c.has_plan => Disabled("Open a plan first"),
-            Action::CopyElement | Action::CutElement | Action::PasteElement | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl if !c.has_plan => Disabled("Open a plan first"),
+            Action::CopyElement | Action::CutElement | Action::PasteElement | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl | Action::ImportHar if !c.has_plan => Disabled("Open a plan first"),
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.has_selection => Disabled("Select an element first"),
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.selection_editable => Disabled("The Test Plan itself cannot be copied; select something inside it"),
-            Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl if !c.can_edit => Disabled("Editing is not available"),
+            Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl | Action::ImportHar if !c.can_edit => Disabled("Editing is not available"),
             Action::AddElement if !c.has_plan => Disabled("Open a plan first"),
             Action::AddElement if !c.can_edit => Disabled("Editing is not available"),
             Action::SavePlan | Action::SavePlanAs if !c.has_plan => Disabled("Open a plan first"),
@@ -467,6 +471,13 @@ mod tests {
         assert!(Action::ClearRunsFolder.availability(&custom).is_enabled());
         assert!(!Action::ClearRunsFolder.availability(&AppContext { run_in_progress: true, ..custom }).is_enabled());
         assert!(Action::OpenRunsFolder.availability(&base).is_enabled());
+    }
+
+    #[test]
+    fn a_har_file_needs_an_open_plan_that_can_be_edited() {
+        assert_eq!(Action::ImportHar.availability(&AppContext::default()), Availability::Disabled("Open a plan first"));
+        assert_eq!(Action::ImportHar.availability(&AppContext { has_plan: true, ..Default::default() }), Availability::Disabled("Editing is not available"));
+        assert!(Action::ImportHar.availability(&AppContext { has_plan: true, can_edit: true, ..Default::default() }).is_enabled());
     }
 
     #[test]

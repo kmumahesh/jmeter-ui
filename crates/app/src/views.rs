@@ -144,6 +144,7 @@ impl Shell {
                 MenuItem::Separator,
                 MenuItem::Action(Action::MergePlan),
                 MenuItem::Action(Action::ImportCurl),
+                MenuItem::Action(Action::ImportHar),
                 MenuItem::Action(Action::SaveSelectionAs),
                 MenuItem::Separator,
                 MenuItem::Action(Action::CloseTab),
