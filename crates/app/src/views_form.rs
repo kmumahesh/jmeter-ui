@@ -5,7 +5,7 @@ use crate::form::{Cell, Item, SectionForm, TableForm, Widget};
 use crate::shell::{LoadedPlan, Shell};
 use crate::theme;
 use crate::ui_util::{chip, icon};
-use gpui::{AnyElement, Context, FontWeight, IntoElement, Window, div, prelude::*, px};
+use gpui::{AnyElement, Context, FontWeight, IntoElement, SharedString, Window, div, prelude::*, px};
 use plan_core::forms::Kind;
 use plan_core::NodeId;
 use shell_core::layout::PlanId;
@@ -121,10 +121,28 @@ impl Shell {
         let p = theme::palette(cx);
         let def = item.def.clone();
         let control: AnyElement = match &item.widget {
-            Widget::Text(f) => div().debug_selector({
-                let id = format!("field-{}", def.prop);
-                move || id.clone()
-            }).child(f.clone()).into_any_element(),
+            Widget::Text(f) => {
+                let field = div().flex_1().min_w_0().debug_selector({
+                    let id = format!("field-{}", def.prop);
+                    move || id.clone()
+                }).child(f.clone());
+                let browse = lp.plan.node(node).is_some_and(|n| crate::run_props::browse_target(&n.tag, &def.prop));
+                if browse {
+                    let prop = def.prop.clone();
+                    let id = format!("browse-{}", def.prop);
+                    div()
+                        .flex()
+                        .gap(px(6.))
+                        .child(field)
+                        .child(div().debug_selector({
+                            let id = id.clone();
+                            move || id.clone()
+                        }).child(Button::new(SharedString::from(id), "Browse\u{2026}").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(move |this, _, window, cx| this.browse_for_file(prop.clone(), window, cx)))))
+                        .into_any_element()
+                } else {
+                    field.into_any_element()
+                }
+            }
             Widget::Check => {
                 let cur = lp.edit.prop(node, &def.prop).unwrap_or_else(|| def.default.clone());
                 let on = match def.kind {

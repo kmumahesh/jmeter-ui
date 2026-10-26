@@ -68,6 +68,8 @@ pub enum Action {
     OpenResults,
     /// Open the HTML report of the run in the lower panel, making it first when there is none.
     HtmlReport,
+    /// Edit the properties (`name=value`) the runs of the open plan are given.
+    RunProperties,
     Quit,
 }
 
@@ -137,7 +139,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 49] = [
+    pub const ALL: [Action; 50] = [
         Action::ImportCurl,
         Action::CopyElement,
         Action::CutElement,
@@ -186,6 +188,7 @@ impl Action {
         Action::TestExpression,
         Action::OpenResults,
         Action::HtmlReport,
+        Action::RunProperties,
         Action::Quit,
     ];
 
@@ -239,6 +242,7 @@ impl Action {
             Action::TestExpression => "Try an Expression\u{2026}",
             Action::OpenResults => "Open Results File\u{2026}",
             Action::HtmlReport => "Open HTML Report",
+            Action::RunProperties => "Run Properties\u{2026}",
             Action::Quit => "Quit",
         }
     }
@@ -270,7 +274,7 @@ impl Action {
             Action::RunPlan | Action::ValidatePlan | Action::SendOnce | Action::StopRun | Action::StopRunNow | Action::ClearRunsFolder | Action::OpenRunsFolder | Action::ViewRequests => Group::Run,
             Action::TestExpression => Group::Tools,
             Action::OpenResults => Group::File,
-            Action::HtmlReport => Group::Run,
+            Action::HtmlReport | Action::RunProperties => Group::Run,
             Action::About => Group::Help,
         }
     }
@@ -314,6 +318,7 @@ impl Action {
             Action::TestExpression => Some("Ctrl+Shift+T"),
             Action::OpenResults => Some("Ctrl+Shift+O"),
             Action::HtmlReport => Some("Ctrl+Shift+H"),
+            Action::RunProperties => Some("Ctrl+Shift+J"),
             Action::Quit => Some("Alt+F4"),
             _ => None,
         }
@@ -355,6 +360,7 @@ impl Action {
             Action::SendOnce if !c.can_send_once => Disabled("Select a request (a sampler) first"),
             Action::StopRun | Action::StopRunNow if !c.run_in_progress => Disabled("Nothing is running"),
             Action::ViewRequests if !c.has_run => Disabled("Run the plan first"),
+            Action::RunProperties if !c.has_plan => Disabled("Open a plan first"),
             Action::HtmlReport if !c.has_run => Disabled("Run the plan or open a results file first"),
             Action::HtmlReport if c.run_in_progress => Disabled("A run is in progress"),
             Action::TestExpression if !c.can_run => Disabled("Java or JMeter was not found: see Settings"),
@@ -461,6 +467,13 @@ mod tests {
         assert!(Action::ClearRunsFolder.availability(&custom).is_enabled());
         assert!(!Action::ClearRunsFolder.availability(&AppContext { run_in_progress: true, ..custom }).is_enabled());
         assert!(Action::OpenRunsFolder.availability(&base).is_enabled());
+    }
+
+    #[test]
+    fn run_properties_belong_to_an_open_plan() {
+        assert_eq!(Action::RunProperties.availability(&AppContext::default()), Availability::Disabled("Open a plan first"));
+        assert!(Action::RunProperties.availability(&AppContext { has_plan: true, ..Default::default() }).is_enabled());
+        assert_eq!(Action::RunProperties.shortcut(), Some("Ctrl+Shift+J"));
     }
 
     #[test]

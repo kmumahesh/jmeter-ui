@@ -86,6 +86,8 @@ pub enum TextAreaEvent {
     Changed,
     /// The area lost the keyboard focus.
     Blurred,
+    /// Escape was pressed in it (the keyboard also moves on to the next control).
+    Escaped,
 }
 
 /// What was drawn last, so a click or an input method can be mapped back to the text.
@@ -133,7 +135,8 @@ impl TextArea {
             language: Language::Plain,
             fixed_language: None,
             buffer,
-            placeholder: placeholder.to_string().into(),
+            // Text shaping takes one line, so only the first line of a hint is shown.
+            placeholder: placeholder.lines().next().unwrap_or("").to_string().into(),
             marked: None,
             read_only: false,
             rows: 10,
@@ -516,7 +519,10 @@ impl Render for TextArea {
             .on_action(cx.listener(|this, _: &Newline, w, cx| this.edit(w, cx, |b| b.insert_newline())))
             .on_action(cx.listener(|this, _: &Tab, w, cx| this.edit(w, cx, |b| b.indent())))
             .on_action(cx.listener(|this, _: &ShiftTab, w, cx| this.edit(w, cx, |b| b.outdent())))
-            .on_action(cx.listener(|_, _: &Leave, window, cx| window.focus_next(cx)))
+            .on_action(cx.listener(|_, _: &Leave, window, cx| {
+                cx.emit(TextAreaEvent::Escaped);
+                window.focus_next(cx)
+            }))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))

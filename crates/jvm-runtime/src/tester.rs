@@ -48,7 +48,7 @@ pub const MAX_EXPRESSION_CHARS: usize = 10_000;
 /// The largest text to try an expression on, in bytes.
 pub const MAX_SAMPLE_BYTES: usize = 1024 * 1024;
 /// How long the answer may take before the program is ended.
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(15);
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// The most of the answer that is read, in bytes.
 const MAX_ANSWER_BYTES: u64 = 4 * 1024 * 1024;
 

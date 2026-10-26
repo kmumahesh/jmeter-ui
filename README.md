@@ -60,12 +60,14 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Templates (File > Templates) | ⬜ |
 | Search and replace across the plan | ⬜ |
 | HTTP(S) Test Script Recorder (proxy, certificate, request filtering) | ⬜ |
-| Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 15 seconds, which also shows an expression that is too slow | ✅ |
+| Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
 | Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |
 | Distributed testing: remote hosts, remote start, stop and exit, key store set-up | ⬜ |
 | Backend Listener setup | ⬜ |
-| Properties editor (`user.properties`, `-J` options per run), log viewer, Start no pauses, Add Think Times to children | ⬜ |
+| Run properties (Run > Run Properties, Ctrl+Shift+J): `name=value` lines kept for each plan and given to every run, check and single request, so the plan can read them with `${__P(name)}`; they can be loaded from a `.properties` file; the run header names them without showing values | ✅ |
+| Browse buttons next to the file settings of a CSV Data Set, an Include Controller and script elements; a file next to the plan is written relative to it | ✅ |
+| Log viewer, Start no pauses, Add Think Times to children | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
 | Keep the window responsive when opening very large plans (15,000 requests take 11 seconds, 40,000 do not finish in a minute) | ⬜ |
 | Small fixes found in the guide: the Users tile after a run, the cut-off per-request table, inherited settings shown in the request form, a palette hint for add mode, long names with an ellipsis, the form scrolling back to the top | ⬜ |
@@ -76,6 +78,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
+| Keyboard shortcuts for macOS (Cmd instead of Ctrl, and the usual Mac keys) and Linux, shown in the menus and the palette; today the shortcuts and their labels are the Windows ones | ⬜ |
 
 ## Platform support
 
@@ -84,7 +87,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 80 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 83 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

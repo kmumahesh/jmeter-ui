@@ -506,6 +506,22 @@ Check "typing goes into the dialog's text area" ($s.dialog.text -eq "curl https:
 Save-Shot $p "$($r.Dir)\curl-dialog.png"
 Stop-Ui $p
 
+Write-Host "16. Run properties"
+$r = New-Run "runprops"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+Send-Keys "^+j"
+$s = Get-State $r.State
+Check "Ctrl+Shift+J opens the run properties dialog" ($s.dialog -and $s.dialog.kind -eq "run_props") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
+Send-Keys "where=/hello"
+$until = (Get-Date).AddSeconds(5)
+do { Start-Sleep -Milliseconds 250; $s = Get-State $r.State } while ($s.dialog.text -ne "where=/hello" -and (Get-Date) -lt $until)
+Check "typing goes into the properties box" ($s.dialog.text -eq "where=/hello") "text = $($s.dialog.text)"
+Save-Shot $p "$($r.Dir)\run-properties.png"
+Send-Keys "{ESC}"
+$s = Get-State $r.State
+Check "Escape closes it without saving" ($null -eq $s.dialog) ""
+Stop-Ui $p
+
 # ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""

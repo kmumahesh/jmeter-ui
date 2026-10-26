@@ -2,8 +2,8 @@
 
 mod common;
 
-use common::secondary;
-use gpui::{Entity, Focusable, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase, VisualTestContext, point, px};
+use common::{WEB, fixture, secondary, start, temp_dir};
+use gpui::{AppContext as _, Entity, Focusable, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase, VisualTestContext, point, px};
 use jmeter_ui::fields;
 use jmeter_ui::textarea::{LINE_HEIGHT, MAX_CHARS, TextArea, TextAreaEvent};
 use shell_core::highlight::Language;
@@ -421,4 +421,25 @@ fn many_blank_lines_and_odd_text_are_fine(cx: &mut TestAppContext) {
     cx.update(|_, cx| a.update(cx, |a, cx| a.set_text("\u{1F600}\u{301}\n\t\ttabs\n  ", cx)));
     cx.simulate_keystrokes("up up end");
     assert_eq!(caret(&a, cx).0, 0);
+}
+
+#[gpui::test]
+fn a_hint_with_several_lines_shows_its_first_line_and_does_not_crash(cx: &mut TestAppContext) {
+    // The run properties box is empty at first and has a hint written over several lines.
+    let s = temp_dir("hint");
+    let plan = s.join("p.jmx");
+    std::fs::copy(fixture(WEB), &plan).unwrap();
+    let mut app = start(cx, Some(plan), None);
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| {
+        shell.update(cx, |sh, cx| {
+            let area = cx.new(|cx| jmeter_ui::textarea::TextArea::new(cx, "hint-area", "first line\nsecond line\r\nthird", "").rows(4));
+            sh.dialog = Some(jmeter_ui::shell::Dialog::RunProps { area, error: None });
+            let _ = window;
+            cx.notify();
+        })
+    });
+    app.cx.run_until_parked();
+    app.settle();
+    assert_eq!(app.state()["dialog"]["kind"], "run_props", "it drew without a panic");
 }

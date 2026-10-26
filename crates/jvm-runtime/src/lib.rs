@@ -4,6 +4,7 @@ pub mod details;
 pub mod job;
 pub mod live;
 pub mod locate;
+pub mod props;
 pub mod report;
 pub mod results;
 pub mod runs;

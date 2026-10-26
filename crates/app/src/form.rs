@@ -392,6 +392,7 @@ impl Shell {
                 this.refresh_dirty_mark(cx);
                 this.schedule_live_commit(window, cx);
             }
+            TextAreaEvent::Escaped => {}
         })
     }
 

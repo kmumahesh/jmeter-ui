@@ -12,11 +12,23 @@ fn looks_like_curl(text: &str) -> bool {
 }
 
 impl Shell {
+    /// Escape in a text box of a question closes the question.
+    pub(crate) fn close_dialog_on_escape(&mut self, area: &gpui::Entity<TextArea>, window: &mut Window, cx: &mut Context<Self>) {
+        let sub = cx.subscribe_in(area, window, |this, _, e: &crate::textarea::TextAreaEvent, window, cx| {
+            if *e == crate::textarea::TextAreaEvent::Escaped && matches!(this.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Expression { .. })) {
+                this.dialog_cancel(cx);
+                window.focus(&this.focus, cx);
+            }
+        });
+        self._subscriptions.push(sub);
+    }
+
     /// Open the dialog. If the clipboard holds a curl command it is filled in already.
     pub fn open_curl_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let clip = cx.read_from_clipboard().and_then(|c| c.text()).filter(|t| looks_like_curl(t) && t.len() <= curl::MAX_INPUT).unwrap_or_default();
         let area = cx.new(|cx| TextArea::new(cx, "curl-text", "curl 'https://api.example.com/items' -H 'accept: application/json'", &clip).rows(9));
         area.update(cx, |a, cx| a.focus(window, cx));
+        self.close_dialog_on_escape(&area, window, cx);
         self.dialog = Some(Dialog::Curl { area, error: None });
         cx.notify();
     }

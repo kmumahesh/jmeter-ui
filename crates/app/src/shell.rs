@@ -74,6 +74,8 @@ pub enum Dialog {
     Curl { area: Entity<crate::textarea::TextArea>, error: Option<String> },
     /// Trying an expression on some text. `status` is what the last try found, or what went wrong when `error`.
     Expression { kind: jvm_runtime::tester::Kind, expr: Entity<TextField>, sample: Entity<crate::textarea::TextArea>, result: Entity<crate::textarea::TextArea>, status: Option<String>, error: bool, busy: bool },
+    /// The properties the runs of the open plan are given are being edited; `error` says what is wrong with the lines.
+    RunProps { area: Entity<crate::textarea::TextArea>, error: Option<String> },
     /// A recovery copy was left by an earlier session.
     Recover { path: PathBuf, saved: Option<String>, recovered: String },
     /// The plan has unsaved changes and a run uses the saved file.
@@ -276,7 +278,7 @@ shell_actions!(
     ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
-    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, OpenResults, HtmlReport, Quit,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, OpenResults, HtmlReport, RunProperties, Quit,
 );
 
 gpui::actions!(
@@ -792,6 +794,7 @@ impl Shell {
             Action::TestExpression => self.open_expression_dialog(window, cx),
             Action::OpenResults => self.open_results_dialog(window, cx),
             Action::HtmlReport => self.html_report(window, cx),
+            Action::RunProperties => self.open_run_props_dialog(window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -956,6 +959,7 @@ impl Shell {
                     "kind": "expression", "expression_kind": kind.word(), "expression": expr.read(cx).text(), "sample": sample.read(cx).text(),
                     "result": result.read(cx).text(), "status": status, "error": error, "busy": busy,
                 }),
+                Dialog::RunProps { area, error } => json!({ "kind": "run_props", "text": area.read(cx).text(), "error": error }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
