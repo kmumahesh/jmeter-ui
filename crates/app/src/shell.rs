@@ -76,6 +76,8 @@ pub enum Dialog {
     Expression { kind: jvm_runtime::tester::Kind, expr: Entity<TextField>, sample: Entity<crate::textarea::TextArea>, result: Entity<crate::textarea::TextArea>, status: Option<String>, error: bool, busy: bool },
     /// The properties the runs of the open plan are given are being edited; `error` says what is wrong with the lines.
     RunProps { area: Entity<crate::textarea::TextArea>, error: Option<String> },
+    /// Think times are being added under `target`: the shortest and longest pause, and what is wrong with them.
+    ThinkTimes { target: NodeId, min: Entity<TextField>, max: Entity<TextField>, error: Option<String> },
     /// A HAR file is being imported: what it holds, what is chosen to bring in, and what is wrong.
     Har { path: PathBuf, raw: std::rc::Rc<String>, skip_static: bool, group_by_page: bool, hosts: Entity<TextField>, summary: Option<plan_core::har::Summary>, error: Option<String> },
     /// A recovery copy was left by an earlier session.
@@ -280,7 +282,7 @@ shell_actions!(
     ImportCurl, CopyElement, CutElement, PasteElement, SaveSelectionAs, MergePlan, NewPlan, OpenPlan, SavePlan, SavePlanAs, ReloadPlan, CloseTab, CloseAllTabs, NextTab, PrevTab, Undo, Redo, DeleteElement, DuplicateElement, RenameElement,
     ToggleElementEnabled, MoveElementUp, MoveElementDown, ToggleSidebar, ToggleInspector, ToggleBottomPanel, FocusTree, ExpandAll,
     CollapseAll, GotoElement, AddElement, CommandPalette, ThemeSystem, ThemeDark, ThemeLight, OpenSettings, About, RunPlan, ValidatePlan, SendOnce, StopRun,
-    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, OpenResults, HtmlReport, RunProperties, ImportHar, Quit,
+    StopRunNow, ClearRunsFolder, OpenRunsFolder, ViewRequests, TestExpression, OpenResults, HtmlReport, RunProperties, ImportHar, AddThinkTimes, Quit,
 );
 
 gpui::actions!(
@@ -456,6 +458,7 @@ impl Shell {
             can_send_once: sel.is_some_and(|(_, n)| n.category == plan_core::Category::Sampler),
             custom_runs_folder: self.shared_runs_root().is_some(),
             has_run: self.run.is_some(),
+            can_add_think_times: self.selection_can_take_think_times(),
             can_edit: lp.is_some(),
         }
     }
@@ -798,6 +801,7 @@ impl Shell {
             Action::HtmlReport => self.html_report(window, cx),
             Action::RunProperties => self.open_run_props_dialog(window, cx),
             Action::ImportHar => self.open_har_dialog(window, cx),
+            Action::AddThinkTimes => self.open_think_times_dialog(window, cx),
             Action::Quit => {
                 if self.request_quit(cx) {
                     self.save_window_state(window);
@@ -966,6 +970,7 @@ impl Shell {
                     "kind": "har", "file": path.to_string_lossy(), "skip_static": skip_static, "group_by_page": group_by_page, "hosts": hosts.read(cx).text(), "error": error,
                     "total": summary.as_ref().map(|s| s.total), "kept": summary.as_ref().map(|s| s.kept), "left_out": summary.as_ref().map(|s| s.left_out()),
                 }),
+                Dialog::ThinkTimes { min, max, error, .. } => json!({ "kind": "think_times", "min": min.read(cx).text(), "max": max.read(cx).text(), "error": error }),
                 Dialog::RunProps { area, error } => json!({ "kind": "run_props", "text": area.read(cx).text(), "error": error }),
                 Dialog::DiscardForReload(_) => json!({ "kind": "reload" }),
                 Dialog::Recover { .. } => json!({ "kind": "recover" }),

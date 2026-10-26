@@ -10,6 +10,7 @@ mod har_import;
 mod new_plan;
 mod requests;
 mod run_props;
+mod think_times;
 mod results_view;
 mod run_ctl;
 mod running;

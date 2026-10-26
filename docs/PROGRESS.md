@@ -134,7 +134,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 8 | File pickers for CSV data, properties and `-J` overrides | done |
 | 9 | The small fixes found in the guide | done |
 | 10 | Recording: import a browser HAR file (done); recording proxy with a certificate (to do, kept as a README row) | partly done |
-| 11 | Templates, Add Think Times to children | to do |
+| 11 | Templates, Add Think Times to children | done |
 | 12 | Aggregate Report and graphs for each request | to do |
 | 13 | Compare two runs | to do |
 | 14 | Open large plans: measure the size that opens within 5 seconds, keep it as a limit | to do |

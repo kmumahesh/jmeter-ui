@@ -166,6 +166,7 @@ impl Shell {
                 MenuItem::Action(Action::DeleteElement),
                 MenuItem::Action(Action::RenameElement),
                 MenuItem::Action(Action::ToggleElementEnabled),
+                MenuItem::Action(Action::AddThinkTimes),
                 MenuItem::Separator,
                 MenuItem::Action(Action::MoveElementUp),
                 MenuItem::Action(Action::MoveElementDown),

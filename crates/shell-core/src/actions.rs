@@ -72,6 +72,8 @@ pub enum Action {
     RunProperties,
     /// Add the requests of a HAR file (saved from a browser's developer tools) to the plan.
     ImportHar,
+    /// Add a pause before every request under the selected element.
+    AddThinkTimes,
     Quit,
 }
 
@@ -122,6 +124,8 @@ pub struct AppContext {
     pub can_send_once: bool,
     /// Run files are kept in a folder chosen in Settings (not next to the plan).
     pub custom_runs_folder: bool,
+    /// The selection is something requests can be under (or a request): think times can be added to it.
+    pub can_add_think_times: bool,
     /// A run (live or stored) is showing in the lower panel.
     pub has_run: bool,
     /// Whether this build can change the plan (add, move, delete elements).
@@ -141,7 +145,7 @@ impl Availability {
 }
 
 impl Action {
-    pub const ALL: [Action; 51] = [
+    pub const ALL: [Action; 52] = [
         Action::ImportCurl,
         Action::CopyElement,
         Action::CutElement,
@@ -192,6 +196,7 @@ impl Action {
         Action::HtmlReport,
         Action::RunProperties,
         Action::ImportHar,
+        Action::AddThinkTimes,
         Action::Quit,
     ];
 
@@ -247,6 +252,7 @@ impl Action {
             Action::HtmlReport => "Open HTML Report",
             Action::RunProperties => "Run Properties\u{2026}",
             Action::ImportHar => "Import from HAR File\u{2026}",
+            Action::AddThinkTimes => "Add Think Times to Children\u{2026}",
             Action::Quit => "Quit",
         }
     }
@@ -265,7 +271,8 @@ impl Action {
             | Action::CopyElement
             | Action::CutElement
             | Action::PasteElement
-            | Action::AddElement => Group::Edit,
+            | Action::AddElement
+            | Action::AddThinkTimes => Group::Edit,
             Action::NextTab | Action::PrevTab | Action::FocusTree | Action::GotoElement | Action::CommandPalette => Group::Navigate,
             Action::ToggleSidebar
             | Action::ToggleInspector
@@ -344,6 +351,9 @@ impl Action {
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.has_selection => Disabled("Select an element first"),
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.selection_editable => Disabled("The Test Plan itself cannot be copied; select something inside it"),
             Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl | Action::ImportHar if !c.can_edit => Disabled("Editing is not available"),
+            Action::AddThinkTimes if !c.has_plan => Disabled("Open a plan first"),
+            Action::AddThinkTimes if !c.can_edit => Disabled("Editing is not available"),
+            Action::AddThinkTimes if !c.can_add_think_times => Disabled("Select a thread group, a controller or a request first"),
             Action::AddElement if !c.has_plan => Disabled("Open a plan first"),
             Action::AddElement if !c.can_edit => Disabled("Editing is not available"),
             Action::SavePlan | Action::SavePlanAs if !c.has_plan => Disabled("Open a plan first"),
@@ -471,6 +481,15 @@ mod tests {
         assert!(Action::ClearRunsFolder.availability(&custom).is_enabled());
         assert!(!Action::ClearRunsFolder.availability(&AppContext { run_in_progress: true, ..custom }).is_enabled());
         assert!(Action::OpenRunsFolder.availability(&base).is_enabled());
+    }
+
+    #[test]
+    fn think_times_need_a_selection_that_holds_requests_and_an_editable_plan() {
+        assert_eq!(Action::AddThinkTimes.availability(&AppContext::default()), Availability::Disabled("Open a plan first"));
+        let open = AppContext { has_plan: true, can_edit: true, ..Default::default() };
+        assert_eq!(Action::AddThinkTimes.availability(&open), Availability::Disabled("Select a thread group, a controller or a request first"));
+        assert!(Action::AddThinkTimes.availability(&AppContext { can_add_think_times: true, ..open }).is_enabled());
+        assert_eq!(Action::AddThinkTimes.availability(&AppContext { has_plan: true, can_add_think_times: true, ..Default::default() }), Availability::Disabled("Editing is not available"));
     }
 
     #[test]

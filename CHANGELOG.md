@@ -5,6 +5,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- New Plan templates for load testing: login and reuse a token, data-driven (CSV), load test with a ramp and a time limit, and spike test.
+- Add Think Times to Children (Edit menu): a pause before every request under the selected element, in one step.
 - Import from a HAR file (File menu): the requests of a browser recording become HTTP Requests, grouped by page, with static files, preflights and cookies left out. Importing cURL commands or a recording with the Test Plan selected now puts the requests under the first thread group.
 - Run properties (Ctrl+Shift+J): `name=value` lines kept for a plan and given to its runs as `-J` options, with loading from a `.properties` file.
 - Browse buttons for the file settings of a CSV Data Set, an Include Controller and script elements.
