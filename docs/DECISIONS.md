@@ -315,3 +315,9 @@ Added with the engineering-practice work, to test the two places that read files
 4. **Honest about missing data.** A run whose results file is gone is not compared, because it would show every request as new. The message says which run could not be read.
 5. **Both runs are read in the background**, in pieces with flat memory like any results file; two runs of 50,000 samples over 1,000 requests compare in about two seconds.
 
+## Large plans (2026-10-26)
+1. **What was slow.** Earlier measurements (15,000 requests in 11 seconds, 40,000 not finishing) came from two things that grew with the square of the plan: the check for undefined variables found every element from the top of the plan once for each element (21 seconds for 8,000 requests in a test build), and the Problems list drew a row for every note. The reading of the file itself was fast: 32,000 requests open in 1.6 seconds in a test build.
+2. **Fixes.** The settings of every element are read in one walk of the plan, so the check costs what the plan costs: 8,000 requests in under a tenth of a second, 40,000 in 0.3 seconds. The Problems list draws its first 100 notes and says how many more there are.
+3. **The limit.** A plan of 80,000 requests opened in about five seconds in a test build on the development machine (60,000 in three, 40,000 in two); the app calls up to 60,000 elements comfortable. A bigger plan opens, with a notice that it will be slow. The automated check keeps 40,000 requests (open, Problems list, go to an element, rename, save) under five seconds on every platform it runs on, which leaves room for slower machines, and a second check keeps the time growing with the plan and not with its square.
+4. **Not done, kept as a to-do.** Reading the file on a background thread with progress, a scrolling Problems list instead of a short one, and loading elements only when shown.
+

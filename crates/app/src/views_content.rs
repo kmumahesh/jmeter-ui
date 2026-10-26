@@ -12,6 +12,9 @@ use shell_core::layout::{Tab, TabKind};
 use shell_core::settings::{RequestDetails, ThemeChoice};
 use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, IconButton, IconName, IconSize, Tooltip};
 
+/// The most rows the Problems list draws; the tab says how many there are in all.
+const MAX_PROBLEM_ROWS: usize = 100;
+
 impl Shell {
     pub(crate) fn tab_content(&self, tab: &Tab, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match tab.kind {
@@ -423,7 +426,9 @@ impl Shell {
 
     pub(crate) fn bottom_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(cx);
-        let problems: Vec<problems::Problem> = self.plan().map(|lp| lp.problems().to_vec()).unwrap_or_default();
+        // Only the rows that are drawn are copied: a plan of tens of thousands of requests can have a note for each.
+        let problems_total = self.plan().map_or(0, |lp| lp.problems().len());
+        let problems: Vec<problems::Problem> = self.plan().map(|lp| lp.problems().iter().take(MAX_PROBLEM_ROWS).cloned().collect()).unwrap_or_default();
         let tab = |id: &'static str, label: String, which: BottomTab, cx: &mut Context<Self>| {
             let active = self.bottom_tab == which;
             div()
@@ -456,7 +461,7 @@ impl Shell {
                     div()
                         .flex()
                         .flex_col()
-                        .children(problems.iter().enumerate().map(|(i, pr)| {
+                        .children(problems.iter().take(MAX_PROBLEM_ROWS).enumerate().map(|(i, pr)| {
                             let node = pr.node;
                             let warn = pr.level == Level::Warning;
                             div()
@@ -478,6 +483,7 @@ impl Shell {
                                 .child(icon(if warn { "icons/warning.svg" } else { "icons/jm/dot.svg" }, 14., if warn { p.warn } else { p.muted }))
                                 .child(div().flex_1().child(pr.text.clone()))
                         }))
+                        .when(problems_total > MAX_PROBLEM_ROWS, |d| d.child(div().id("problems-more").debug_selector(|| "problems-more".to_string()).px(px(14.)).py(px(5.)).text_size(px(12.5)).text_color(p.muted).child(format!("{} more are not listed. Fix these first; the list is made again after each change.", problems_total - MAX_PROBLEM_ROWS))))
                         .into_any_element()
                 }
             }
@@ -502,7 +508,7 @@ impl Shell {
                     .child(tab("bottom-requests", format!("Requests{}", self.run.as_ref().map_or(String::new(), |r| if r.details.is_empty() { String::new() } else { format!(" ({})", r.details.len()) })), BottomTab::Requests, cx))
                     .child(tab("bottom-compare", "Compare".into(), BottomTab::Compare, cx))
                     .child(tab("bottom-history", format!("History{}", if self.history_entries().is_empty() { String::new() } else { format!(" ({})", self.history_entries().len()) }), BottomTab::History, cx))
-                    .child(tab("bottom-problems", format!("Problems{}", if problems.is_empty() { String::new() } else { format!(" ({})", problems.len()) }), BottomTab::Problems, cx))
+                    .child(tab("bottom-problems", format!("Problems{}", if problems_total == 0 { String::new() } else { format!(" ({problems_total})") }), BottomTab::Problems, cx))
                     .child(div().flex_1())
                     .child(
                         IconButton::new("bottom-close", IconName::Close)

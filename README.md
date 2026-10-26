@@ -71,7 +71,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Add Think Times to Children (Edit menu): a pause before every request under the selected element that has none, with the shortest and longest pause chosen; one Undo takes them all away | ✅ |
 | Log viewer, Start no pauses | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
-| Keep the window responsive when opening very large plans (15,000 requests take 11 seconds, 40,000 do not finish in a minute) | ⬜ |
+| Large plans: a plan of up to 60,000 elements opens in under five seconds (80,000 take about five in a test build on the development machine; 40,000 take about two), and going to an element, renaming, saving and the Problems list stay quick; the tests keep 40,000 under the limit and check that time grows with the plan, not its square. Bigger plans open with a notice that they are slow | ✅ |
+| Open and edit very large plans faster still: read the file on a background thread with a progress bar, draw the Problems list as a scrolling list instead of its first 100 notes, and load elements only when they are shown (nice to have) | ⬜ |
 | Small fixes found in the guide: the Users tile shows the peak after a run, the per-request table has a Total row and scrolls sideways, an empty HTTP Request setting shows the value it takes from HTTP Request Defaults, the palette hints at `+` when nothing matches, long element names end in an ellipsis, and another element opens at the top of its form | ✅ |
 | File pickers for CSV, include and script files | ⬜ |
 | Opening the HTML dashboard report only as a local file, with its own security check (arrives with the report viewer) | ⬜ |

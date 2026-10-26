@@ -36,9 +36,10 @@ fn last_segment(path: &str) -> &str {
 pub fn defined(edit: &EditablePlan) -> HashSet<String> {
     let mut out = HashSet::new();
     let plan = edit.plan();
-    for n in plan.iter() {
+    for (id, settings) in edit.all_setting_texts() {
+        let Some(n) = plan.node(id) else { continue };
         let is_variables_element = n.tag == "Arguments";
-        for (path, text) in edit.setting_texts(n.id) {
+        for (path, text) in settings {
             let last = last_segment(&path);
             if let Some((_, seps)) = DEFINING.iter().find(|(name, _)| *name == last) {
                 if seps.is_empty() {
@@ -144,9 +145,10 @@ pub fn check(edit: &EditablePlan) -> Vec<Problem> {
     let plan = edit.plan();
     let known = defined(edit);
     let mut out = Vec::new();
-    for n in plan.iter() {
+    for (id, settings) in edit.all_setting_texts() {
+        let Some(n) = plan.node(id) else { continue };
         let mut seen: HashSet<String> = HashSet::new();
-        for (path, text) in edit.setting_texts(n.id) {
+        for (path, text) in settings {
             // Scripts use `${...}` for their own purposes and are checked by the script itself.
             if matches!(last_segment(&path), "script" | "query" | "parameters") {
                 continue;

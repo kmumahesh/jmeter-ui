@@ -122,6 +122,28 @@ pub struct RemovedRow {
 
 type Path = Vec<usize>;
 
+/// Every simple setting of an element with its text: a setting inside another is `outer/inner`, a table row is `#n`.
+fn settings_of(element: &Element) -> Vec<(String, String)> {
+    fn walk(e: &Element, prefix: &str, out: &mut Vec<(String, String)>) {
+        let in_table = e.name == "collectionProp";
+        for (i, c) in e.elements().enumerate() {
+            if !c.name.ends_with("Prop") {
+                continue;
+            }
+            let seg = if in_table { format!("#{i}") } else { c.attr("name").unwrap_or_default() };
+            let path = if prefix.is_empty() { seg } else { format!("{prefix}/{seg}") };
+            if c.name == "elementProp" || c.name == "collectionProp" {
+                walk(c, &path, out);
+            } else {
+                out.push((path, c.text()));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(element, "", &mut out);
+    out
+}
+
 const INDENT: &str = "  ";
 
 fn is_blank(t: &str) -> bool {
@@ -511,24 +533,22 @@ impl Document {
     /// Every simple setting of an element with its text, including those inside element settings and tables
     /// (not the elements below it). A setting inside another is named `outer/inner`; a table row is `#n`.
     pub fn setting_texts(&self, uid: u32) -> Vec<(String, String)> {
-        fn walk(e: &Element, prefix: &str, out: &mut Vec<(String, String)>) {
-            let in_table = e.name == "collectionProp";
-            for (i, c) in e.elements().enumerate() {
-                if !c.name.ends_with("Prop") {
-                    continue;
-                }
-                let seg = if in_table { format!("#{i}") } else { c.attr("name").unwrap_or_default() };
-                let path = if prefix.is_empty() { seg } else { format!("{prefix}/{seg}") };
-                if c.name == "elementProp" || c.name == "collectionProp" {
-                    walk(c, &path, out);
-                } else {
-                    out.push((path, c.text()));
-                }
+        self.plan_element(uid).map(settings_of).unwrap_or_default()
+    }
+
+    /// The settings of every element (see [`setting_texts`](Self::setting_texts)) in one walk of the plan, in tree order. Asking
+    /// for each element in turn finds each one from the top and costs as much as the plan is large every time; this costs that once.
+    pub fn all_setting_texts(&self) -> Vec<(u32, Vec<(String, String)>)> {
+        fn go(level: &Element, out: &mut Vec<(u32, Vec<(String, String)>)>) {
+            for (e, h) in pairs(level) {
+                let element = el(level, e);
+                out.push((element.uid, settings_of(element)));
+                go(el(level, h), out);
             }
         }
         let mut out = Vec::new();
-        if let Some(e) = self.plan_element(uid) {
-            walk(e, "", &mut out);
+        if let Some(top) = top_index(self) {
+            go(el(&self.root, top), &mut out);
         }
         out
     }
