@@ -108,6 +108,11 @@ impl Shell {
         self.settings.push_recent(&display_path(&abs));
         self.save_settings();
         let msg = if dirty { format!("Opened {title} with your unsaved changes: {n} elements") } else { format!("Opened {title}: {n} elements") };
+        let msg = if n > plan_core::COMFORTABLE_PLAN_ELEMENTS {
+            format!("{msg}. Plans over {} elements open and edit slowly.", plan_core::COMFORTABLE_PLAN_ELEMENTS)
+        } else {
+            msg
+        };
         self.notify(msg, Severity::Info, window, cx);
         cx.notify();
     }

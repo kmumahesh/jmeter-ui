@@ -408,6 +408,11 @@ impl EditablePlan {
         self.doc.setting_texts(id.0)
     }
 
+    /// The settings of every element with their text, in one walk of the plan (see `Document::all_setting_texts`).
+    pub fn all_setting_texts(&self) -> Vec<(NodeId, Vec<(String, String)>)> {
+        self.doc.all_setting_texts().into_iter().map(|(uid, s)| (NodeId(uid), s)).collect()
+    }
+
     /// The current value of a simple property.
     pub fn prop(&self, id: NodeId, name: &str) -> Option<String> {
         self.doc.prop(id.0, name)

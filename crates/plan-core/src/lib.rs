@@ -1,6 +1,10 @@
 //! The test plan as the app sees it: element kinds, what can go where, the tree and its state.
 
 pub mod catalog;
+
+/// The size of plan, in elements, that opens in under five seconds: measured at about 80,000 elements in a test build on the
+/// development machine (50,000 take 2.3 seconds), kept as 60,000. Bigger plans open, but take longer, and the app says so.
+pub const COMFORTABLE_PLAN_ELEMENTS: usize = 60_000;
 pub mod curl;
 pub mod har;
 pub mod derive;
