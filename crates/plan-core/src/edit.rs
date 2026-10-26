@@ -469,6 +469,58 @@ impl EditablePlan {
         }
     }
 
+    /// Add a pause before every request under `under` that has none of its own: a Uniform Random Timer (or a Constant
+    /// Timer when `min_ms` and `max_ms` are equal) named "Think time", as the last child of the request. Requests that
+    /// are switched off or already have a timer are left alone. All the timers are one step to undo. Returns how many were
+    /// added.
+    pub fn add_think_times(&mut self, under: NodeId, min_ms: u32, max_ms: u32) -> Result<usize> {
+        if min_ms > max_ms {
+            bail!("The shortest pause is longer than the longest.");
+        }
+        if max_ms > MAX_THINK_MS {
+            bail!("A pause longer than {} minutes is not allowed.", MAX_THINK_MS / 60_000);
+        }
+        self.node(under)?;
+        let plan = self.plan().clone();
+        let targets: Vec<NodeId> = crate::scope::samplers_below(&plan, under)
+            .into_iter()
+            .filter(|&id| plan.node(id).is_some_and(|n| n.enabled && !n.children.iter().any(|&c| plan.node(c).is_some_and(|c| c.category == Category::Timer))))
+            .collect();
+        if targets.is_empty() {
+            bail!("Every request under {} already has a pause of its own, or there are no requests there.", plan.node(under).map(|n| n.name.clone()).unwrap_or_default());
+        }
+        let timer = if min_ms == max_ms {
+            format!("<ConstantTimer guiclass=\"ConstantTimerGui\" testclass=\"ConstantTimer\" testname=\"Think time\" enabled=\"true\"><stringProp name=\"ConstantTimer.delay\">{min_ms}</stringProp></ConstantTimer><hashTree/>")
+        } else {
+            format!("<UniformRandomTimer guiclass=\"UniformRandomTimerGui\" testclass=\"UniformRandomTimer\" testname=\"Think time\" enabled=\"true\"><stringProp name=\"ConstantTimer.delay\">{min_ms}</stringProp><stringProp name=\"RandomTimer.range\">{}.0</stringProp></UniformRandomTimer><hashTree/>", max_ms - min_ms)
+        };
+        let text = format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<jmeterTestPlan version=\"1.2\" properties=\"5.0\" jmeter=\"5.6.3\"><hashTree>{timer}</hashTree></jmeterTestPlan>");
+        let mut uids: Vec<u32> = Vec::with_capacity(targets.len());
+        for &sampler in &targets {
+            let mut pair = pasted_pairs(&text)?.remove(0);
+            self.doc.assign_uids(&mut pair);
+            let uid = pair.uid();
+            let at = plan.node(sampler).map_or(0, |n| n.children.len());
+            if let Err(e) = self.doc.insert_pair(Some(sampler.0), at, pair) {
+                for done in uids.iter().rev() {
+                    let _ = self.doc.remove_pair(*done);
+                }
+                return Err(e);
+            }
+            uids.push(uid);
+        }
+        if let Err(e) = self.record(Step::AddMany { uids: uids.clone(), held: Vec::new() }) {
+            self.undo.pop();
+            for uid in uids.iter().rev() {
+                let _ = self.doc.remove_pair(*uid);
+            }
+            let _ = self.refresh();
+            return Err(e.context("the pauses do not make a valid plan"));
+        }
+        Ok(uids.len())
+    }
+
     fn paste_pairs(&mut self, parent: NodeId, index: usize, pairs: Vec<Pair>) -> Result<Vec<NodeId>> {
         let p = self.node(parent)?;
         for pair in &pairs {
@@ -503,6 +555,9 @@ impl EditablePlan {
         Ok(uids.into_iter().map(NodeId).collect())
     }
 }
+
+/// The longest pause that can be added to requests, in milliseconds (one hour).
+pub const MAX_THINK_MS: u32 = 3_600_000;
 
 /// The most text that is read as elements to paste.
 pub const MAX_PASTE_BYTES: usize = 64 * 1024 * 1024;
