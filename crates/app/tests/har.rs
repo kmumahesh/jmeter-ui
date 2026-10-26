@@ -107,7 +107,9 @@ fn adding_puts_the_requests_in_the_plan_grouped_by_page_in_one_undoable_step(cx:
     }
     assert!(!text.contains("sid=secret") && !text.contains("logo.png") && !text.contains("app.js"), "cookies and static files are not brought in");
     // One undo takes it all away.
-    app.keys(&secondary("ctrl-z"));
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.perform(shell_core::actions::Action::Undo, window, cx)));
+    app.cx.run_until_parked();
     let back = elements(&mut app);
     assert_eq!(back, before, "one undo takes it all away");
 }
