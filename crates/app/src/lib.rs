@@ -4,6 +4,7 @@ pub mod assets;
 pub mod combo;
 mod aggregate;
 mod clipboard;
+mod compare_view;
 mod curl_import;
 mod editing;
 mod expression;

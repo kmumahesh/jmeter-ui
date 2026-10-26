@@ -1528,3 +1528,136 @@ fn a_run_with_a_thousand_requests_opens_quickly_and_lists_a_limited_number(cx: &
     let text = app.cx.update(|_, cx| cx.read_from_clipboard().and_then(|c| c.text())).unwrap();
     assert_eq!(text.lines().count(), 1002, "but the copy has every request");
 }
+
+// ---- comparing runs ----
+
+/// Write a results file for a run folder: `(label, response ms, samples, failures)`.
+fn write_results(dir: &Path, rows: &[(&str, u64, u64, u64)]) {
+    let mut text = String::from(FULL_HEADER);
+    text.push('\n');
+    let mut t = 1_700_000_000_000u64;
+    for (label, ms, n, bad) in rows {
+        for i in 0..*n {
+            let ok = i >= *bad;
+            text.push_str(&format!("{t},{ms},{label},{},{},Users 1-1,text,{ok},,100,100,5,5,http://x/,3,0,1\n", if ok { "200" } else { "500" }, if ok { "OK" } else { "Error" }));
+            t += 20;
+        }
+    }
+    std::fs::write(dir.join("results.jtl"), text).unwrap();
+}
+
+/// Two finished runs of the shop plan: the older one is the baseline. Returns (older, newer).
+fn two_runs(s: &Setup, older: &[(&str, u64, u64, u64)], newer: &[(&str, u64, u64, u64)]) -> (PathBuf, PathBuf) {
+    let root = s.dir.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 10, Outcome::Finished);
+    let b = stored_run(&root, &s.plan, 2, 10, Outcome::Finished);
+    write_results(&a, older);
+    write_results(&b, newer);
+    (a, b)
+}
+
+fn compare_state(app: &mut App) -> Value {
+    app.state()["compare"].clone()
+}
+
+#[gpui::test]
+fn two_runs_chosen_in_the_history_are_compared_with_the_earlier_one_as_the_baseline(cx: &mut TestAppContext) {
+    let s = setup("cmp-flow", &shop_plan(1, 1, 1), None, |_| {});
+    let (older, newer) = two_runs(&s, &[("Home", 100, 40, 0), ("Search", 100, 40, 0), ("Gone", 50, 10, 0)], &[("Home", 300, 40, 0), ("Search", 100, 40, 4), ("New", 20, 10, 0)]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    assert_eq!(app.state()["history"].as_array().unwrap().len(), 2);
+    assert!(app.state()["compare_base"].is_null());
+    // The newer run is the first row; choosing it first and the older one second still makes the older the baseline.
+    app.click("history-compare-0");
+    assert!(app.state()["compare_base"].as_str().unwrap().contains(newer.file_name().unwrap().to_str().unwrap()));
+    app.click("history-compare-1");
+    let st = wait_until(&mut app, Duration::from_secs(30), "the comparison", |st| st["compare"].is_object());
+    assert_eq!(st["bottom_tab"], "Compare");
+    assert!(st["compare_base"].is_null(), "the choice is used up");
+    let c = compare_state(&mut app);
+    assert_eq!((c["rows"].clone(), c["worse"].clone(), c["better"].clone(), c["new"].clone(), c["gone"].clone()), (4.into(), 2.into(), 0.into(), 1.into(), 1.into()), "{c}");
+    assert_eq!(c["first"], "Home", "the slowest change comes first: {c}");
+    let _ = (&older, &newer);
+    for sel in ["compare-view", "compare-summary", "compare-sort", "compare-copy", "cmp-row-0"] {
+        assert!(app.has(sel), "{sel}");
+    }
+    // Name order and back.
+    app.click("compare-sort");
+    let c = compare_state(&mut app);
+    assert_eq!((c["by_name"].clone(), c["first"].clone()), (true.into(), "Home".into()));
+    app.click("compare-sort");
+    assert_eq!(compare_state(&mut app)["by_name"], false);
+}
+
+#[gpui::test]
+fn choosing_the_baseline_again_takes_it_back_and_an_empty_tab_says_what_to_do(cx: &mut TestAppContext) {
+    let s = setup("cmp-undo", &shop_plan(1, 1, 1), None, |_| {});
+    two_runs(&s, &[("A", 10, 5, 0)], &[("A", 10, 5, 0)]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-compare");
+    assert!(app.has("compare-empty"));
+    app.click("bottom-history");
+    app.click("history-compare-0");
+    assert!(app.state()["compare_base"].is_string());
+    app.click("history-compare-0");
+    assert!(app.state()["compare_base"].is_null());
+    assert!(compare_state(&mut app).is_null());
+}
+
+#[gpui::test]
+fn the_comparison_is_copied_as_csv_with_the_worst_first(cx: &mut TestAppContext) {
+    let s = setup("cmp-csv", &shop_plan(1, 1, 1), None, |_| {});
+    two_runs(&s, &[("Home", 100, 40, 0), ("=Evil", 100, 40, 0)], &[("Home", 100, 40, 0), ("=Evil", 400, 40, 0)]);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-compare-1");
+    app.click("history-compare-0");
+    wait_until(&mut app, Duration::from_secs(30), "the comparison", |st| st["compare"].is_object());
+    app.click("compare-copy");
+    let text = app.cx.update(|_, cx| cx.read_from_clipboard().and_then(|c| c.text())).expect("on the clipboard");
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 4, "{text}");
+    assert!(lines[0].starts_with("Label,Baseline samples,"));
+    assert!(lines[1].starts_with("'=Evil,40,40,100,400,300.0,"), "the worst first, and the name cannot run as a formula: {}", lines[1]);
+    assert!(lines[1].ends_with(",Worse") && lines[2].ends_with(",Same") && lines[3].starts_with("TOTAL,"), "{text}");
+}
+
+#[gpui::test]
+fn a_run_whose_results_are_gone_says_so_and_the_window_keeps_working(cx: &mut TestAppContext) {
+    let s = setup("cmp-gone", &shop_plan(1, 1, 1), None, |_| {});
+    let (older, _) = two_runs(&s, &[("A", 10, 5, 0)], &[("A", 10, 5, 0)]);
+    std::fs::remove_file(older.join("results.jtl")).unwrap();
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-compare-1");
+    app.click("history-compare-0");
+    wait_until(&mut app, Duration::from_secs(30), "the end of the attempt", |st| st["compare_loading"] == false);
+    assert!(app.state()["notice"].as_str().unwrap().contains("could not be read"), "{}", app.state()["notice"]);
+    assert!(compare_state(&mut app).is_null());
+    app.keys("ctrl-k");
+    assert!(app.palette_open());
+}
+
+#[gpui::test]
+fn two_big_runs_are_compared_quickly(cx: &mut TestAppContext) {
+    let s = setup("cmp-big", &shop_plan(1, 1, 1), None, |_| {});
+    let names: Vec<String> = (0..1000).map(|i| format!("Request {i:04}")).collect();
+    let rows = |factor: u64| -> Vec<(&str, u64, u64, u64)> { names.iter().enumerate().map(|(i, n)| (n.as_str(), (20 + i as u64 % 80) * factor, 50, 0)).collect() };
+    two_runs(&s, &rows(1), &rows(2));
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-compare-1");
+    let t = Instant::now();
+    app.click("history-compare-0");
+    let st = wait_until(&mut app, Duration::from_secs(60), "the comparison", |st| st["compare"].is_object());
+    eprintln!("two runs of 50,000 samples over 1,000 requests compared in {:?}", t.elapsed());
+    assert_eq!((st["compare"]["rows"].clone(), st["compare"]["worse"].clone()), (1000.into(), 1000.into()));
+    assert!(t.elapsed() < Duration::from_secs(30), "{:?}", t.elapsed());
+    assert!(!app.has("cmp-row-300"), "the table lists a limited number of rows");
+}
