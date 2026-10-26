@@ -448,6 +448,7 @@ impl Shell {
             BottomTab::Run => self.run_view(cx),
             BottomTab::History => self.history_view(cx),
             BottomTab::Requests => self.requests_view(cx),
+            BottomTab::Compare => self.compare_view(cx),
             BottomTab::Problems => {
                 if problems.is_empty() {
                     div().p(px(16.)).text_color(p.muted).child(if self.plan().is_some() { "No problems found in this plan." } else { "Open a plan to check it." }).into_any_element()
@@ -499,6 +500,7 @@ impl Shell {
                     .border_color(p.line)
                     .child(tab("bottom-run", "Run".into(), BottomTab::Run, cx))
                     .child(tab("bottom-requests", format!("Requests{}", self.run.as_ref().map_or(String::new(), |r| if r.details.is_empty() { String::new() } else { format!(" ({})", r.details.len()) })), BottomTab::Requests, cx))
+                    .child(tab("bottom-compare", "Compare".into(), BottomTab::Compare, cx))
                     .child(tab("bottom-history", format!("History{}", if self.history_entries().is_empty() { String::new() } else { format!(" ({})", self.history_entries().len()) }), BottomTab::History, cx))
                     .child(tab("bottom-problems", format!("Problems{}", if problems.is_empty() { String::new() } else { format!(" ({})", problems.len()) }), BottomTab::Problems, cx))
                     .child(div().flex_1())
@@ -509,7 +511,7 @@ impl Shell {
                             .on_click(cx.listener(|this, _, window, cx| this.perform(Action::ToggleBottomPanel, window, cx))),
                     ),
             )
-            .child(div().id("bottom-content").flex_1().min_h_0().when(!matches!(self.bottom_tab, BottomTab::Run | BottomTab::Requests), |d| d.overflow_y_scroll()).child(content))
+            .child(div().id("bottom-content").flex_1().min_h_0().when(!matches!(self.bottom_tab, BottomTab::Run | BottomTab::Requests | BottomTab::Compare), |d| d.overflow_y_scroll()).child(content))
     }
 
     // ---- status bar ----

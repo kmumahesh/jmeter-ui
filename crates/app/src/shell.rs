@@ -140,6 +140,8 @@ pub enum BottomTab {
     Problems,
     /// What was sent and received for the requests of the run.
     Requests,
+    /// Two runs of the plan side by side.
+    Compare,
 }
 
 /// Which part of one request the viewer shows.
@@ -206,6 +208,10 @@ pub struct Shell {
     pub run_detail: RunDetail,
     /// The request the charts of the run show, or all of them.
     pub run_label: Option<String>,
+    /// The run chosen as the baseline in the History tab, for comparing.
+    pub compare_base: Option<PathBuf>,
+    pub compare: Option<crate::compare_view::CompareData>,
+    pub compare_loading: bool,
     /// The request chosen in the request viewer (an index into the run's details).
     /// Folders and pages the app was asked to show in another program.
     pub opened: Vec<PathBuf>,
@@ -385,6 +391,9 @@ impl Shell {
             bottom_tab: BottomTab::Problems,
             run_detail: RunDetail::Errors,
             run_label: None,
+            compare_base: None,
+            compare: None,
+            compare_loading: false,
             opened: Vec::new(),
             no_external_open: options.no_external_open || std::env::var_os("JMETER_UI_NO_OPEN").is_some(),
             report_busy: false,
@@ -1009,6 +1018,14 @@ impl Shell {
                     "details_skipped": r.details_skipped,
                 })
             }),
+            "compare_base": self.compare_base.as_ref().map(|p| p.to_string_lossy()),
+            "compare": self.compare.as_ref().map(|c| json!({
+                "base": c.base_title, "candidate": c.cand_title, "rows": c.cmp.rows.len(), "by_name": c.by_name,
+                "worse": c.cmp.count(jvm_runtime::compare::Verdict::Worse), "better": c.cmp.count(jvm_runtime::compare::Verdict::Better),
+                "new": c.cmp.count(jvm_runtime::compare::Verdict::New), "gone": c.cmp.count(jvm_runtime::compare::Verdict::Gone),
+                "first": c.cmp.worst_first().first().map(|r| r.label.clone()),
+            })),
+            "compare_loading": self.compare_loading,
             "editor_scroll_y": f32::from(self.editor_scroll.offset().y),
             "opened": self.opened.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
             "report": json!({ "busy": self.report_busy, "exists": self.run.as_ref().is_some_and(|r| jvm_runtime::report::existing(&r.report_dir()).is_some()) }),
