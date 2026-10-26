@@ -1414,7 +1414,7 @@ fn a_chosen_file_is_written_in_the_form_relative_when_it_is_next_to_the_plan(cx:
     assert_eq!(app.prop("filename").as_deref(), Some("data/users.csv"));
     assert_eq!(app.state()["dirty"], true);
     // Undo takes it back, and a file elsewhere is written in full.
-    app.keys(&secondary("ctrl-z"));
+    perform(&mut app, shell_core::actions::Action::Undo);
     assert_eq!(app.prop("filename").as_deref(), Some(""));
     choose(&mut app, &outside);
     assert_eq!(app.prop("filename").unwrap().replace('\\', "/"), outside.to_string_lossy().replace('\\', "/").trim_start_matches("//?/"));
