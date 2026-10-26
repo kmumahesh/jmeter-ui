@@ -81,7 +81,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
-| Keyboard shortcuts for macOS (Cmd instead of Ctrl, and the usual Mac keys) and Linux, shown in the menus and the palette; today the shortcuts and their labels are the Windows ones | ⬜ |
+| Keyboard shortcuts for macOS and Linux: on a Mac the shortcuts use Command (Cmd+S, Cmd+Shift+T) and Option, tab switching keeps Ctrl, Cmd+Q quits; on Linux Ctrl+Q quits; the menus and the command palette show the keys of the system they run on. Checked by tests that no two actions share a key and that every key is valid on every platform; not yet tried by hand on a Mac or a Linux desktop | ✅ |
 
 ## Platform support
 
@@ -95,7 +95,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |
 | Text-field shortcuts use the platform key (Cmd on macOS) | ✅ | ✅ | ✅ |
-| Menu and global shortcuts use the platform key (they use Ctrl on macOS today) | ✅ | ✅ | ⬜ |
+| Menu and global shortcuts use the platform key (Cmd on macOS), shown in the menus and the palette | ✅ | ✅ | ✅ |
 | Installer and code signing | ⬜ | ⬜ | ⬜ |
 
 ## Prerequisites

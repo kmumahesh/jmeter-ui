@@ -385,6 +385,27 @@ impl Action {
     }
 }
 
+/// A shortcut written the Windows way (`Ctrl+Shift+T`) as the keys the platform uses.
+///
+/// On macOS the Command key does what Ctrl does elsewhere (`Cmd+Shift+T`) and Alt is called Option; switching tabs keeps
+/// Ctrl, as every Mac program does. Everywhere else the shortcut is as written.
+pub fn platform_shortcut(shortcut: &str, mac: bool) -> String {
+    if !mac {
+        return shortcut.to_string();
+    }
+    let parts: Vec<&str> = shortcut.split('+').collect();
+    let tab = parts.last().is_some_and(|k| k.eq_ignore_ascii_case("tab"));
+    parts
+        .iter()
+        .map(|p| match *p {
+            "Ctrl" if !tab => "Cmd",
+            "Alt" => "Option",
+            other => other,
+        })
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -567,6 +588,27 @@ mod tests {
         assert!(Action::DeleteElement.availability(&el).is_enabled());
         assert!(Action::MoveElementUp.availability(&el).is_enabled());
         assert_eq!(Action::MoveElementDown.availability(&el), Availability::Disabled("The element is already last"));
+    }
+
+    #[test]
+    fn shortcuts_are_shown_and_bound_the_way_each_platform_does_it() {
+        assert_eq!(platform_shortcut("Ctrl+Shift+T", false), "Ctrl+Shift+T");
+        assert_eq!(platform_shortcut("Ctrl+Shift+T", true), "Cmd+Shift+T");
+        assert_eq!(platform_shortcut("Ctrl+,", true), "Cmd+,");
+        assert_eq!(platform_shortcut("Alt+Up", true), "Option+Up");
+        assert_eq!(platform_shortcut("Ctrl+Alt+B", true), "Cmd+Option+B");
+        assert_eq!(platform_shortcut("F5", true), "F5");
+        assert_eq!(platform_shortcut("Ctrl+Tab", true), "Ctrl+Tab", "switching tabs keeps Ctrl on a Mac");
+        assert_eq!(platform_shortcut("Ctrl+Shift+Tab", true), "Ctrl+Shift+Tab");
+        assert_eq!(platform_shortcut("Alt+F4", false), "Alt+F4");
+        // Every shortcut the app has maps to something non-empty and changes only in its modifier names.
+        for a in Action::ALL {
+            if let Some(s) = a.shortcut() {
+                let m = platform_shortcut(s, true);
+                assert_eq!(m.split('+').count(), s.split('+').count(), "{s} -> {m}");
+                assert!(!m.contains("Ctrl") || s.ends_with("Tab"), "{s} -> {m}");
+            }
+        }
     }
 
     #[test]
