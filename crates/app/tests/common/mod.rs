@@ -61,7 +61,13 @@ impl App<'_> {
     }
 
     pub fn keys(&mut self, k: &str) {
-        self.cx.simulate_keystrokes(k);
+        // The tests write the Windows keys; a Mac has Command where they have Ctrl (except for tabs).
+        let k = if cfg!(target_os = "macos") {
+            k.split(' ').map(|part| if part.starts_with("ctrl-") && !part.ends_with("tab") { part.replacen("ctrl-", "cmd-", 1) } else { part.to_string() }).collect::<Vec<_>>().join(" ")
+        } else {
+            k.to_string()
+        };
+        self.cx.simulate_keystrokes(&k);
         self.cx.run_until_parked();
     }
 

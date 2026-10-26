@@ -15,6 +15,10 @@ use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, 
 /// The most rows the Problems list draws; the tab says how many there are in all.
 const MAX_PROBLEM_ROWS: usize = 100;
 
+/// What the welcome screen says is missing.
+pub(crate) const SETUP_JAVA_MISSING: &str = "Java was not found";
+pub(crate) const SETUP_JMETER_MISSING: &str = "JMeter was not found";
+
 impl Shell {
     pub(crate) fn tab_content(&self, tab: &Tab, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match tab.kind {
@@ -46,6 +50,7 @@ impl Shell {
                     .child(div().debug_selector(|| "welcome-new".to_string()).child(Button::new("welcome-new", "New Plan\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx)))))
                     .child(div().debug_selector(|| "welcome-open".to_string()).child(Button::new("welcome-open", "Open Plan\u{2026}").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenPlan, window, cx))))),
             )
+            .when(self.runtime_checked, |d| d.child(self.setup_card(cx)))
             .when(!recents.is_empty(), |d| {
                 d.child(
                     div()
@@ -76,6 +81,64 @@ impl Shell {
                         })),
                 )
             })
+            .into_any_element()
+    }
+
+    /// What the welcome screen says is missing, or `None` when Java and JMeter are both there (or not looked for yet).
+    pub(crate) fn setup_headline(&self) -> Option<&'static str> {
+        if !self.runtime_checked || self.runtime_ready() {
+            return None;
+        }
+        Some(if self.runtime.java.is_none() { SETUP_JAVA_MISSING } else { SETUP_JMETER_MISSING })
+    }
+
+    /// What is needed to run a plan, on the welcome screen: Java and JMeter found, or what to do about what is missing.
+    fn setup_card(&self, cx: &mut Context<Self>) -> AnyElement {
+        let p = theme::palette(cx);
+        if self.runtime_ready() {
+            return div()
+                .id("setup-ready")
+                .debug_selector(|| "setup-ready".to_string())
+                .mt(px(6.))
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .text_size(px(12.))
+                .text_color(p.muted)
+                .child(icon("icons/check.svg", 14., p.ok))
+                .child(format!("Ready to run: {} \u{b7} JMeter {}", self.runtime.java.clone().unwrap_or_default(), self.runtime.jmeter.clone().unwrap_or_default()))
+                .into_any_element();
+        }
+        let java_missing = self.runtime.java.is_none();
+        let (what, how) = if java_missing {
+            (SETUP_JAVA_MISSING, "JMeter needs Java 17 or newer. Install it (for example Eclipse Temurin from adoptium.net), then press Check again. If Java is installed in an unusual place, choose it in Settings.")
+        } else {
+            (SETUP_JMETER_MISSING, "Download Apache JMeter (the binary .zip from jmeter.apache.org/download_jmeter.cgi), unpack it anywhere, and choose its folder in Settings. A folder called apache-jmeter-5.x in Downloads is found by itself.")
+        };
+        div()
+            .id("setup-needed")
+            .debug_selector(|| "setup-needed".to_string())
+            .mt(px(8.))
+            .w(px(520.))
+            .max_w_full()
+            .p(px(14.))
+            .flex()
+            .flex_col()
+            .gap(px(6.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(with_alpha(p.warn, 0.7))
+            .bg(p.panel2)
+            .child(div().flex().items_center().gap(px(8.)).child(icon("icons/warning.svg", 15., p.warn)).child(div().font_weight(FontWeight::SEMIBOLD).child(what)))
+            .when_some(self.runtime.problem.clone(), |d, e| d.child(div().debug_selector(|| "setup-problem".to_string()).text_size(px(11.5)).font_family(MONO_FONT).text_color(p.muted).child(e)))
+            .child(div().text_size(px(12.5)).text_color(p.muted).child(how))
+            .child(
+                div()
+                    .flex()
+                    .gap(px(8.))
+                    .child(div().debug_selector(|| "setup-settings".to_string()).child(Button::new("setup-settings", "Open Settings").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenSettings, window, cx)))))
+                    .child(div().debug_selector(|| "setup-recheck".to_string()).child(Button::new("setup-recheck", "Check again").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.detect_runtime(window, cx))))),
+            )
             .into_any_element()
     }
 

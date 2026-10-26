@@ -138,7 +138,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 12 | Aggregate Report and graphs for each request | done |
 | 13 | Compare two runs | done |
 | 14 | Open large plans: measure the size that opens within 5 seconds, keep it as a limit | done |
-| 15 | Shortcuts for macOS and Linux: Cmd on macOS, labels in menus and palette follow the system | to do |
+| 15 | Shortcuts for macOS and Linux: Cmd on macOS, labels in menus and palette follow the system | done |
 
 Each part is its own pull request with logic, window, security and speed tests.
 

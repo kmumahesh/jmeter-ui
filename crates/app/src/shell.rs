@@ -198,6 +198,8 @@ pub struct Shell {
     pub notice: Option<Notice>,
     notice_seq: u64,
     pub runtime: RuntimeStatus,
+    /// The look for Java and JMeter has finished at least once, so the welcome screen can say what is missing.
+    pub runtime_checked: bool,
     pub focus: FocusHandle,
     pub tree_focus: FocusHandle,
     pub tree_scroll: UniformListScrollHandle,
@@ -298,9 +300,18 @@ gpui::actions!(
     [TreeUp, TreeDown, TreeLeft, TreeRight, TreeFirst, TreeLast, TreePageUp, TreePageDown, TreeOpen, TreeToggle]
 );
 
-/// Convert `Ctrl+Shift+Tab` to gpui's `ctrl-shift-tab`.
+/// Convert `Ctrl+Shift+Tab` to gpui's `ctrl-shift-tab`, with the keys of this platform (`cmd-shift-t` on a Mac).
 pub fn to_gpui_keys(shortcut: &str) -> String {
-    shortcut.split('+').map(|p| p.trim().to_lowercase()).collect::<Vec<_>>().join("-")
+    to_gpui_keys_for(shortcut, cfg!(target_os = "macos"))
+}
+
+/// The same for a chosen platform, so that every platform's keys can be tested everywhere.
+pub fn to_gpui_keys_for(shortcut: &str, mac: bool) -> String {
+    let keys = shell_core::actions::platform_shortcut(shortcut, mac);
+    keys.split('+').map(|p| match p.trim() {
+        "Option" => "alt".to_string(),
+        other => other.to_lowercase(),
+    }).collect::<Vec<_>>().join("-")
 }
 
 /// Register all keyboard shortcuts for the shell and the tree.
@@ -317,8 +328,15 @@ pub fn bind_keys(cx: &mut App) {
             bindings.push(key_binding(a, &to_gpui_keys(s)));
         }
     }
-    bindings.push(key_binding(Action::Redo, "ctrl-shift-z"));
-    bindings.push(key_binding(Action::CommandPalette, "ctrl-shift-p"));
+    bindings.push(key_binding(Action::Redo, &to_gpui_keys("Ctrl+Shift+Z")));
+    bindings.push(key_binding(Action::CommandPalette, &to_gpui_keys("Ctrl+Shift+P")));
+    // Quitting: Alt+F4 belongs to the window manager on Windows and most Linux desktops; a Mac and many Linux programs also
+    // have a key of their own.
+    if cfg!(target_os = "macos") {
+        bindings.push(key_binding(Action::Quit, "cmd-q"));
+    } else if cfg!(target_os = "linux") {
+        bindings.push(key_binding(Action::Quit, "ctrl-q"));
+    }
     let t = Some("Tree");
     bindings.extend([
         KeyBinding::new("up", TreeUp, t),
@@ -382,6 +400,7 @@ impl Shell {
             notice: None,
             notice_seq: 0,
             runtime: RuntimeStatus::default(),
+            runtime_checked: false,
             focus: focus.clone(),
             tree_focus,
             tree_scroll: UniformListScrollHandle::new(),
@@ -897,7 +916,7 @@ impl Shell {
             }
         }
         self.save_settings();
-        self.detect_runtime(window, cx);
+        self.detect_runtime_with(false, window, cx);
         self.notify("Settings saved", Severity::Info, window, cx);
     }
 
@@ -923,12 +942,36 @@ impl Shell {
 
     /// Look for Java and JMeter without blocking the window.
     pub fn detect_runtime(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.detect_runtime_with(true, window, cx);
+    }
+
+    /// Look for Java and JMeter. With `discover`, a JMeter in the usual places is used and remembered when none is chosen;
+    /// applying what was typed in Settings does not discover, so an emptied JMeter folder stays empty.
+    pub fn detect_runtime_with(&mut self, discover: bool, window: &mut Window, cx: &mut Context<Self>) {
         let java_path = self.settings.java_path.clone().map(PathBuf::from);
         let home = self.settings.jmeter_home.clone().map(PathBuf::from);
         cx.spawn_in(window, async move |this, cx| {
-            let status = cx.background_executor().spawn(async move { check_runtime(java_path.as_deref(), home.as_deref()) }).await;
+            // With no JMeter folder chosen, the usual places are looked in, so a first start needs no setup when JMeter is
+            // unpacked in Downloads, for example.
+            let (status, found) = cx
+                .background_executor()
+                .spawn(async move {
+                    let found = if discover && home.is_none() { jvm_runtime::locate::find_jmeter_home() } else { None };
+                    let status = check_runtime(java_path.as_deref(), home.as_deref().or(found.as_deref()));
+                    (status, found)
+                })
+                .await;
             this.update(cx, |this, cx| {
                 this.runtime = status;
+                this.runtime_checked = true;
+                if let Some(h) = found.filter(|_| this.settings.jmeter_home.is_none() && this.runtime.jmeter.is_some()) {
+                    let shown = display_path(&h);
+                    this.settings.jmeter_home = Some(shown.clone());
+                    this.save_settings();
+                    this.notice = None;
+                    this.notice_seq += 1;
+                    this.notice = Some(Notice { text: format!("Found JMeter in {shown}"), severity: Severity::Info, id: this.notice_seq });
+                }
                 cx.notify();
             })
             .ok();
@@ -1040,6 +1083,9 @@ impl Shell {
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,
             "runtime_ready": self.runtime_ready(),
+            "runtime_checked": self.runtime_checked,
+            "setup_headline": self.setup_headline(),
+            "jmeter_home": self.settings.jmeter_home,
             "can_undo": self.plan().is_some_and(|lp| lp.edit.can_undo()),
             "can_redo": self.plan().is_some_and(|lp| lp.edit.can_redo()),
             "dirty": self.typing_dirty || self.plan().is_some_and(|lp| lp.is_dirty()),
@@ -1098,23 +1144,53 @@ mod tests {
 
     #[test]
     fn shortcut_conversion() {
-        assert_eq!(to_gpui_keys("Ctrl+O"), "ctrl-o");
-        assert_eq!(to_gpui_keys("Ctrl+Shift+Tab"), "ctrl-shift-tab");
-        assert_eq!(to_gpui_keys("F5"), "f5");
-        assert_eq!(to_gpui_keys("Ctrl+,"), "ctrl-,");
-        assert_eq!(to_gpui_keys("Ctrl+\\"), "ctrl-\\");
+        // As written for Windows and Linux; the Mac's keys are checked in their own test.
+        let k = |s: &str| to_gpui_keys_for(s, false);
+        assert_eq!(k("Ctrl+O"), "ctrl-o");
+        assert_eq!(k("Ctrl+Shift+Tab"), "ctrl-shift-tab");
+        assert_eq!(k("F5"), "f5");
+        assert_eq!(k("Ctrl+,"), "ctrl-,");
+        assert_eq!(k("Ctrl+\\"), "ctrl-\\");
     }
 
     #[test]
-    fn every_shortcut_is_a_valid_keystroke() {
+    fn every_shortcut_is_a_valid_keystroke_on_every_platform() {
         for a in Action::ALL {
             if let Some(s) = a.shortcut() {
                 if s == "Alt+F4" {
                     continue;
                 }
-                let keys = to_gpui_keys(s);
-                for part in keys.split(' ') {
-                    assert!(gpui::Keystroke::parse(part).is_ok(), "{s} -> {keys} is not valid");
+                for mac in [false, true] {
+                    let keys = to_gpui_keys_for(s, mac);
+                    for part in keys.split(' ') {
+                        assert!(gpui::Keystroke::parse(part).is_ok(), "{s} -> {keys} is not valid (mac: {mac})");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_mac_gets_command_and_option_and_keeps_ctrl_for_tabs() {
+        assert_eq!(to_gpui_keys_for("Ctrl+O", true), "cmd-o");
+        assert_eq!(to_gpui_keys_for("Ctrl+O", false), "ctrl-o");
+        assert_eq!(to_gpui_keys_for("Ctrl+Shift+T", true), "cmd-shift-t");
+        assert_eq!(to_gpui_keys_for("Alt+Up", true), "alt-up");
+        assert_eq!(to_gpui_keys_for("Ctrl+Alt+B", true), "cmd-alt-b");
+        assert_eq!(to_gpui_keys_for("Ctrl+Tab", true), "ctrl-tab");
+        assert_eq!(to_gpui_keys_for("F5", true), "f5");
+    }
+
+    #[test]
+    fn no_two_actions_share_a_key_on_any_platform() {
+        for mac in [false, true] {
+            let mut seen = std::collections::HashMap::new();
+            for a in Action::ALL {
+                if let Some(s) = a.shortcut().filter(|s| *s != "Alt+F4") {
+                    let k = to_gpui_keys_for(s, mac);
+                    if let Some(other) = seen.insert(k.clone(), a) {
+                        panic!("{a:?} and {other:?} both use {k} (mac: {mac})");
+                    }
                 }
             }
         }

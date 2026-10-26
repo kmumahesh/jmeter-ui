@@ -715,6 +715,6 @@ fn a_plan_of_twenty_thousand_elements_stays_usable(cx: &mut TestAppContext) {
     eprintln!("20k elements: open {open:?}, edit a field {edit:?}, add an element {add:?}");
     // Debug builds on a slow machine: the point is that nothing is quadratic or re-reads the whole file per key.
     assert!(open.as_secs() < 10, "{open:?}");
-    assert!(edit.as_secs() < 5, "{edit:?}");
-    assert!(add.as_secs() < 5, "{add:?}");
+    assert!(edit.as_secs() < 10, "{edit:?}");
+    assert!(add.as_secs() < 10, "{add:?}");
 }

@@ -2,7 +2,9 @@
 
 A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx` plans and runs JMeter in non-GUI mode; it does not reimplement the load engine.
 
-Status: open, edit, save, run and watch plans, with run history. The results viewer comes next. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
+New here? Start with [Getting started](docs/GETTING-STARTED.md): from the download to your first test run in about ten minutes.
+
+Status: a test version for performance engineers on Windows, for HTTP and HTTPS web and API testing: build and edit plans, run them, watch results live, look at what was sent and received, compare runs and make reports. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
 
 Guide: `docs/guide/index.html` (open it in a browser) explains how Apache JMeter is used and how this app compares, step by step.
 
@@ -61,6 +63,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Search and replace across the plan | ⬜ |
 | Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
 | Recording proxy inside the app (point the browser at it and record live; HTTPS needs a certificate the browser trusts) | ⬜ |
+| First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself, and a Getting started page comes in the download | ✅ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
 | Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |
@@ -81,7 +84,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
-| Keyboard shortcuts for macOS (Cmd instead of Ctrl, and the usual Mac keys) and Linux, shown in the menus and the palette; today the shortcuts and their labels are the Windows ones | ⬜ |
+| Keyboard shortcuts for macOS and Linux: on a Mac the shortcuts use Command (Cmd+S, Cmd+Shift+T) and Option, tab switching keeps Ctrl, Cmd+Q quits; on Linux Ctrl+Q quits; the menus and the command palette show the keys of the system they run on. Checked by tests that no two actions share a key and that every key is valid on every platform; not yet tried by hand on a Mac or a Linux desktop | ✅ |
 
 ## Platform support
 
@@ -95,7 +98,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |
 | Text-field shortcuts use the platform key (Cmd on macOS) | ✅ | ✅ | ✅ |
-| Menu and global shortcuts use the platform key (they use Ctrl on macOS today) | ✅ | ✅ | ⬜ |
+| Menu and global shortcuts use the platform key (Cmd on macOS), shown in the menus and the palette | ✅ | ✅ | ✅ |
 | Installer and code signing | ⬜ | ⬜ | ⬜ |
 
 ## Prerequisites
