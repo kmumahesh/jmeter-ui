@@ -35,6 +35,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
+- Opening, checking and editing a big plan no longer slows down with the square of its size: the check for undefined variables took 21 seconds on 8,000 requests and now takes under a tenth of a second on 8,000 (0.3 seconds on 40,000). The Problems list draws its first 100 notes and says how many more there are, so a plan with a note on every request does not stop the window.
+- Plans over 60,000 elements open with a notice that they will be slow.
 - After a run, the Users tile shows the most users the run had instead of the last count (which was 1 at the end).
 - The per-request table ends with a Total row and scrolls sideways in a narrow window instead of cutting columns.
 - An empty setting of an HTTP Request (server, port, protocol, path, encoding, timeouts) shows the value it takes from HTTP Request Defaults, and which element it comes from.
