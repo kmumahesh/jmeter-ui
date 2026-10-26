@@ -53,6 +53,7 @@ impl Shell {
     /// or what is wrong in words for the person who pasted them.
     pub fn add_curl(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) -> Result<usize, String> {
         let requests = curl::parse(text).map_err(|e| format!("{e:#}"))?;
+        self.aim_import_at_a_thread_group(window, cx);
         let plan_text = curl::plan_text(&requests).map_err(|e| format!("Could not make the requests: {e:#}"))?;
         if self.paste_text(&plan_text, window, cx) { Ok(requests.len()) } else { Err(self.notice.as_ref().map(|n| n.text.clone()).unwrap_or_else(|| "The requests could not be added here.".to_string())) }
     }

@@ -3688,6 +3688,8 @@ dependencies = [
  "jmx-model",
  "jvm-runtime",
  "nucleo-matcher",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

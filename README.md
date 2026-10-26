@@ -59,7 +59,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
 | Templates (File > Templates) | ⬜ |
 | Search and replace across the plan | ⬜ |
-| HTTP(S) Test Script Recorder (proxy, certificate, request filtering) | ⬜ |
+| Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
+| Recording proxy inside the app (point the browser at it and record live; HTTPS needs a certificate the browser trusts) | ⬜ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
 | Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |

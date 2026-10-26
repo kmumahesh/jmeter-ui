@@ -7,6 +7,7 @@
 
 use crate::edit::EditablePlan;
 use crate::forms::{self, RowShape, new_row};
+use crate::model as jmx_model_id;
 use crate::starters::{self, Starter};
 use anyhow::{Result, bail};
 
@@ -32,6 +33,8 @@ pub struct CurlRequest {
     pub body: Body,
     /// What was left out or changed, one line each, for the person importing.
     pub notes: Vec<String>,
+    /// A name to group requests under in a Transaction Controller (a page of a HAR file); none for cURL commands.
+    pub group: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -239,7 +242,7 @@ const SKIPPED_WITH_VALUE: &[&str] = &[
 ];
 
 /// The header names JMeter writes itself or that would only get in its way.
-fn dropped_header(name: &str) -> bool {
+pub(crate) fn dropped_header(name: &str) -> bool {
     matches!(name.to_ascii_lowercase().as_str(), "host" | "content-length" | "connection" | "accept-encoding" | "transfer-encoding" | "expect")
 }
 
@@ -297,7 +300,7 @@ fn base64(input: &[u8]) -> String {
 }
 
 /// Split a URL into protocol, host, port and path. Only http and https are read.
-fn split_url(url: &str) -> Result<(String, String, String, String, Option<String>)> {
+pub(crate) fn split_url(url: &str) -> Result<(String, String, String, String, Option<String>)> {
     let url = url.trim();
     let (protocol, rest) = match url.split_once("://") {
         Some((scheme, rest)) => {
@@ -570,12 +573,71 @@ fn request_of(args: &[String]) -> Result<CurlRequest> {
 /// The requests as the text of a plan file that holds just them (see `EditablePlan::copy_text`), ready to be pasted:
 /// each request is an HTTP Request, with an HTTP Header Manager under it for its headers.
 pub fn plan_text(requests: &[CurlRequest]) -> Result<String> {
+    // Every edit of a plan costs about as much as the plan is large, so a big recording is made in pieces of a few dozen
+    // requests (never in the middle of a page when it can be avoided) and the pieces are joined as text.
+    const PIECE: usize = 40;
+    const PIECE_MAX: usize = 120;
+    if requests.len() <= PIECE {
+        return plan_text_piece(requests);
+    }
+    let mut pieces: Vec<String> = Vec::new();
+    let mut start = 0;
+    while start < requests.len() {
+        let mut end = (start + PIECE).min(requests.len());
+        while end < requests.len() && end - start < PIECE_MAX && requests[end].group.is_some() && requests[end].group == requests[end - 1].group {
+            end += 1;
+        }
+        pieces.push(plan_text_piece(&requests[start..end])?);
+        start = end;
+    }
+    join_pieces(&pieces)
+}
+
+/// The parts of a plan text between the opening of its top `<hashTree>` and its closing: `(before, inside, after)`.
+fn split_top(text: &str) -> Option<(&str, &str, &str)> {
+    let root = text.find("<jmeterTestPlan")?;
+    let root_end = root + text[root..].find('>')? + 1;
+    let open = root_end + text[root_end..].find("<hashTree>")? + "<hashTree>".len();
+    let close = text.rfind("</hashTree>")?;
+    (close >= open).then(|| (&text[..open], &text[open..close], &text[close..]))
+}
+
+fn join_pieces(pieces: &[String]) -> Result<String> {
+    let Some(first) = pieces.first() else { bail!("nothing to join") };
+    let Some((before, _, after)) = split_top(first) else { bail!("the made text has an unexpected shape") };
+    let mut out = String::from(before);
+    for p in pieces {
+        let Some((_, inside, _)) = split_top(p) else { bail!("the made text has an unexpected shape") };
+        out.push_str(inside);
+    }
+    out.push_str(after);
+    Ok(out)
+}
+
+fn plan_text_piece(requests: &[CurlRequest]) -> Result<String> {
     let mut e = EditablePlan::open(&starters::new_plan_text(Starter::Empty, "import")?)?;
     let root = e.plan().roots()[0];
     let group = e.add(root, "ThreadGroup", "ThreadGroupGui")?;
     let mut made = Vec::new();
+    // Requests of the same page go in one Transaction Controller, made when the page changes.
+    let mut page: Option<(String, jmx_model_id::NodeId)> = None;
     for r in requests {
-        let s = e.add(group, "HTTPSamplerProxy", "HttpTestSampleGui")?;
+        let parent = match &r.group {
+            Some(g) => {
+                if page.as_ref().map(|p| &p.0) != Some(g) {
+                    let t = e.add(group, "TransactionController", "TransactionControllerGui")?;
+                    e.rename(t, g)?;
+                    made.push(t);
+                    page = Some((g.clone(), t));
+                }
+                page.as_ref().map(|p| p.1).unwrap_or(group)
+            }
+            None => {
+                page = None;
+                group
+            }
+        };
+        let s = e.add(parent, "HTTPSamplerProxy", "HttpTestSampleGui")?;
         e.rename(s, &r.name())?;
         e.set_prop(s, "HTTPSampler.protocol", "stringProp", &r.protocol)?;
         e.set_prop(s, "HTTPSampler.domain", "stringProp", &r.host)?;
@@ -611,7 +673,9 @@ pub fn plan_text(requests: &[CurlRequest]) -> Result<String> {
                 e.add_row(h, "HeaderManager.headers", i, new_row(RowShape::Header, &[n, v]))?;
             }
         }
-        made.push(s);
+        if parent == group {
+            made.push(s);
+        }
     }
     e.copy_text(&made)
 }

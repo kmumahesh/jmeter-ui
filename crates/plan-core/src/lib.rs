@@ -2,6 +2,7 @@
 
 pub mod catalog;
 pub mod curl;
+pub mod har;
 pub mod derive;
 pub mod edit;
 pub mod files;

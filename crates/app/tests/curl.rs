@@ -191,13 +191,27 @@ fn text_with_no_command_or_an_address_that_is_not_http_keeps_the_dialog_open_wit
 }
 
 #[gpui::test]
-fn a_selection_that_cannot_hold_a_request_is_explained_and_nothing_is_added(cx: &mut TestAppContext) {
-    let mut app = start(cx, Some(plan_file("curl-nowhere")), None);
-    app.click("tree-row-0"); // the Test Plan takes no requests
+fn with_the_test_plan_selected_the_request_goes_under_the_first_thread_group(cx: &mut TestAppContext) {
+    let mut app = start(cx, Some(plan_file("curl-aimed")), None);
+    app.click("tree-row-0"); // the Test Plan takes no requests itself
+    import(&mut app, "curl https://x.org/a");
+    assert_eq!(dialog_kind(&mut app), None, "{:?}", dialog_error(&mut app));
+    assert_eq!(elements(&mut app), 8);
+    assert!(app.children_of("Users").iter().any(|n| n == "GET /a"), "{:?}", app.children_of("Users"));
+}
+
+#[gpui::test]
+fn a_plan_with_nowhere_to_put_a_request_explains_and_nothing_is_added(cx: &mut TestAppContext) {
+    let d = temp_dir("curl-nowhere");
+    let p = d.join("empty.jmx");
+    std::fs::write(&p, starters::new_plan_text(Starter::Empty, "empty").unwrap()).unwrap();
+    let mut app = start(cx, Some(p), None);
+    app.click("tree-row-0");
+    let before = elements(&mut app);
     import(&mut app, "curl https://x.org/a");
     assert_eq!(dialog_kind(&mut app).as_deref(), Some("curl"));
     assert!(dialog_error(&mut app).unwrap_or_default().contains("cannot go under"), "{:?}", dialog_error(&mut app));
-    assert_eq!(elements(&mut app), 7);
+    assert_eq!(elements(&mut app), before);
 }
 
 #[gpui::test]

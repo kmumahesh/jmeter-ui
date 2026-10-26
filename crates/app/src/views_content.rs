@@ -620,6 +620,11 @@ impl Shell {
                 "Type an expression and the text to try it on. JMeter's own libraries do the work, so the answer is what JMeter would take from that text.".to_string(),
                 vec![("dialog-expr-try", "Try It", true), ("dialog-cancel", "Close", false)],
             ),
+            Some(Dialog::Har { .. }) => (
+                "Import from HAR".to_string(),
+                "A HAR file is a recording of a visit, saved from a browser's developer tools (Network tab, Save all as HAR). Each request becomes an HTTP Request; each page becomes a Transaction Controller.".to_string(),
+                vec![("dialog-har-add", "Add to Plan", true), ("dialog-cancel", "Cancel", false)],
+            ),
             Some(Dialog::RunProps { .. }) => (
                 "Run properties".to_string(),
                 "One name=value on each line. The plan reads them with ${__P(name)}, and they are given to every run, check and single request of this plan. Lines starting with # are notes.".to_string(),
@@ -680,6 +685,10 @@ impl Shell {
             Some(Dialog::RunProps { area, error }) => Some((area.clone(), error.clone())),
             _ => None,
         };
+        let har = match &self.dialog {
+            Some(Dialog::Har { path, skip_static, group_by_page, hosts, summary, error, .. }) => Some((path.clone(), *skip_static, *group_by_page, hosts.clone(), summary.clone(), error.clone())),
+            _ => None,
+        };
         let expression = match &self.dialog {
             Some(Dialog::Expression { kind, expr, sample, result, status, error, busy }) => Some((*kind, expr.clone(), sample.clone(), result.clone(), status.clone(), *error, *busy)),
             _ => None,
@@ -692,6 +701,7 @@ impl Shell {
                 "dialog-discard" => this.dialog_discard(window, cx),
                 "dialog-reload" => this.dialog_reload(window, cx),
                 "dialog-curl-add" => this.dialog_curl_add(window, cx),
+                "dialog-har-add" => this.dialog_har_add(window, cx),
                 "dialog-props-save" => this.dialog_props_save(window, cx),
                 "dialog-props-load" => this.dialog_props_load(window, cx),
                 "dialog-expr-try" => this.expression_try(window, cx),
@@ -736,7 +746,7 @@ impl Shell {
             }))
             .child(
                 div()
-                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
                     .max_w_full()
                     .p(px(22.))
                     .flex()
@@ -749,6 +759,39 @@ impl Shell {
                     .shadow_lg()
                     .child(div().text_size(px(17.)).font_weight(FontWeight::SEMIBOLD).child(title))
                     .child(div().text_color(p.muted).child(body))
+                    .when_some(har, |d, (path, skip_static, group_by_page, hosts, summary, error)| {
+                        let toggle = |id: &'static str, label: &'static str, on: bool, cx: &mut Context<Self>, set: fn(&mut Shell, bool, &mut Context<Shell>)| {
+                            div().debug_selector(move || id.to_string()).child(
+                                Button::new(id, format!("{label}: {}", if on { "On" } else { "Off" }))
+                                    .style(if on { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle })
+                                    .size(ButtonSize::Compact)
+                                    .on_click(cx.listener(move |this, _, _, cx| set(this, !on, cx))),
+                            )
+                        };
+                        d.child(div().font_family(MONO_FONT).text_size(px(11.5)).text_color(p.muted).child(path.display().to_string()))
+                            .when_some(summary, |d, s| {
+                                d.child(
+                                    div()
+                                        .debug_selector(|| "har-summary".to_string())
+                                        .flex()
+                                        .flex_col()
+                                        .gap(px(2.))
+                                        .text_size(px(12.5))
+                                        .child(format!("{} request{} in the file, {} to bring in.", s.total, if s.total == 1 { "" } else { "s" }, s.kept))
+                                        .when(!s.left_out().is_empty(), |d| d.child(div().text_color(p.muted).child(s.left_out())))
+                                        .when(!s.hosts.is_empty(), |d| d.child(div().text_color(p.muted).child(format!("Servers: {}", s.hosts.iter().take(6).map(|(h, n)| format!("{h} ({n})")).collect::<Vec<_>>().join(", "))))),
+                                )
+                            })
+                            .child(
+                                div()
+                                    .flex()
+                                    .gap(px(6.))
+                                    .child(toggle("har-skip-static", "Skip images, styles, scripts and fonts", skip_static, cx, |this, v, cx| this.har_set(Some(v), None, cx)))
+                                    .child(toggle("har-group", "Group by page", group_by_page, cx, |this, v, cx| this.har_set(None, Some(v), cx))),
+                            )
+                            .child(div().debug_selector(|| "har-hosts".to_string()).child(hosts))
+                            .when_some(error, |d, e| d.child(div().debug_selector(|| "har-error".to_string()).text_color(p.err).text_size(px(12.5)).child(e)))
+                    })
                     .when_some(expression, |d, (kind, expr, sample, result, status, error, busy)| {
                         let kind_button = |k: jvm_runtime::tester::Kind, cx: &mut Context<Self>| {
                             let id: &'static str = match k {
