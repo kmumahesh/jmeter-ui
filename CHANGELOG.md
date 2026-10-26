@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Compare two runs: choose a baseline in the History tab and another run, and see each request side by side with how it changed, the worst first.
 - Aggregate Report: median, standard deviation, requests per second and KB per second for each request, click a request to chart it on its own, and copy the table as CSV.
 - New Plan templates for load testing: login and reuse a token, data-driven (CSV), load test with a ramp and a time limit, and spike test.
 - Add Think Times to Children (Edit menu): a pause before every request under the selected element, in one step.

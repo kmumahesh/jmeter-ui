@@ -365,7 +365,9 @@ impl Shell {
         let rows = self.history_entries().iter().enumerate().map(|(i, e)| {
             let m = &e.meta;
             let dir = e.dir.clone();
-            let (dir_view, dir_open, dir_del) = (dir.clone(), dir.clone(), dir.clone());
+            let (dir_view, dir_open, dir_del, dir_cmp) = (dir.clone(), dir.clone(), dir.clone(), dir.clone());
+            let is_base = self.compare_base.as_ref() == Some(&e.dir);
+            let waiting = self.compare_base.is_some() && !is_base;
             let live_now = current.as_ref() == Some(&e.dir) && self.run_in_progress();
             let (label, color) = match m.outcome {
                 Outcome::Running if live_now => ("Running", p.accent),
@@ -398,6 +400,14 @@ impl Shell {
                 .child(div().w(px(70.)).child(format!("avg {}", thousands(m.avg_ms))))
                 .child(div().w(px(70.)).child(format!("p95 {}", thousands(m.p95_ms))))
                 .child(div().flex_1())
+                .child(
+                    div()
+                        .debug_selector(move || format!("history-compare-{i}"))
+                        .child(Button::new(("history-compare", i), if is_base { "Baseline \u{2713}" } else if waiting { "Compare with it" } else { "Compare" }).style(if is_base { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle }).size(ButtonSize::Compact).disabled(live_now).on_click(cx.listener(move |this, _, w, cx| {
+                            this.compare_pick(&dir_cmp, w, cx);
+                            cx.stop_propagation();
+                        }))),
+                )
                 .child(
                     div()
                         .debug_selector(move || format!("history-folder-{i}"))

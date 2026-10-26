@@ -308,3 +308,10 @@ Added with the engineering-practice work, to test the two places that read files
 3. **The table scrolls sideways and lists 200 rows.** It keeps its width in a narrow window, so no column is cut off; the copy for a spreadsheet has every request.
 4. **The CSV is safe to open in a spreadsheet.** Names with commas, quotes or line breaks are quoted, and a name that starts with `=`, `+`, `-`, `@` or a tab gets a quote mark in front so a spreadsheet never runs it as a formula.
 
+## Comparing two runs (2026-10-26)
+1. **Chosen in the History tab.** *Compare* on a run makes it the baseline; *Compare* on another run compares the two. The earlier run is always the baseline, whichever was chosen first. Pressing the baseline again takes the choice back.
+2. **What counts as a change.** A request is worse (or better) only when its 95th percentile moves by at least 10% of the baseline and at least 5 ms, or its error rate moves by at least one percentage point; the worse of the two decides. A request that went from 2 ms to 3 ms is not 50% slower. Requests in one run only are marked new or gone.
+3. **Worst first.** The rows start with the requests that got worse by the most, then the most improved, then the unchanged ones, then those in one run only. Name order is one press away. The table lists 300 rows; the copy as CSV has every request, with changes in percent and the same protection for names that a spreadsheet could run as formulas.
+4. **Honest about missing data.** A run whose results file is gone is not compared, because it would show every request as new. The message says which run could not be read.
+5. **Both runs are read in the background**, in pieces with flat memory like any results file; two runs of 50,000 samples over 1,000 requests compare in about two seconds.
+

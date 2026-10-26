@@ -136,7 +136,7 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 10 | Recording: import a browser HAR file (done); recording proxy with a certificate (to do, kept as a README row) | partly done |
 | 11 | Templates, Add Think Times to children | done |
 | 12 | Aggregate Report and graphs for each request | done |
-| 13 | Compare two runs | to do |
+| 13 | Compare two runs | done |
 | 14 | Open large plans: measure the size that opens within 5 seconds, keep it as a limit | to do |
 | 15 | Shortcuts for macOS and Linux: Cmd on macOS, labels in menus and palette follow the system | to do |
 
