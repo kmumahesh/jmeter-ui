@@ -993,6 +993,7 @@ impl Shell {
                     "details_skipped": r.details_skipped,
                 })
             }),
+            "editor_scroll_y": f32::from(self.editor_scroll.offset().y),
             "opened": self.opened.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
             "report": json!({ "busy": self.report_busy, "exists": self.run.as_ref().is_some_and(|r| jvm_runtime::report::existing(&r.report_dir()).is_some()) }),
             "requests": json!({

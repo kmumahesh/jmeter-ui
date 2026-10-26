@@ -525,7 +525,7 @@ impl Shell {
                     }),
             )
             .child(icon(node.category.icon(), 15., if node.enabled { color } else { with_alpha(color, 0.45) }))
-            .child(div().flex_1().min_w_0().overflow_hidden().whitespace_nowrap().text_color(name_color).when(!node.enabled, |d| d.line_through()).child(node.name.clone()))
+            .child(div().flex_1().min_w_0().overflow_hidden().text_ellipsis().whitespace_nowrap().text_color(name_color).when(!node.enabled, |d| d.line_through()).child(node.name.clone()))
             .when(node.name != node.type_label && row.depth > 0 && !matches!(node.category, Category::Sampler), |d| {
                 d.child(div().flex_none().text_size(px(10.5)).font_family(MONO_FONT).text_color(p.muted).child(short_type(&node.type_label)))
             })

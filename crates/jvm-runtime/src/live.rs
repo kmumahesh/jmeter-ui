@@ -107,11 +107,13 @@ pub struct LiveStats {
     first_ms: Option<u64>,
     last_ms: u64,
     threads: u32,
+    /// The most users seen in any sample.
+    peak_threads: u32,
 }
 
 impl Default for LiveStats {
     fn default() -> Self {
-        LiveStats { total: Stats::default(), labels: HashMap::new(), series: Vec::new(), step_secs: 1, errors: VecDeque::new(), first_ms: None, last_ms: 0, threads: 0 }
+        LiveStats { total: Stats::default(), labels: HashMap::new(), series: Vec::new(), step_secs: 1, errors: VecDeque::new(), first_ms: None, last_ms: 0, threads: 0, peak_threads: 0 }
     }
 }
 
@@ -135,6 +137,7 @@ impl LiveStats {
         let end = s.timestamp_ms.saturating_add(s.elapsed_ms);
         self.last_ms = self.last_ms.max(end);
         self.threads = s.all_threads;
+        self.peak_threads = self.peak_threads.max(s.all_threads);
 
         // A sample belongs to the step in which it finished.
         let at = (end.saturating_sub(first) / 1000) as u32;
@@ -198,6 +201,11 @@ impl LiveStats {
         self.threads
     }
 
+    /// The most users seen in any sample, which is what a finished run should show: at the end the users have gone.
+    pub fn peak_threads(&self) -> u32 {
+        self.peak_threads
+    }
+
     pub fn series(&self) -> &[Point] {
         &self.series
     }
@@ -258,6 +266,16 @@ mod tests {
             latency_ms: ms / 2,
             connect_ms: 1,
         }
+    }
+
+    #[test]
+    fn the_users_of_a_run_are_the_most_seen_and_not_the_last() {
+        let mut l = LiveStats::new();
+        for (i, users) in [1u32, 5, 10, 7, 2, 1].into_iter().enumerate() {
+            l.add(&sample("A", 1_000 + i as u64 * 500, 10, true, users));
+        }
+        assert_eq!((l.threads(), l.peak_threads()), (1, 10), "at the end the users have gone, the peak is what the run had");
+        assert_eq!(LiveStats::new().peak_threads(), 0);
     }
 
     #[test]

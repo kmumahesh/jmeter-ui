@@ -179,7 +179,7 @@ impl Shell {
                     .child(kpi("run-kpi-avg", "AVERAGE MS", thousands(t.avg_ms()), p.fg))
                     .child(kpi("run-kpi-p95", "95TH MS", thousands(t.percentile(95.0)), p.fg))
                     .child(kpi("run-kpi-errors", "ERRORS", format!("{} ({:.1}%)", thousands(t.errors), t.error_pct()), err_color))
-                    .child(kpi("run-kpi-users", "USERS", thousands(run.live.threads() as u64), p.fg)),
+                    .child(if active { kpi("run-kpi-users", "USERS", thousands(run.live.threads() as u64), p.fg) } else { kpi("run-kpi-users", "USERS (PEAK)", thousands(run.live.peak_threads() as u64), p.fg) }),
             )
             // Charts.
             .child(
@@ -260,28 +260,40 @@ impl Shell {
             .child(cell(60., "95%".into(), p.muted))
             .child(cell(60., "99%".into(), p.muted))
             .child(cell(70., "Errors".into(), p.muted));
+        let total = run.live.total();
+        let row = |name: String, s: &jvm_runtime::live::Stats, bold: bool| {
+            div()
+                .flex()
+                .gap(px(8.))
+                .py(px(1.))
+                .when(bold, |d| d.font_weight(FontWeight::SEMIBOLD).border_t_1().border_color(p.line))
+                .child(div().flex_1().min_w(px(140.)).overflow_hidden().text_ellipsis().whitespace_nowrap().child(name))
+                .child(cell(70., thousands(s.count), p.fg))
+                .child(cell(60., thousands(s.avg_ms()), p.fg))
+                .child(cell(60., thousands(s.min_ms), p.fg))
+                .child(cell(60., thousands(s.max_ms), p.fg))
+                .child(cell(60., thousands(s.percentile(90.0)), p.fg))
+                .child(cell(60., thousands(s.percentile(95.0)), p.fg))
+                .child(cell(60., thousands(s.percentile(99.0)), p.fg))
+                .child(cell(70., format!("{:.1}%", s.error_pct()), if s.errors > 0 { p.err } else { p.fg }))
+        };
+        // The table keeps its width and scrolls sideways in a narrow window, so no column is cut off.
         div()
+            .id("run-labels")
+            .debug_selector(|| "run-labels".to_string())
+            .overflow_x_scroll()
+            .child(div()
             .flex()
             .flex_col()
+            .min_w(px(740.))
             .font_family(MONO_FONT)
             .text_size(px(11.5))
             .child(head)
             .children(labels.iter().take(MAX_ROWS).map(|(name, s)| {
-                div()
-                    .flex()
-                    .gap(px(8.))
-                    .py(px(1.))
-                    .child(div().flex_1().overflow_hidden().whitespace_nowrap().child(name.to_string()))
-                    .child(cell(70., thousands(s.count), p.fg))
-                    .child(cell(60., thousands(s.avg_ms()), p.fg))
-                    .child(cell(60., thousands(s.min_ms), p.fg))
-                    .child(cell(60., thousands(s.max_ms), p.fg))
-                    .child(cell(60., thousands(s.percentile(90.0)), p.fg))
-                    .child(cell(60., thousands(s.percentile(95.0)), p.fg))
-                    .child(cell(60., thousands(s.percentile(99.0)), p.fg))
-                    .child(cell(70., format!("{:.1}%", s.error_pct()), if s.errors > 0 { p.err } else { p.fg }))
+                row(name.to_string(), s, false)
             }))
-            .when(labels.len() > MAX_ROWS, |d| d.child(div().text_color(p.muted).child(format!("{} more requests are not listed", labels.len() - MAX_ROWS))))
+            .child(div().debug_selector(|| "run-labels-total".to_string()).child(row("Total".to_string(), total, true)))
+            .when(labels.len() > MAX_ROWS, |d| d.child(div().text_color(p.muted).child(format!("{} more requests are not listed", labels.len() - MAX_ROWS)))))
             .into_any_element()
     }
 

@@ -30,6 +30,10 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
+- After a run, the Users tile shows the most users the run had instead of the last count (which was 1 at the end).
+- The per-request table ends with a Total row and scrolls sideways in a narrow window instead of cutting columns.
+- An empty setting of an HTTP Request (server, port, protocol, path, encoding, timeouts) shows the value it takes from HTTP Request Defaults, and which element it comes from.
+- The command palette says how to add an element when nothing matches; long element names end in an ellipsis; another element opens at the top of its form.
 - A text box hint written over several lines made the window stop with an error; only its first line is shown now.
 - Escape in a text box of a question (cURL import, run properties, expression) closes the question.
 - On Linux and macOS a run ended by a kill is reported as ended (it was reported as still running).
