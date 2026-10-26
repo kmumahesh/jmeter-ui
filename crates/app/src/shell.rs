@@ -298,9 +298,18 @@ gpui::actions!(
     [TreeUp, TreeDown, TreeLeft, TreeRight, TreeFirst, TreeLast, TreePageUp, TreePageDown, TreeOpen, TreeToggle]
 );
 
-/// Convert `Ctrl+Shift+Tab` to gpui's `ctrl-shift-tab`.
+/// Convert `Ctrl+Shift+Tab` to gpui's `ctrl-shift-tab`, with the keys of this platform (`cmd-shift-t` on a Mac).
 pub fn to_gpui_keys(shortcut: &str) -> String {
-    shortcut.split('+').map(|p| p.trim().to_lowercase()).collect::<Vec<_>>().join("-")
+    to_gpui_keys_for(shortcut, cfg!(target_os = "macos"))
+}
+
+/// The same for a chosen platform, so that every platform's keys can be tested everywhere.
+pub fn to_gpui_keys_for(shortcut: &str, mac: bool) -> String {
+    let keys = shell_core::actions::platform_shortcut(shortcut, mac);
+    keys.split('+').map(|p| match p.trim() {
+        "Option" => "alt".to_string(),
+        other => other.to_lowercase(),
+    }).collect::<Vec<_>>().join("-")
 }
 
 /// Register all keyboard shortcuts for the shell and the tree.
@@ -317,8 +326,15 @@ pub fn bind_keys(cx: &mut App) {
             bindings.push(key_binding(a, &to_gpui_keys(s)));
         }
     }
-    bindings.push(key_binding(Action::Redo, "ctrl-shift-z"));
-    bindings.push(key_binding(Action::CommandPalette, "ctrl-shift-p"));
+    bindings.push(key_binding(Action::Redo, &to_gpui_keys("Ctrl+Shift+Z")));
+    bindings.push(key_binding(Action::CommandPalette, &to_gpui_keys("Ctrl+Shift+P")));
+    // Quitting: Alt+F4 belongs to the window manager on Windows and most Linux desktops; a Mac and many Linux programs also
+    // have a key of their own.
+    if cfg!(target_os = "macos") {
+        bindings.push(key_binding(Action::Quit, "cmd-q"));
+    } else if cfg!(target_os = "linux") {
+        bindings.push(key_binding(Action::Quit, "ctrl-q"));
+    }
     let t = Some("Tree");
     bindings.extend([
         KeyBinding::new("up", TreeUp, t),
@@ -1106,15 +1122,43 @@ mod tests {
     }
 
     #[test]
-    fn every_shortcut_is_a_valid_keystroke() {
+    fn every_shortcut_is_a_valid_keystroke_on_every_platform() {
         for a in Action::ALL {
             if let Some(s) = a.shortcut() {
                 if s == "Alt+F4" {
                     continue;
                 }
-                let keys = to_gpui_keys(s);
-                for part in keys.split(' ') {
-                    assert!(gpui::Keystroke::parse(part).is_ok(), "{s} -> {keys} is not valid");
+                for mac in [false, true] {
+                    let keys = to_gpui_keys_for(s, mac);
+                    for part in keys.split(' ') {
+                        assert!(gpui::Keystroke::parse(part).is_ok(), "{s} -> {keys} is not valid (mac: {mac})");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_mac_gets_command_and_option_and_keeps_ctrl_for_tabs() {
+        assert_eq!(to_gpui_keys_for("Ctrl+O", true), "cmd-o");
+        assert_eq!(to_gpui_keys_for("Ctrl+O", false), "ctrl-o");
+        assert_eq!(to_gpui_keys_for("Ctrl+Shift+T", true), "cmd-shift-t");
+        assert_eq!(to_gpui_keys_for("Alt+Up", true), "alt-up");
+        assert_eq!(to_gpui_keys_for("Ctrl+Alt+B", true), "cmd-alt-b");
+        assert_eq!(to_gpui_keys_for("Ctrl+Tab", true), "ctrl-tab");
+        assert_eq!(to_gpui_keys_for("F5", true), "f5");
+    }
+
+    #[test]
+    fn no_two_actions_share_a_key_on_any_platform() {
+        for mac in [false, true] {
+            let mut seen = std::collections::HashMap::new();
+            for a in Action::ALL {
+                if let Some(s) = a.shortcut().filter(|s| *s != "Alt+F4") {
+                    let k = to_gpui_keys_for(s, mac);
+                    if let Some(other) = seen.insert(k.clone(), a) {
+                        panic!("{a:?} and {other:?} both use {k} (mac: {mac})");
+                    }
                 }
             }
         }

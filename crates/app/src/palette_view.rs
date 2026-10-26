@@ -211,7 +211,7 @@ impl Render for Palette {
                     .child(div().flex().children(title))
                     .child(div().flex_1().min_w_0().overflow_hidden().whitespace_nowrap().text_size(px(12.)).text_color(p.muted).child(detail))
                     .when_some(r.item.shortcut, |d, s| {
-                        d.child(div().px(px(6.)).rounded(px(3.)).border_1().border_color(p.line).text_size(px(10.5)).font_family(crate::assets::MONO_FONT).text_color(p.muted).child(s))
+                        d.child(div().px(px(6.)).rounded(px(3.)).border_1().border_color(p.line).text_size(px(10.5)).font_family(crate::assets::MONO_FONT).text_color(p.muted).child(shell_core::actions::platform_shortcut(s, cfg!(target_os = "macos"))))
                     })
                     .into_any_element(),
             );

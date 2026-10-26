@@ -775,7 +775,7 @@ fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
         })
     };
     for _ in 0..150 {
-        cx.simulate_keystrokes("ctrl-j");
+        cx.simulate_keystrokes(&secondary("ctrl-j"));
         cx.run_until_parked();
     }
     std::thread::sleep(Duration::from_millis(100));

@@ -321,3 +321,9 @@ Added with the engineering-practice work, to test the two places that read files
 3. **The limit.** A plan of 80,000 requests opened in about five seconds in a test build on the development machine (60,000 in three, 40,000 in two); the app calls up to 60,000 elements comfortable. A bigger plan opens, with a notice that it will be slow. The automated check keeps 40,000 requests (open, Problems list, go to an element, rename, save) under five seconds on every platform it runs on, which leaves room for slower machines, and a second check keeps the time growing with the plan and not with its square.
 4. **Not done, kept as a to-do.** Reading the file on a background thread with progress, a scrolling Problems list instead of a short one, and loading elements only when shown.
 
+## Shortcuts on macOS and Linux (2026-10-26)
+1. **Written once, the Windows way.** Every shortcut is written as `Ctrl+Shift+T`. For each platform one function turns it into the keys that platform uses: on a Mac Ctrl becomes Command and Alt becomes Option, except for switching tabs, which keeps Ctrl as every Mac program does. Elsewhere it is as written. The same function makes the label shown in the command palette; the menus show the keys from the real key bindings.
+2. **Quitting.** Alt+F4 stays with the window manager on Windows and most Linux desktops. A Mac gets Cmd+Q and Linux gets Ctrl+Q as well.
+3. **Checked on every platform from any platform.** Tests turn every shortcut into the keys of Windows, Linux and macOS, check that each is a valid keystroke, and check that no two actions share a key on any of them. The window tests write the Windows keys; on a Mac the test helper turns Ctrl into Command the same way, so the same tests run on every system.
+4. **Not tried by hand yet.** These were checked by the automated tests only; nobody has used the app on a Mac or a Linux desktop yet, and the README says so.
+
