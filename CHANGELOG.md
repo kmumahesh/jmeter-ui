@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Getting started page for testers, shipped in the download. The welcome screen says whether Java and JMeter are found and what to do when one is not; a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself.
 - Compare two runs: choose a baseline in the History tab and another run, and see each request side by side with how it changed, the worst first.
 - Aggregate Report: median, standard deviation, requests per second and KB per second for each request, click a request to chart it on its own, and copy the table as CSV.
 - New Plan templates for load testing: login and reuse a token, data-driven (CSV), load test with a ramp and a time limit, and spike test.

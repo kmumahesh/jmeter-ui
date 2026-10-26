@@ -327,3 +327,8 @@ Added with the engineering-practice work, to test the two places that read files
 3. **Checked on every platform from any platform.** Tests turn every shortcut into the keys of Windows, Linux and macOS, check that each is a valid keystroke, and check that no two actions share a key on any of them. The window tests write the Windows keys; on a Mac the test helper turns Ctrl into Command the same way, so the same tests run on every system.
 4. **Not tried by hand yet.** These were checked by the automated tests only; nobody has used the app on a Mac or a Linux desktop yet, and the README says so.
 
+## The first start (2026-10-26)
+1. **Say what is missing, in words.** Once the look for Java and JMeter has finished, the welcome screen says either "Ready to run" with the versions, or what is missing and what to do about it, with buttons for Settings and for checking again. Nothing is said while the look is still going, so a slow start never shows "not found" by mistake.
+2. **Find JMeter without being told.** With no JMeter folder chosen, the folder named by `JMETER_HOME` and folders called `apache-jmeter-X.Y.Z` directly inside the usual places (Downloads, the home folder, Desktop, `C:\`, `C:\tools`, Program Files and a few more) are looked in, newest version first compared as numbers. Only folder names and the presence of `bin/ApacheJMeter.jar` are read. A folder that is found is remembered and the notice says where; a folder the person chose is never replaced by a found one.
+3. **The page comes in the download.** `docs/GETTING-STARTED.md` goes into the package with the licence and README, and the README links to it first.
+
