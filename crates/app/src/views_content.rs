@@ -620,6 +620,11 @@ impl Shell {
                 "Type an expression and the text to try it on. JMeter's own libraries do the work, so the answer is what JMeter would take from that text.".to_string(),
                 vec![("dialog-expr-try", "Try It", true), ("dialog-cancel", "Close", false)],
             ),
+            Some(Dialog::RunProps { .. }) => (
+                "Run properties".to_string(),
+                "One name=value on each line. The plan reads them with ${__P(name)}, and they are given to every run, check and single request of this plan. Lines starting with # are notes.".to_string(),
+                vec![("dialog-props-save", "Save", true), ("dialog-props-load", "Load from File\u{2026}", false), ("dialog-cancel", "Cancel", false)],
+            ),
             Some(Dialog::DiscardForReload(id)) => (
                 "Discard changes?".to_string(),
                 format!("Reloading {} replaces your unsaved changes with the file on disk.", name_of(*id)),
@@ -672,6 +677,7 @@ impl Shell {
         };
         let curl = match &self.dialog {
             Some(Dialog::Curl { area, error }) => Some((area.clone(), error.clone())),
+            Some(Dialog::RunProps { area, error }) => Some((area.clone(), error.clone())),
             _ => None,
         };
         let expression = match &self.dialog {
@@ -686,6 +692,8 @@ impl Shell {
                 "dialog-discard" => this.dialog_discard(window, cx),
                 "dialog-reload" => this.dialog_reload(window, cx),
                 "dialog-curl-add" => this.dialog_curl_add(window, cx),
+                "dialog-props-save" => this.dialog_props_save(window, cx),
+                "dialog-props-load" => this.dialog_props_load(window, cx),
                 "dialog-expr-try" => this.expression_try(window, cx),
                 "dialog-new-api" => this.dialog_new_plan(plan_core::starters::Starter::Api, window, cx),
                 "dialog-new-web" => this.dialog_new_plan(plan_core::starters::Starter::Web, window, cx),
@@ -728,7 +736,7 @@ impl Shell {
             }))
             .child(
                 div()
-                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
                     .max_w_full()
                     .p(px(22.))
                     .flex()

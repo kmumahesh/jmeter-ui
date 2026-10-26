@@ -64,6 +64,7 @@ impl Shell {
             }
         });
         self._subscriptions.push(sub);
+        self.close_dialog_on_escape(&sample, window, cx);
         field.update(cx, |f, cx| f.focus(window, cx));
         self.dialog = Some(Dialog::Expression { kind, expr: field, sample, result, status: None, error: false, busy: false });
         cx.notify();

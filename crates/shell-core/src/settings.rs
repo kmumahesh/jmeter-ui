@@ -61,10 +61,21 @@ pub const RUNS_KEEP_RANGE: (u32, u32) = (1, 1000);
 pub const DEFAULT_RUNS_KEEP: u32 = 10;
 /// Most plans remembered as approved to run their scripts.
 pub const MAX_APPROVED: usize = 1000;
+/// Most plans that keep properties for their runs, and the longest text of one plan's properties.
+pub const MAX_PLAN_PROPERTIES: usize = 1000;
+pub const MAX_PROPERTIES_TEXT: usize = 64 * 1024;
 pub const SIDEBAR_RANGE: (f32, f32) = (180.0, 600.0);
 pub const INSPECTOR_RANGE: (f32, f32) = (220.0, 600.0);
 pub const BOTTOM_RANGE: (f32, f32) = (120.0, 700.0);
 pub const WINDOW_MIN: (f32, f32) = (800.0, 500.0);
+
+/// The properties a plan's runs are given (`name=value` lines), kept by the plan's file path.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlanProperties {
+    pub plan: String,
+    pub text: String,
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -98,6 +109,8 @@ pub struct Settings {
     pub script_approved: Vec<String>,
     /// Which requests keep their request and response for the viewer.
     pub request_details: RequestDetails,
+    /// Properties given to the runs of a plan, by plan file.
+    pub run_properties: Vec<PlanProperties>,
 }
 
 impl Default for Settings {
@@ -122,6 +135,7 @@ impl Default for Settings {
             runs_keep: DEFAULT_RUNS_KEEP,
             script_approved: Vec::new(),
             request_details: RequestDetails::Failed,
+            run_properties: Vec::new(),
         }
     }
 }
@@ -147,6 +161,28 @@ impl Settings {
             self.runs_folder = None;
         }
         self.script_approved.truncate(MAX_APPROVED);
+        self.run_properties.retain(|p| !p.plan.trim().is_empty() && !p.text.trim().is_empty());
+        self.run_properties.truncate(MAX_PLAN_PROPERTIES);
+        for p in &mut self.run_properties {
+            if p.text.len() > MAX_PROPERTIES_TEXT {
+                let cut = (0..=MAX_PROPERTIES_TEXT).rev().find(|i| p.text.is_char_boundary(*i)).unwrap_or(0);
+                p.text.truncate(cut);
+            }
+        }
+    }
+
+    /// The properties kept for this plan's runs, as the text they were written in.
+    pub fn run_properties_for(&self, plan: &str) -> Option<&str> {
+        self.run_properties.iter().find(|p| same_path(&p.plan, plan)).map(|p| p.text.as_str())
+    }
+
+    /// Keep `text` as the properties for this plan's runs; empty text removes them.
+    pub fn set_run_properties(&mut self, plan: &str, text: &str) {
+        self.run_properties.retain(|p| !same_path(&p.plan, plan));
+        if !text.trim().is_empty() {
+            self.run_properties.insert(0, PlanProperties { plan: plan.to_string(), text: text.to_string() });
+        }
+        self.sanitize();
     }
 
     /// Where run files go for the settings as they are.
@@ -240,6 +276,43 @@ pub fn save(path: &Path, settings: &Settings) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn properties_are_kept_for_a_plan_file_and_an_empty_text_removes_them() {
+        let mut s = Settings::default();
+        assert_eq!(s.run_properties_for("C:/work/shop.jmx"), None);
+        s.set_run_properties("C:/work/shop.jmx", "host=a\nport=1");
+        s.set_run_properties("C:/work/other.jmx", "x=1");
+        assert_eq!(s.run_properties_for(r"C:\Work\Shop.jmx"), Some("host=a\nport=1"), "the same file however it is spelled");
+        assert_eq!(s.run_properties_for("C:/work/other.jmx"), Some("x=1"));
+        s.set_run_properties("C:/work/shop.jmx", "host=b");
+        assert_eq!(s.run_properties.len(), 2, "writing again replaces");
+        assert_eq!(s.run_properties_for("C:/work/shop.jmx"), Some("host=b"));
+        s.set_run_properties("C:/work/shop.jmx", "  \n ");
+        assert_eq!(s.run_properties_for("C:/work/shop.jmx"), None);
+        assert_eq!(s.run_properties.len(), 1);
+    }
+
+    #[test]
+    fn kept_properties_are_limited_and_a_damaged_file_cannot_break_them() {
+        let mut s = Settings::default();
+        for i in 0..MAX_PLAN_PROPERTIES + 50 {
+            s.set_run_properties(&format!("C:/p/{i}.jmx"), "a=1");
+        }
+        assert_eq!(s.run_properties.len(), MAX_PLAN_PROPERTIES);
+        let long = "a=".to_string() + &"\u{e9}".repeat(MAX_PROPERTIES_TEXT);
+        s.set_run_properties("C:/p/long.jmx", &long);
+        let kept = s.run_properties_for("C:/p/long.jmx").unwrap();
+        assert!(kept.len() <= MAX_PROPERTIES_TEXT && kept.is_char_boundary(kept.len()));
+        // Entries read from a file with no plan or no text are dropped.
+        let json = r#"{"run_properties":[{"plan":"","text":"a=1"},{"plan":"C:/x.jmx","text":""},{"plan":"C:/y.jmx"},{"text":"b=2"},{"plan":"C:/z.jmx","text":"c=3"}]}"#;
+        let mut loaded: Settings = serde_json::from_str(json).unwrap();
+        loaded.sanitize();
+        assert_eq!(loaded.run_properties, vec![PlanProperties { plan: "C:/z.jmx".into(), text: "c=3".into() }]);
+        // Settings from before this existed have none.
+        let old: Settings = serde_json::from_str("{}").unwrap();
+        assert!(old.run_properties.is_empty());
+    }
 
     fn temp_dir(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("shell-core-{name}-{}-{:?}", std::process::id(), std::thread::current().id()));

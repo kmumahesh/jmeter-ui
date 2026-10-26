@@ -131,13 +131,14 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 | 5 | Request and response viewer, including failed requests | done |
 | 6 | Expression tester, variable values after a run | done |
 | 7 | Open result files, make and open the HTML report | done |
-| 8 | File pickers for CSV data, properties and `-J` overrides | to do |
+| 8 | File pickers for CSV data, properties and `-J` overrides | done |
 | 9 | The small fixes found in the guide | to do |
 | 10 | HTTP(S) Test Script Recorder | to do |
 | 11 | Templates, Add Think Times to children | to do |
 | 12 | Aggregate Report and graphs for each request | to do |
 | 13 | Compare two runs | to do |
 | 14 | Open large plans: measure the size that opens within 5 seconds, keep it as a limit | to do |
+| 15 | Shortcuts for macOS and Linux: Cmd on macOS, labels in menus and palette follow the system | to do |
 
 Each part is its own pull request with logic, window, security and speed tests.
 

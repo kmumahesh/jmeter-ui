@@ -1222,3 +1222,208 @@ fn a_report_without_java_or_jmeter_says_so(cx: &mut TestAppContext) {
     assert!(n.contains("JMeter") || n.contains("Java"), "{n}");
     assert_eq!(app.state()["report"]["busy"], false);
 }
+
+// ---- run properties and file pickers ----
+
+fn props_dialog(app: &mut App) -> Value {
+    app.state()["dialog"].clone()
+}
+
+/// Type `text` into the properties box of the open dialog, replacing what is there.
+fn type_props(app: &mut App, text: &str) {
+    app.click("curl-text");
+    app.keys(&secondary("ctrl-a"));
+    app.keys("backspace");
+    for (i, line) in text.lines().enumerate() {
+        if i > 0 {
+            app.keys("enter");
+        }
+        if !line.is_empty() {
+            app.input(line);
+        }
+    }
+}
+
+#[gpui::test]
+fn the_run_properties_dialog_keeps_the_lines_for_this_plan(cx: &mut TestAppContext) {
+    let s = setup("props-save", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-shift-j");
+    let d = props_dialog(&mut app);
+    assert_eq!((d["kind"].clone(), d["text"].clone()), ("run_props".into(), "".into()));
+    for sel in ["curl-text", "dialog-props-save", "dialog-props-load", "dialog-cancel"] {
+        assert!(app.has(sel), "{sel}");
+    }
+    type_props(&mut app, "# the server\nhost = shop.example.com\nusers=50");
+    app.click("dialog-props-save");
+    assert!(app.state()["dialog"].is_null());
+    let kept = settings::load(&s.settings).settings.run_properties;
+    assert_eq!(kept.len(), 1);
+    assert!(kept[0].text.contains("host = shop.example.com") && kept[0].plan.ends_with("shop.jmx"), "{kept:?}");
+    assert!(app.state()["notice"].as_str().unwrap().contains("Saved 2 run properties"));
+    // Opening it again shows them, and emptying it removes them.
+    app.keys("ctrl-shift-j");
+    assert!(props_dialog(&mut app)["text"].as_str().unwrap().contains("users=50"));
+    type_props(&mut app, "");
+    app.click("dialog-props-save");
+    assert!(settings::load(&s.settings).settings.run_properties.is_empty());
+    // Cancel keeps what was there.
+    app.keys("ctrl-shift-j");
+    type_props(&mut app, "a=1");
+    app.click("dialog-cancel");
+    assert!(settings::load(&s.settings).settings.run_properties.is_empty());
+}
+
+#[gpui::test]
+fn wrong_lines_are_explained_and_nothing_is_saved(cx: &mut TestAppContext) {
+    let s = setup("props-bad", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-shift-j");
+    for (text, want) in [("a=1\nnonsense", "Line 2: write it as name=value"), ("summariser.interval=9", "set by the app"), ("bad name=1", "Line 1"), ("a=1\na=2", "already set above"), ("jmeterui.details=all", "set by the app")] {
+        type_props(&mut app, text);
+        app.click("dialog-props-save");
+        let d = props_dialog(&mut app);
+        assert_eq!(d["kind"], "run_props", "the dialog stays open for {text:?}");
+        assert!(d["error"].as_str().unwrap_or("").contains(want), "{text:?}: {d}");
+        assert!(app.has("curl-error"));
+    }
+    assert!(settings::load(&s.settings).settings.run_properties.is_empty());
+    // Fixing the line saves it.
+    type_props(&mut app, "a=1");
+    app.click("dialog-props-save");
+    assert!(app.state()["dialog"].is_null());
+    assert_eq!(settings::load(&s.settings).settings.run_properties.len(), 1);
+}
+
+#[gpui::test]
+fn properties_can_be_loaded_from_a_file_and_hostile_files_are_refused(cx: &mut TestAppContext) {
+    let s = setup("props-load", &shop_plan(1, 1, 1), None, |_| {});
+    let mut app = open(cx, &s, false);
+    let load = |app: &mut App, path: &Path| {
+        let shell = app.shell.clone();
+        let path = path.to_path_buf();
+        app.cx.update(|_, cx| shell.update(cx, |sh, cx| sh.props_from_file(&path, cx)));
+        app.cx.run_until_parked();
+    };
+    app.keys("ctrl-shift-j");
+    type_props(&mut app, "old=1");
+    let good = s.dir.join("user.properties");
+    std::fs::write(&good, "\u{feff}# from a file\nhost=shop\nport:8443\n").unwrap();
+    load(&mut app, &good);
+    let d = props_dialog(&mut app);
+    assert!(d["text"].as_str().unwrap().contains("port:8443") && !d["text"].as_str().unwrap().contains("old=1") && d["error"].is_null(), "{d}");
+    // A file with lines that are not properties is brought in and the problem is named.
+    std::fs::write(s.dir.join("odd.properties"), "a=1\nthis is not one\n").unwrap();
+    load(&mut app, &s.dir.join("odd.properties"));
+    assert!(props_dialog(&mut app)["error"].as_str().unwrap().contains("Line 2"));
+    // Too large, not text and missing files change nothing and say why.
+    let before = props_dialog(&mut app)["text"].clone();
+    std::fs::write(s.dir.join("big.properties"), "a=1\n".repeat(100_000)).unwrap();
+    load(&mut app, &s.dir.join("big.properties"));
+    assert!(props_dialog(&mut app)["error"].as_str().unwrap().contains("larger than"));
+    std::fs::write(s.dir.join("bin.properties"), [0xff, 0xfe, 0x00, 0x80]).unwrap();
+    load(&mut app, &s.dir.join("bin.properties"));
+    assert!(props_dialog(&mut app)["error"].as_str().unwrap().contains("not text"));
+    load(&mut app, &s.dir.join("missing.properties"));
+    assert!(props_dialog(&mut app)["error"].as_str().unwrap().contains("cannot be read"));
+    assert_eq!(props_dialog(&mut app)["text"], before, "the text is as it was");
+}
+
+fn with_property_plan(port: u16) -> String {
+    jm::plan(port, 1, 1, 0, &[jm::request("Hello", "${__P(where,/default)}")], "")
+}
+
+#[gpui::test]
+fn the_properties_reach_the_plan_in_a_run_a_check_and_a_single_request(cx: &mut TestAppContext) {
+    let Some((s, server)) = real("props-run", with_property_plan, |_, _| {}) else { return };
+    let mut app = open(cx, &s, true);
+    // Without the property the plan's own default is used.
+    app.keys("f5");
+    wait_run(&mut app, Duration::from_secs(120));
+    assert_eq!(server.paths.lock().unwrap().as_slice(), ["/default"]);
+    // With it, every kind of run is given it, and the header names it without the value.
+    app.keys("ctrl-shift-j");
+    type_props(&mut app, "where=/hello-secret");
+    app.click("dialog-props-save");
+    app.keys("f5");
+    let st = wait_run(&mut app, Duration::from_secs(120));
+    assert_eq!(server.paths.lock().unwrap().last().map(String::as_str), Some("/hello-secret"));
+    let notes = st["run"]["notes"].to_string();
+    assert!(notes.contains("1 property set for this run: where") && !notes.contains("hello-secret"), "{notes}");
+    app.keys("ctrl-f5");
+    wait_run(&mut app, Duration::from_secs(120));
+    assert_eq!(server.paths.lock().unwrap().last().map(String::as_str), Some("/hello-secret"));
+    goto(&mut app, "Hello");
+    app.keys("f6");
+    wait_run(&mut app, Duration::from_secs(120));
+    assert_eq!(server.paths.lock().unwrap().last().map(String::as_str), Some("/hello-secret"));
+    assert_eq!(server.paths.lock().unwrap().len(), 4);
+    // The value is in the settings only, never in the run's record.
+    let dir = PathBuf::from(st["run"]["dir"].as_str().unwrap());
+    assert!(!std::fs::read_to_string(dir.join("run.json")).unwrap().contains("hello-secret"));
+}
+
+#[gpui::test]
+fn properties_that_became_invalid_stop_the_run_with_a_reason(cx: &mut TestAppContext) {
+    let Some((s, server)) = real("props-invalid", with_property_plan, |_, _| {}) else { return };
+    // A settings file edited by hand: a reserved name and a name with a space.
+    let mut st = settings::load(&s.settings).settings;
+    let key = canon(&s.plan).to_string_lossy().into_owned();
+    st.set_run_properties(key.trim_start_matches(r"\\?\"), "summariser.interval=1\n");
+    settings::save(&s.settings, &st).unwrap();
+    let mut app = open(cx, &s, true);
+    app.keys("f5");
+    assert!(app.state()["run"].is_null(), "no run started");
+    assert!(app.state()["notice"].as_str().unwrap().contains("not valid"), "{}", app.state()["notice"]);
+    assert!(server.paths.lock().unwrap().is_empty());
+}
+
+const CSV_ELEMENT: &str = r#"        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Users file" enabled="true">
+          <stringProp name="filename"></stringProp>
+          <stringProp name="fileEncoding"></stringProp>
+          <stringProp name="variableNames">user</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <stringProp name="delimiter">,</stringProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+"#;
+
+#[gpui::test]
+fn a_chosen_file_is_written_in_the_form_relative_when_it_is_next_to_the_plan(cx: &mut TestAppContext) {
+    let text = jm::plan(1, 1, 1, 0, &[jm::request("Home", "/")], CSV_ELEMENT);
+    let s = setup("browse", &text, None, |_| {});
+    std::fs::create_dir_all(s.dir.join("data")).unwrap();
+    std::fs::write(s.dir.join("data").join("users.csv"), "ann\nbo\n").unwrap();
+    let outside = temp_dir("browse-outside").join("other users.csv");
+    std::fs::write(&outside, "x\n").unwrap();
+    let mut app = open(cx, &s, false);
+    goto(&mut app, "Users file");
+    assert!(app.has("browse-filename"), "the file setting has a Browse button");
+    assert!(!app.has("browse-variableNames") && !app.has("browse-fileEncoding"), "other settings do not");
+    let choose = |app: &mut App, path: &Path| {
+        let shell = app.shell.clone();
+        let path = path.to_path_buf();
+        app.cx.update(|window, cx| shell.update(cx, |sh, cx| sh.set_file_field("filename", &path, window, cx)));
+        app.cx.run_until_parked();
+    };
+    choose(&mut app, &canon(&s.dir).join("data").join("users.csv"));
+    assert_eq!(app.prop("filename").as_deref(), Some("data/users.csv"));
+    assert_eq!(app.state()["dirty"], true);
+    // Undo takes it back, and a file elsewhere is written in full.
+    app.keys(&secondary("ctrl-z"));
+    assert_eq!(app.prop("filename").as_deref(), Some(""));
+    choose(&mut app, &outside);
+    assert_eq!(app.prop("filename").unwrap().replace('\\', "/"), outside.to_string_lossy().replace('\\', "/").trim_start_matches("//?/"));
+    // The name is saved in the plan like a typed one.
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| shell.update(cx, |sh, cx| sh.save_active(window, cx)));
+    assert!(std::fs::read_to_string(&s.plan).unwrap().contains("other users.csv"));
+    // Anything but a file setting is left alone by the same call.
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| shell.update(cx, |sh, cx| sh.set_file_field("variableNames", &outside, window, cx)));
+    assert_eq!(app.prop("variableNames").as_deref(), Some("user"));
+}

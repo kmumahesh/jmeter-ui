@@ -5,6 +5,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Run properties (Ctrl+Shift+J): `name=value` lines kept for a plan and given to its runs as `-J` options, with loading from a `.properties` file.
+- Browse buttons for the file settings of a CSV Data Set, an Include Controller and script elements.
 - Open a JMeter results file (Ctrl+Shift+O) and look at it like a run.
 - HTML report (Ctrl+Shift+H): made with JMeter's report generator from the results you are looking at, then opened in the browser.
 - Try an expression (Ctrl+Shift+T): a JSON Path, regular expression, XPath or CSS selector tried on some text with JMeter's own libraries; an extractor fills in its own expression and a response from the request viewer fills in the text.
@@ -28,6 +30,8 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - A release workflow: a signed tag on `main` builds the Windows package, a list of dependencies (SBOM), checksums and signed build provenance, and creates a draft release.
 
 ### Fixed
+- A text box hint written over several lines made the window stop with an error; only its first line is shown now.
+- Escape in a text box of a question (cURL import, run properties, expression) closes the question.
 - On Linux and macOS a run ended by a kill is reported as ended (it was reported as still running).
 - The `--state` file used by the real-window checks is written in one step, so it is never read half written.
 - Run history is found for a plan however its path is spelled (short Windows names, `..` and slashes).

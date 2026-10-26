@@ -177,6 +177,7 @@ impl Shell {
                     MenuItem::Action(Action::RunPlan),
                     MenuItem::Action(Action::ValidatePlan),
                     MenuItem::Action(Action::SendOnce),
+                    MenuItem::Action(Action::RunProperties),
                     MenuItem::Action(Action::StopRun),
                     MenuItem::Action(Action::StopRunNow),
                     MenuItem::Action(Action::ViewRequests),

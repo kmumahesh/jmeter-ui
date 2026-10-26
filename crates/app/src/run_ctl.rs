@@ -178,6 +178,11 @@ impl Shell {
                 None => return self.notify("Select a request first", Severity::Error, window, cx),
             },
         };
+        // The properties kept for this plan; invalid ones stop the run, which would otherwise run with the wrong settings.
+        let user_props = match self.run_properties(&plan_path) {
+            Ok(p) => p,
+            Err(e) => return self.notify(e, Severity::Error, window, cx),
+        };
         let derived = match derived.transpose() {
             Ok(d) => d,
             Err(e) => return self.notify(format!("{e:#}"), Severity::Error, window, cx),
@@ -226,6 +231,7 @@ impl Shell {
         if derived.is_none() {
             mode = details::Mode::Off;
         }
+        notes.extend(jvm_runtime::props::note(&user_props));
         notes.extend(run::path_warning(&plan_path));
         notes.extend(run::path_warning(&dir));
         let spec = RunSpec {
@@ -236,6 +242,7 @@ impl Shell {
             jvm_args: vec![format!("-Xmx{}m", self.settings.heap_mb)],
             props: {
                 let mut props = vec![("summariser.interval".into(), self.settings.summary_interval_secs.to_string())];
+                props.extend(user_props.iter().cloned());
                 if mode != details::Mode::Off {
                     props.extend(details::props(mode, &dir.join(crate::running::DETAILS_FILE), details::MAX_KEPT));
                 }

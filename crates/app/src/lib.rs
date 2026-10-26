@@ -8,6 +8,7 @@ mod editing;
 mod expression;
 mod new_plan;
 mod requests;
+mod run_props;
 mod results_view;
 mod run_ctl;
 mod running;
