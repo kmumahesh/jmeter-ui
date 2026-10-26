@@ -204,6 +204,8 @@ pub struct Shell {
     pub about_open: bool,
     pub bottom_tab: BottomTab,
     pub run_detail: RunDetail,
+    /// The request the charts of the run show, or all of them.
+    pub run_label: Option<String>,
     /// The request chosen in the request viewer (an index into the run's details).
     /// Folders and pages the app was asked to show in another program.
     pub opened: Vec<PathBuf>,
@@ -382,6 +384,7 @@ impl Shell {
             about_open: false,
             bottom_tab: BottomTab::Problems,
             run_detail: RunDetail::Errors,
+            run_label: None,
             opened: Vec::new(),
             no_external_open: options.no_external_open || std::env::var_os("JMETER_UI_NO_OPEN").is_some(),
             report_busy: false,
@@ -1002,6 +1005,7 @@ impl Shell {
                     "details": r.details.len(),
                     "details_failed": r.details.iter().filter(|d| !d.success).count(),
                     "details_off": r.details_off,
+                    "chart_label": self.run_label,
                     "details_skipped": r.details_skipped,
                 })
             }),

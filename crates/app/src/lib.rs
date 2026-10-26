@@ -2,6 +2,7 @@
 
 pub mod assets;
 pub mod combo;
+mod aggregate;
 mod clipboard;
 mod curl_import;
 mod editing;

@@ -51,7 +51,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | New plan (File > New Plan…, Ctrl+N): start from an API test, a web site test or an empty plan, choose where to save it, and it opens ready to edit and run | ✅ |
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
 | Request viewer (Ctrl+Shift+R): what was sent and what came back for each request — request line, headers and body, status, response headers and body, assertion results and the requests made as part of it. Failed requests are kept by default, or choose all requests or none in Settings; a run keeps at most 500. Send once opens it on the answer. Works on stored runs too | ✅ |
-| Aggregate Report with all percentiles and a Total row, and graphs over time for each request | ⬜ |
+| Aggregate Report: for each request the samples, average, median, 90th, 95th and 99th percentiles, minimum, maximum, standard deviation, error rate, requests per second and KB per second (worked out like JMeter's own report), with a Total row; click a request to chart just that one over time; copy the table as CSV for a spreadsheet | ✅ |
 | Open a saved results file (`.jtl` or CSV, Ctrl+Shift+O) from anywhere and look at its numbers, charts, errors and requests like a run. A file with 300,000 rows opens in seconds while the window stays usable | ✅ |
 | HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
 | Compare two runs | ⬜ |

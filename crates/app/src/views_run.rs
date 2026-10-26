@@ -68,7 +68,9 @@ impl Shell {
         };
         let t = run.live.total();
         let step = run.live.step_secs().max(1) as f32;
-        let series = run.live.series();
+        // The charts show one request when one is chosen in the table (and has a series of its own).
+        let chosen = self.run_label.as_deref().filter(|l| run.live.label_series(l).is_some());
+        let series = chosen.and_then(|l| run.live.label_series(l)).unwrap_or_else(|| run.live.series());
         let kpi = |id: &'static str, label: &'static str, value: String, color: gpui::Hsla| {
             div()
                 .id(id)
@@ -96,6 +98,11 @@ impl Shell {
         };
         let avg_series: Vec<f32> = series.iter().map(|x| x.avg_ms() as f32).collect();
         let rate_series: Vec<f32> = series.iter().map(|x| x.samples as f32 / step).collect();
+        let chart_note = match (&self.run_label, chosen) {
+            (Some(l), Some(_)) => Some((format!("Charts show {l}"), true)),
+            (Some(l), None) => Some((format!("{l} is not charted on its own (only the first {} requests are); the charts show all requests", jvm_runtime::live::MAX_SERIES_LABELS), true)),
+            _ => None,
+        };
         let err_series: Vec<f32> = series.iter().map(|x| x.errors as f32).collect();
         let user_series: Vec<f32> = series.iter().map(|x| x.threads as f32).collect();
         let err_color = if t.errors > 0 { p.err } else { p.fg };
@@ -119,7 +126,7 @@ impl Shell {
         };
         let detail: AnyElement = match self.run_detail {
             RunDetail::Errors => self.run_errors(run, &p, cx),
-            RunDetail::Labels => self.run_labels(run, &p),
+            RunDetail::Labels => self.run_labels(run, &p, cx),
             RunDetail::Log => self.run_log(run, &p),
         };
         let elapsed = run.elapsed().as_secs();
@@ -182,6 +189,19 @@ impl Shell {
                     .child(if active { kpi("run-kpi-users", "USERS", thousands(run.live.threads() as u64), p.fg) } else { kpi("run-kpi-users", "USERS (PEAK)", thousands(run.live.peak_threads() as u64), p.fg) }),
             )
             // Charts.
+            .when_some(chart_note, |d, (text, clearable)| {
+                d.child(
+                    div()
+                        .debug_selector(|| "chart-note".to_string())
+                        .flex()
+                        .items_center()
+                        .gap(px(10.))
+                        .text_size(px(11.5))
+                        .text_color(p.muted)
+                        .child(text)
+                        .when(clearable, |d| d.child(div().debug_selector(|| "chart-all".to_string()).child(Button::new("chart-all", "Show all").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, _, cx| this.chart_label(None, cx)))))),
+                )
+            })
             .child(
                 div()
                     .flex()
@@ -241,59 +261,89 @@ impl Shell {
             .into_any_element()
     }
 
-    fn run_labels(&self, run: &RunSession, p: &Palette) -> AnyElement {
+    fn run_labels(&self, run: &RunSession, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         let labels = run.live.labels();
         if labels.is_empty() {
             return div().py(px(6.)).text_color(p.muted).child("No requests yet.").into_any_element();
         }
-        let cell = |w: f32, text: String, color: gpui::Hsla| div().w(px(w)).text_color(color).child(text);
+        let cell = |w: f32, text: String, color: gpui::Hsla| div().w(px(w)).flex_none().text_color(color).child(text);
         let head = div()
             .flex()
             .gap(px(8.))
             .text_color(p.muted)
-            .child(div().flex_1().child("Request"))
+            .child(div().flex_1().min_w(px(140.)).child("Request"))
             .child(cell(70., "Samples".into(), p.muted))
             .child(cell(60., "Avg".into(), p.muted))
-            .child(cell(60., "Min".into(), p.muted))
-            .child(cell(60., "Max".into(), p.muted))
+            .child(cell(60., "Median".into(), p.muted))
             .child(cell(60., "90%".into(), p.muted))
             .child(cell(60., "95%".into(), p.muted))
             .child(cell(60., "99%".into(), p.muted))
-            .child(cell(70., "Errors".into(), p.muted));
+            .child(cell(60., "Min".into(), p.muted))
+            .child(cell(60., "Max".into(), p.muted))
+            .child(cell(70., "Std dev".into(), p.muted))
+            .child(cell(70., "Errors".into(), p.muted))
+            .child(cell(80., "Per sec".into(), p.muted))
+            .child(cell(80., "KB/sec".into(), p.muted));
         let total = run.live.total();
-        let row = |name: String, s: &jvm_runtime::live::Stats, bold: bool| {
+        let chosen = self.run_label.clone();
+        let row = |idx: usize, name: String, s: &jvm_runtime::live::Stats, total_row: bool| {
+            let picked = !total_row && chosen.as_deref() == Some(name.as_str());
+            let click_name = name.clone();
             div()
+                .id(("run-label", idx))
+                .debug_selector(move || format!("run-label-row-{idx}"))
                 .flex()
                 .gap(px(8.))
                 .py(px(1.))
-                .when(bold, |d| d.font_weight(FontWeight::SEMIBOLD).border_t_1().border_color(p.line))
+                .cursor_pointer()
+                .hover(|d| d.bg(p.panel2))
+                .when(picked, |d| d.bg(with_alpha(p.accent, 0.14)))
+                .when(total_row, |d| d.font_weight(FontWeight::SEMIBOLD).border_t_1().border_color(p.line))
+                .on_click(cx.listener(move |this, _, _, cx| this.chart_label(if total_row { None } else { Some(click_name.clone()) }, cx)))
                 .child(div().flex_1().min_w(px(140.)).overflow_hidden().text_ellipsis().whitespace_nowrap().child(name))
                 .child(cell(70., thousands(s.count), p.fg))
                 .child(cell(60., thousands(s.avg_ms()), p.fg))
-                .child(cell(60., thousands(s.min_ms), p.fg))
-                .child(cell(60., thousands(s.max_ms), p.fg))
+                .child(cell(60., thousands(s.median_ms()), p.fg))
                 .child(cell(60., thousands(s.percentile(90.0)), p.fg))
                 .child(cell(60., thousands(s.percentile(95.0)), p.fg))
                 .child(cell(60., thousands(s.percentile(99.0)), p.fg))
+                .child(cell(60., thousands(s.min_ms), p.fg))
+                .child(cell(60., thousands(s.max_ms), p.fg))
+                .child(cell(70., format!("{:.1}", s.std_dev_ms()), p.fg))
                 .child(cell(70., format!("{:.1}%", s.error_pct()), if s.errors > 0 { p.err } else { p.fg }))
+                .child(cell(80., rate(s.throughput()), p.fg))
+                .child(cell(80., format!("{:.1}", s.received_kb_per_sec()), p.fg))
         };
-        // The table keeps its width and scrolls sideways in a narrow window, so no column is cut off.
+        // The table keeps its width and scrolls sideways in a narrow window, so no column is cut off. A click on a row
+        // shows that request in the charts; the Total row shows all of them again.
         div()
-            .id("run-labels")
-            .debug_selector(|| "run-labels".to_string())
-            .overflow_x_scroll()
-            .child(div()
             .flex()
             .flex_col()
-            .min_w(px(740.))
-            .font_family(MONO_FONT)
-            .text_size(px(11.5))
-            .child(head)
-            .children(labels.iter().take(MAX_ROWS).map(|(name, s)| {
-                row(name.to_string(), s, false)
-            }))
-            .child(div().debug_selector(|| "run-labels-total".to_string()).child(row("Total".to_string(), total, true)))
-            .when(labels.len() > MAX_ROWS, |d| d.child(div().text_color(p.muted).child(format!("{} more requests are not listed", labels.len() - MAX_ROWS)))))
+            .gap(px(4.))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .text_size(px(11.5))
+                    .text_color(p.muted)
+                    .child("Click a request to chart it.")
+                    .child(div().debug_selector(|| "run-copy-table".to_string()).child(Button::new("run-copy-table", "Copy table as CSV").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.copy_aggregate_csv(w, cx))))),
+            )
+            .child(
+                div().id("run-labels").debug_selector(|| "run-labels".to_string()).overflow_x_scroll().child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .min_w(px(1100.))
+                        .font_family(MONO_FONT)
+                        .text_size(px(11.5))
+                        .child(head)
+                        .children(labels.iter().take(MAX_ROWS).enumerate().map(|(i, (name, s))| row(i, name.to_string(), s, false)))
+                        .child(div().debug_selector(|| "run-labels-total".to_string()).child(row(usize::MAX, "Total".to_string(), total, true)))
+                        .when(labels.len() > MAX_ROWS, |d| d.child(div().text_color(p.muted).child(format!("{} more requests are not listed", labels.len() - MAX_ROWS)))),
+                ),
+            )
             .into_any_element()
     }
 
