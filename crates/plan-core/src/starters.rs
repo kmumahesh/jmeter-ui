@@ -5,7 +5,7 @@
 //! plan. Nothing in it points at a real site: the server names are examples to replace.
 
 use crate::edit::EditablePlan;
-use crate::forms::{RowShape, new_row};
+use crate::forms::{self, RowShape, new_row};
 use crate::model::NodeId;
 use anyhow::Result;
 use jmx_model::xml::escape;
@@ -15,15 +15,40 @@ pub enum Starter {
     Empty,
     Api,
     Web,
+    /// Log in, keep the token the server gives, and use it in the next request.
+    Login,
+    /// Requests that take their values from a CSV file, a row for each user and iteration.
+    Data,
+    /// A steady load for a set time, with a ramp up and a pause between requests.
+    Load,
+    /// A small steady load with a sudden burst of users on top of it.
+    Spike,
 }
 
 impl Starter {
-    pub const ALL: [Starter; 3] = [Starter::Api, Starter::Web, Starter::Empty];
+    pub const ALL: [Starter; 7] = [Starter::Api, Starter::Web, Starter::Login, Starter::Data, Starter::Load, Starter::Spike, Starter::Empty];
+
+    /// The name of this starter's button in the New Plan question.
+    pub fn button_id(self) -> &'static str {
+        match self {
+            Starter::Api => "dialog-new-api",
+            Starter::Web => "dialog-new-web",
+            Starter::Login => "dialog-new-login",
+            Starter::Data => "dialog-new-data",
+            Starter::Load => "dialog-new-load",
+            Starter::Spike => "dialog-new-spike",
+            Starter::Empty => "dialog-new-empty",
+        }
+    }
 
     pub fn label(self) -> &'static str {
         match self {
             Starter::Api => "API test",
             Starter::Web => "Web site test",
+            Starter::Login => "Login and reuse a token",
+            Starter::Data => "Data-driven test (CSV)",
+            Starter::Load => "Load test (ramp up, steady, time limit)",
+            Starter::Spike => "Spike test",
             Starter::Empty => "Empty plan",
         }
     }
@@ -33,6 +58,10 @@ impl Starter {
         match self {
             Starter::Api => "server defaults, JSON headers, one request with a status check, and a pause between requests",
             Starter::Web => "server defaults, cookies, caching, one page request with a status check, and a random pause between requests",
+            Starter::Login => "a CSV file of users, a login that keeps the token from the answer, a request that sends it, checks, and a pause between requests",
+            Starter::Data => "a CSV file of search terms, a request that uses a term from each row, a check, and a pause between requests",
+            Starter::Load => "50 users ramped up over a minute, running for ten minutes, a check, and a random pause between requests",
+            Starter::Spike => "10 steady users for five minutes and 200 more that arrive after two minutes for one minute",
             Starter::Empty => "only the Test Plan",
         }
     }
@@ -42,6 +71,10 @@ impl Starter {
         match self {
             Starter::Api => "api-test",
             Starter::Web => "web-test",
+            Starter::Login => "login-test",
+            Starter::Data => "data-driven-test",
+            Starter::Load => "load-test",
+            Starter::Spike => "spike-test",
             Starter::Empty => "new-plan",
         }
     }
@@ -105,6 +138,43 @@ impl Build {
         Ok(g)
     }
 
+    /// A thread group that runs for `duration` seconds after waiting `delay` seconds to start.
+    fn timed_group(&mut self, name: &str, users: u32, ramp: u32, delay: u32, duration: u32) -> Result<NodeId> {
+        let g = self.group(name, users, ramp, 1)?;
+        self.set(g, "ThreadGroup.main_controller/LoopController.loops", "stringProp", "-1")?;
+        self.set(g, "ThreadGroup.main_controller/LoopController.continue_forever", "boolProp", "false")?;
+        self.set(g, "ThreadGroup.scheduler", "boolProp", "true")?;
+        self.set(g, "ThreadGroup.duration", "stringProp", &duration.to_string())?;
+        self.set(g, "ThreadGroup.delay", "stringProp", &delay.to_string())?;
+        Ok(g)
+    }
+
+    /// A pause of 1 to 3 seconds before the requests of the group, chosen at random each time.
+    fn think_time(&mut self, parent: NodeId) -> Result<()> {
+        let t = self.add(parent, "UniformRandomTimer", "UniformRandomTimerGui", "Think time")?;
+        self.set(t, "ConstantTimer.delay", "stringProp", "1000")?;
+        self.set(t, "RandomTimer.range", "stringProp", "2000.0")
+    }
+
+    /// A CSV Data Set that reads `file` (next to the plan) into the variables named, a row for each user in turn.
+    fn csv(&mut self, parent: NodeId, name: &str, file: &str, variables: &str) -> Result<()> {
+        let c = self.add(parent, "CSVDataSet", "TestBeanGUI", name)?;
+        self.set(c, "filename", "stringProp", file)?;
+        self.set(c, "variableNames", "stringProp", variables)?;
+        self.set(c, "ignoreFirstLine", "boolProp", "false")?;
+        self.set(c, "delimiter", "stringProp", ",")?;
+        self.set(c, "recycle", "boolProp", "true")?;
+        self.set(c, "stopThread", "boolProp", "false")
+    }
+
+    /// A request that must answer 200 (the status check goes under it).
+    fn status_check(&mut self, request: NodeId) -> Result<()> {
+        let a = self.add(request, "ResponseAssertion", "AssertionGui", "Status is 200")?;
+        self.set(a, "Assertion.test_field", "stringProp", "Assertion.response_code")?;
+        self.set(a, "Assertion.test_type", "intProp", "8")?;
+        self.e.add_row(a, "Asserion.test_strings", 0, new_row(RowShape::Text, &["200"]))
+    }
+
     /// A GET request that must answer 200.
     fn checked_get(&mut self, group: NodeId, name: &str, path: &str) -> Result<()> {
         let r = self.add(group, "HTTPSamplerProxy", "HttpTestSampleGui", name)?;
@@ -134,6 +204,57 @@ pub fn new_plan_text(starter: Starter, name: &str) -> Result<String> {
             b.checked_get(g, "Get items", "/items")?;
             let t = b.add(g, "ConstantTimer", "ConstantTimerGui", "Think time")?;
             b.set(t, "ConstantTimer.delay", "stringProp", "1000")?;
+        }
+        Starter::Login => {
+            b.defaults("api.example.com")?;
+            b.headers(&[("Accept", "application/json"), ("Content-Type", "application/json")])?;
+            let g = b.group("Users", 10, 30, 5)?;
+            b.csv(g, "Users file", "users.csv", "username,password")?;
+            let login = b.add(g, "HTTPSamplerProxy", "HttpTestSampleGui", "Log in")?;
+            b.set(login, "HTTPSampler.method", "stringProp", "POST")?;
+            b.set(login, "HTTPSampler.path", "stringProp", "/auth/login")?;
+            b.set(login, forms::RAW_BODY, "boolProp", "true")?;
+            b.e.add_row(login, forms::PARAMETERS, 0, new_row(RowShape::HttpArgument, &["", "{\"username\":\"${username}\",\"password\":\"${password}\"}", "false", "false"]))?;
+            b.status_check(login)?;
+            let x = b.add(login, "JSONPostProcessor", "JSONPostProcessorGui", "Keep the token")?;
+            b.set(x, "JSONPostProcessor.referenceNames", "stringProp", "token")?;
+            b.set(x, "JSONPostProcessor.jsonPathExprs", "stringProp", "$.token")?;
+            b.set(x, "JSONPostProcessor.match_numbers", "stringProp", "1")?;
+            b.set(x, "JSONPostProcessor.defaultValues", "stringProp", "NO_TOKEN")?;
+            let me = b.add(g, "HTTPSamplerProxy", "HttpTestSampleGui", "Get my profile")?;
+            b.set(me, "HTTPSampler.method", "stringProp", "GET")?;
+            b.set(me, "HTTPSampler.path", "stringProp", "/me")?;
+            b.status_check(me)?;
+            let h = b.add(me, "HeaderManager", "HeaderPanel", "Send the token")?;
+            b.e.add_row(h, "HeaderManager.headers", 0, new_row(RowShape::Header, &["Authorization", "Bearer ${token}"]))?;
+            b.think_time(g)?;
+        }
+        Starter::Data => {
+            b.defaults("www.example.com")?;
+            let g = b.group("Users", 10, 30, 20)?;
+            b.csv(g, "Search terms", "terms.csv", "term")?;
+            let r = b.add(g, "HTTPSamplerProxy", "HttpTestSampleGui", "Search")?;
+            b.set(r, "HTTPSampler.method", "stringProp", "GET")?;
+            b.set(r, "HTTPSampler.path", "stringProp", "/search?q=${term}")?;
+            b.status_check(r)?;
+            b.think_time(g)?;
+        }
+        Starter::Load => {
+            b.defaults("api.example.com")?;
+            b.headers(&[("Accept", "application/json")])?;
+            let g = b.timed_group("Users", 50, 60, 0, 600)?;
+            b.checked_get(g, "Get items", "/items")?;
+            b.think_time(g)?;
+        }
+        Starter::Spike => {
+            b.defaults("api.example.com")?;
+            b.headers(&[("Accept", "application/json")])?;
+            let base = b.timed_group("Steady users", 10, 10, 0, 300)?;
+            b.checked_get(base, "Get items", "/items")?;
+            b.think_time(base)?;
+            let spike = b.timed_group("Spike", 200, 5, 120, 60)?;
+            b.checked_get(spike, "Get items", "/items")?;
+            b.think_time(spike)?;
         }
         Starter::Web => {
             b.defaults("www.example.com")?;

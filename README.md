@@ -57,7 +57,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Compare two runs | ⬜ |
 | Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
 | Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
-| Templates (File > Templates) | ⬜ |
+| Templates for load testing in New Plan: login and reuse a token (CSV users, JSON extractor, token sent in a header), data-driven test (CSV terms), load test (50 users ramped up over a minute, ten minutes), spike test (steady users plus a burst), next to the API and web site tests; each one runs against a server in the tests | ✅ |
 | Search and replace across the plan | ⬜ |
 | Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
 | Recording proxy inside the app (point the browser at it and record live; HTTPS needs a certificate the browser trusts) | ⬜ |
@@ -68,7 +68,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Backend Listener setup | ⬜ |
 | Run properties (Run > Run Properties, Ctrl+Shift+J): `name=value` lines kept for each plan and given to every run, check and single request, so the plan can read them with `${__P(name)}`; they can be loaded from a `.properties` file; the run header names them without showing values | ✅ |
 | Browse buttons next to the file settings of a CSV Data Set, an Include Controller and script elements; a file next to the plan is written relative to it | ✅ |
-| Log viewer, Start no pauses, Add Think Times to children | ⬜ |
+| Add Think Times to Children (Edit menu): a pause before every request under the selected element that has none, with the shortest and longest pause chosen; one Undo takes them all away | ✅ |
+| Log viewer, Start no pauses | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
 | Keep the window responsive when opening very large plans (15,000 requests take 11 seconds, 40,000 do not finish in a minute) | ⬜ |
 | Small fixes found in the guide: the Users tile shows the peak after a run, the per-request table has a Total row and scrolls sideways, an empty HTTP Request setting shows the value it takes from HTTP Request Defaults, the palette hints at `+` when nothing matches, long element names end in an ellipsis, and another element opens at the top of its form | ✅ |

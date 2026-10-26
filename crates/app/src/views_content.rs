@@ -604,11 +604,8 @@ impl Shell {
             }
             Some(Dialog::NewPlan) => (
                 "New plan".to_string(),
-                format!(
-                    "Choose a starting point. You pick where to save it next.\n\n{}",
-                    plan_core::starters::Starter::ALL.iter().map(|s| format!("{}: {}.", s.label(), s.description())).collect::<Vec<_>>().join("\n")
-                ),
-                vec![("dialog-new-api", "API test", true), ("dialog-new-web", "Web site test", false), ("dialog-new-empty", "Empty plan", false), ("dialog-cancel", "Cancel", false)],
+                "Choose a starting point. You pick where to save it next.".to_string(),
+                vec![("dialog-cancel", "Cancel", false)],
             ),
             Some(Dialog::Curl { .. }) => (
                 "Import from cURL".to_string(),
@@ -624,6 +621,11 @@ impl Shell {
                 "Import from HAR".to_string(),
                 "A HAR file is a recording of a visit, saved from a browser's developer tools (Network tab, Save all as HAR). Each request becomes an HTTP Request; each page becomes a Transaction Controller.".to_string(),
                 vec![("dialog-har-add", "Add to Plan", true), ("dialog-cancel", "Cancel", false)],
+            ),
+            Some(Dialog::ThinkTimes { .. }) => (
+                "Add think times".to_string(),
+                "Adds a pause before every request under the selected element that does not have one, as a Uniform Random Timer named Think time (a Constant Timer when both are the same). Requests that are switched off are left alone. One Undo takes them all away.".to_string(),
+                vec![("dialog-think-add", "Add Think Times", true), ("dialog-cancel", "Cancel", false)],
             ),
             Some(Dialog::RunProps { .. }) => (
                 "Run properties".to_string(),
@@ -685,6 +687,30 @@ impl Shell {
             Some(Dialog::RunProps { area, error }) => Some((area.clone(), error.clone())),
             _ => None,
         };
+        // The New Plan question lists every template with what it holds.
+        let templates = matches!(self.dialog, Some(Dialog::NewPlan)).then(|| {
+            plan_core::starters::Starter::ALL
+                .iter()
+                .map(|s| {
+                    let (id, s) = (s.button_id(), *s);
+                    div()
+                        .flex()
+                        .items_start()
+                        .gap(px(12.))
+                        .child(div().debug_selector(move || id.to_string()).w(px(250.)).flex_none().child(Button::new(id, s.label()).style(if s == plan_core::starters::Starter::Api { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle }).size(ButtonSize::Compact).on_click(cx.listener(move |this, _, window, cx| {
+                            this.dialog_new_plan(s, window, cx);
+                            if this.dialog.is_none() {
+                                window.focus(&this.focus, cx);
+                            }
+                        }))))
+                        .child(div().flex_1().min_w_0().pt(px(3.)).text_size(px(12.)).text_color(p.muted).child(format!("{}.", s.description())))
+                })
+                .collect::<Vec<_>>()
+        });
+        let think = match &self.dialog {
+            Some(Dialog::ThinkTimes { min, max, error, .. }) => Some((min.clone(), max.clone(), error.clone())),
+            _ => None,
+        };
         let har = match &self.dialog {
             Some(Dialog::Har { path, skip_static, group_by_page, hosts, summary, error, .. }) => Some((path.clone(), *skip_static, *group_by_page, hosts.clone(), summary.clone(), error.clone())),
             _ => None,
@@ -702,12 +728,15 @@ impl Shell {
                 "dialog-reload" => this.dialog_reload(window, cx),
                 "dialog-curl-add" => this.dialog_curl_add(window, cx),
                 "dialog-har-add" => this.dialog_har_add(window, cx),
+                "dialog-think-add" => this.dialog_think_add(window, cx),
                 "dialog-props-save" => this.dialog_props_save(window, cx),
                 "dialog-props-load" => this.dialog_props_load(window, cx),
                 "dialog-expr-try" => this.expression_try(window, cx),
-                "dialog-new-api" => this.dialog_new_plan(plan_core::starters::Starter::Api, window, cx),
-                "dialog-new-web" => this.dialog_new_plan(plan_core::starters::Starter::Web, window, cx),
-                "dialog-new-empty" => this.dialog_new_plan(plan_core::starters::Starter::Empty, window, cx),
+                other if plan_core::starters::Starter::ALL.iter().any(|s| s.button_id() == other) => {
+                    if let Some(s) = plan_core::starters::Starter::ALL.iter().find(|s| s.button_id() == other) {
+                        this.dialog_new_plan(*s, window, cx)
+                    }
+                }
                 "dialog-recover" => this.resolve_recovery(true, window, cx),
                 "dialog-discard-recovery" => this.resolve_recovery(false, window, cx),
                 "dialog-save-run" => this.dialog_save_and_run(window, cx),
@@ -746,7 +775,7 @@ impl Shell {
             }))
             .child(
                 div()
-                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. } | Dialog::NewPlan)) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
                     .max_w_full()
                     .p(px(22.))
                     .flex()
@@ -759,6 +788,17 @@ impl Shell {
                     .shadow_lg()
                     .child(div().text_size(px(17.)).font_weight(FontWeight::SEMIBOLD).child(title))
                     .child(div().text_color(p.muted).child(body))
+                    .when_some(templates, |d, rows| d.child(div().id("templates").flex().flex_col().gap(px(8.)).children(rows)))
+                    .when_some(think, |d, (min, max, error)| {
+                        d.child(
+                            div()
+                                .flex()
+                                .gap(px(14.))
+                                .child(div().w(px(200.)).flex().flex_col().gap(px(4.)).child(div().text_size(px(12.)).text_color(p.muted).child("Shortest pause (ms)")).child(div().debug_selector(|| "think-min".to_string()).child(min)))
+                                .child(div().w(px(200.)).flex().flex_col().gap(px(4.)).child(div().text_size(px(12.)).text_color(p.muted).child("Longest pause (ms)")).child(div().debug_selector(|| "think-max".to_string()).child(max))),
+                        )
+                        .when_some(error, |d, e| d.child(div().debug_selector(|| "think-error".to_string()).text_color(p.err).text_size(px(12.5)).child(e)))
+                    })
                     .when_some(har, |d, (path, skip_static, group_by_page, hosts, summary, error)| {
                         let toggle = |id: &'static str, label: &'static str, on: bool, cx: &mut Context<Self>, set: fn(&mut Shell, bool, &mut Context<Shell>)| {
                             div().debug_selector(move || id.to_string()).child(

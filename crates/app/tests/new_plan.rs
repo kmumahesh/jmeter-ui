@@ -49,7 +49,7 @@ fn ctrl_n_asks_which_kind_of_plan_and_cancel_changes_nothing(cx: &mut TestAppCon
     assert!(dialog_kind(&mut app).is_none());
     app.keys("ctrl-n");
     assert_eq!(dialog_kind(&mut app).as_deref(), Some("new_plan"));
-    for sel in ["dialog-new-api", "dialog-new-web", "dialog-new-empty", "dialog-cancel"] {
+    for sel in ["dialog-new-api", "dialog-new-web", "dialog-new-login", "dialog-new-data", "dialog-new-load", "dialog-new-spike", "dialog-new-empty", "dialog-cancel"] {
         assert!(app.has(sel), "{sel}");
     }
     app.click("dialog-cancel");
