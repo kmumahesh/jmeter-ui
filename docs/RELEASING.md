@@ -26,6 +26,16 @@ How a release is made. Work through the list top to bottom and do not skip the r
 7. **Publish.** Check the draft release, add the notes from the changelog and the security review result, then publish it.
 8. **After.** Start a new `[Unreleased]` section in `CHANGELOG.md`.
 
+## Updates held back until a release
+
+Some updates to the build tools change steps that only run when a version tag is pushed: signing the build provenance and drafting the release. A pull request cannot run those steps, so its checks pass without trying the update. Merge such an update only as part of a release, and look at the draft release afterwards.
+
+Waiting now:
+- [#26](https://github.com/kmumahesh/jmeter-ui/pull/26): `actions/download-artifact` 4 to 8.0.2. Version 8 stops the download when a file's hash does not match, which is what is wanted, but it has not run here.
+- [#30](https://github.com/kmumahesh/jmeter-ui/pull/30): `actions/attest-build-provenance` 2 to 4.2.2. It signs the files of the release, which is the part testers verify with `gh attestation verify`.
+
+To do this: merge one of them before the tag, push the tag, check the draft release (all files present, `gh attestation verify` passes), then merge the other for the release after. Remove an item from this list when it is merged.
+
 ## Checking a download
 
 - Compare the SHA-256 of the file with the line in `SHA256SUMS.txt` (`Get-FileHash file.zip` in PowerShell).
