@@ -46,9 +46,9 @@ Total: **422 automated tests, all passing** (458 after the security tests below)
 - Focus events only reach a window that counts as active, which the headless tests did not set up.
 
 ### Not done
-- Multi-line text (scripts, request bodies) is shown but cannot be edited here yet; it needs a multi-line editor.
+- Multi-line text (scripts, request bodies): done later, see "Getting the app ready for testers".
 - About 90 element types have only the generated list of settings, not a hand-made form with labels.
-- Copy and paste of elements between plans, saving a selection as a fragment.
+- Copy and paste of elements between plans: done later. Saving a selection as a fragment is still to do.
 - Running plans and results (done later, see below).
 - Untested: IME input, screen readers, high-DPI scaling, macOS and Linux. The plan is read again in full after each change, which is fine at 20,000 elements but is the first thing to make incremental if plans get much larger.
 
@@ -90,8 +90,7 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 - `canonicalize` gives `\\?\C:\...` paths on Windows, which Java does not understand; the prefix is removed before a path reaches JMeter.
 
 ### Not done
-- Result listeners as in JMeter (View Results Tree with request and response), the Aggregate Report as its own view, and opening the HTML dashboard report (planned with the results viewer).
-- Comparing two runs and pinning runs (planned with the results viewer).
+- Request and response viewer, the Aggregate Report, opening the HTML report and comparing two runs: done later, see "Getting the app ready for testers". Pinning runs is still to do.
 - Running several copies of a plan: dropped by the user.
 - The project concept (idea for later, in `docs/RUNNING.md`).
 - Untested: running with a JMeter other than 5.6.3, runs longer than a few minutes, macOS and Linux (the job object that ends JMeter when the app crashes is Windows-only; elsewhere JMeter is ended when the app ends cleanly).
@@ -101,7 +100,7 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 | Part | State |
 |---|---|
 | Branch rules | `main` protected (pull request, five required checks, signed commits, no force-push, no bypass); see `docs/DECISIONS.md` |
-| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 62 real-window checks; fuzzing and coverage when relevant |
+| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 83 real-window checks; fuzzing and coverage when relevant |
 | Release | signed tag on `main` builds the package, SBOM, checksums and build provenance as a draft release (`docs/RELEASING.md`) |
 | Repository files | `SECURITY.md` (private reporting is on), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, templates, `CODEOWNERS`, pinned Rust toolchain |
 | Supply chain | actions pinned to commit hashes, tools pinned by version, JMeter download checked by checksum, Dependabot for crates and actions |
@@ -142,9 +141,22 @@ Goal: performance engineers on Windows can finish an HTTP(S) API test, then a we
 
 Each part is its own pull request with logic, window, security and speed tests.
 
+## Release 0.1.0 (2026-10-26)
+Published as a pre-release for testers on Windows: https://github.com/kmumahesh/jmeter-ui/releases/tag/v0.1.0. It holds the program, the licence, the README, the changelog, the Getting started page, third-party notices, a list of dependencies and checksums. Checked after publishing (2026-11-01): the checksums match, the build provenance verifies with `gh attestation verify`, and the tag is signed. The steps are in `docs/RELEASING.md`.
+
+Not in this version: the recording proxy, an installer, a Windows code-signing certificate, and Linux and macOS builds tried by hand.
+
+## Upkeep after the release (2026-11-01)
+- Dependency updates for the build tools come in as pull requests from Dependabot. The upload-artifact update was merged. Code scanning now moves its two steps together (they must be on the same version), upload and download of artifacts are grouped, and updates come monthly, at most three open at a time.
+- The coverage run had failed on every push to `main` since it was added: installing its tool stopped because the tool was already there. It now checks first.
+- Left-over branches of merged work were deleted after checking that their changes are on `main`. A file from a tool's own folder that had been committed by mistake was removed from the repository (the folder is ignored and is never committed).
+- The README to-do rows for things already done (HTML report, file pickers) were fixed, and the Java version was made the same everywhere (17 or newer).
+
 ## Next
-Results (the Samples Explorer with request and response detail, comparing two runs, the generated HTML report, native versions of the dashboard graphs).
+- Recording proxy inside the app, with a certificate for HTTPS (the one part of item 10 not built).
+- Open and edit very large plans faster still, and the other README to-do rows (Function Helper, Log viewer, Start no pauses, search and replace, hand-made forms for more elements, saving a selection as a fragment).
+- A Windows installer and code signing; trying the app by hand on Linux and macOS.
+- Telemetry and crash reports, opt-in, for a later release.
+- Dependency updates that touch the release workflow (the download and build-provenance steps) run only when a version is released, so they are looked at before merging and tried on the next release.
 
-**Security work that goes with the results viewer:** opening the HTML report only as a local file, with its own tests.
-
-**Before every release:** a manual security review : the run-time warning, report opening, installer and signing, and a fresh `cargo audit` and `cargo deny check`.
+**Before every release:** a manual security review: the run-time warning, report opening, installer and signing, and a fresh `cargo audit` and `cargo deny check`.
