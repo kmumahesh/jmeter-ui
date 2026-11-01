@@ -40,8 +40,10 @@ jobs:
           path: ~/.cargo/bin/cargo-llvm-cov.exe
           key: cargo-llvm-cov-0.9.1-${{ runner.os }}
       - name: Install cargo-llvm-cov
-        if: steps.tool.outputs.cache-hit != 'true'
-        run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+        # The tool can already be there (restored with the build cache), and `cargo install` stops when it finds it.
+        run: |
+          if ((cargo llvm-cov --version 2>$null) -match '0\.9\.1') { Write-Output 'cargo-llvm-cov 0.9.1 is already installed' }
+          else { cargo install cargo-llvm-cov --version 0.9.1 --locked --force }
       - name: Run the tests with coverage
         run: >
           cargo llvm-cov --locked --workspace --exclude gpui-spike --exclude zed-ui-spike

@@ -13,4 +13,12 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # Every step that uses `github/codeql-action` must be on the same version, so these move together.
+      code-scanning:
+        patterns: ["github/codeql-action*"]
+      # Files uploaded by one job are downloaded by another, so these move together too.
+      artifacts:
+        patterns: ["actions/upload-artifact", "actions/download-artifact"]
