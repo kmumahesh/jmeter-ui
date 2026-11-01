@@ -4,7 +4,7 @@ A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx`
 
 New here? Start with [Getting started](docs/GETTING-STARTED.md): from the download to your first test run in about ten minutes.
 
-Status: a test version for performance engineers on Windows, for HTTP and HTTPS web and API testing: build and edit plans, run them, watch results live, look at what was sent and received, compare runs and make reports. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
+Status: version 0.1.0 is out as a [test version](https://github.com/kmumahesh/jmeter-ui/releases/tag/v0.1.0) for performance engineers on Windows, for HTTP and HTTPS web and API testing: build and edit plans, run them, watch results live, look at what was sent and received, compare runs and make reports. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
 
 Guide: `docs/guide/index.html` (open it in a browser) explains how Apache JMeter is used and how this app compares, step by step.
 
@@ -57,34 +57,32 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Open a saved results file (`.jtl` or CSV, Ctrl+Shift+O) from anywhere and look at its numbers, charts, errors and requests like a run. A file with 300,000 rows opens in seconds while the window stays usable | ✅ |
 | HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
 | Compare two runs (History tab: *Compare* on the baseline, then on the run to check): each request side by side with its average, 95th percentile, errors and rate, how much each changed, and a verdict (worse, better, same, new, gone) with the worst first; copy as CSV. A change counts only when it is large in share and in milliseconds | ✅ |
-| Make and open the HTML dashboard report (the results saved by each run already work with JMeter's report generator) | ⬜ |
-| Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
 | Templates for load testing in New Plan: login and reuse a token (CSV users, JSON extractor, token sent in a header), data-driven test (CSV terms), load test (50 users ramped up over a minute, ten minutes), spike test (steady users plus a burst), next to the API and web site tests; each one runs against a server in the tests | ✅ |
-| Search and replace across the plan | ⬜ |
 | Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
-| Recording proxy inside the app (point the browser at it and record live; HTTPS needs a certificate the browser trusts) | ⬜ |
 | First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself, and a Getting started page comes in the download | ✅ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
-| Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |
-| Distributed testing: remote hosts, remote start, stop and exit, key store set-up | ⬜ |
-| Backend Listener setup | ⬜ |
 | Run properties (Run > Run Properties, Ctrl+Shift+J): `name=value` lines kept for each plan and given to every run, check and single request, so the plan can read them with `${__P(name)}`; they can be loaded from a `.properties` file; the run header names them without showing values | ✅ |
 | Browse buttons next to the file settings of a CSV Data Set, an Include Controller and script elements; a file next to the plan is written relative to it | ✅ |
 | Add Think Times to Children (Edit menu): a pause before every request under the selected element that has none, with the shortest and longest pause chosen; one Undo takes them all away | ✅ |
+| Large plans: a plan of up to 60,000 elements opens in under five seconds (80,000 take about five in a test build on the development machine; 40,000 take about two), and going to an element, renaming, saving and the Problems list stay quick; the tests keep 40,000 under the limit and check that time grows with the plan, not its square. Bigger plans open with a notice that they are slow | ✅ |
+| Small fixes found in the guide: the Users tile shows the peak after a run, the per-request table has a Total row and scrolls sideways, an empty HTTP Request setting shows the value it takes from HTTP Request Defaults, the palette hints at `+` when nothing matches, long element names end in an ellipsis, and another element opens at the top of its form | ✅ |
+| The HTML report is opened only as a local file, after JMeter's own generator has made it in a throwaway folder, with tests for it | ✅ |
+| Security review before every release (done for 0.1.0; the steps are in `docs/RELEASING.md`) | ✅ |
+| Keyboard shortcuts for macOS and Linux: on a Mac the shortcuts use Command (Cmd+S, Cmd+Shift+T) and Option, tab switching keeps Ctrl, Cmd+Q quits; on Linux Ctrl+Q quits; the menus and the command palette show the keys of the system they run on. Checked by tests that no two actions share a key and that every key is valid on every platform; not yet tried by hand on a Mac or a Linux desktop | ✅ |
+| Save a selection as a Test Fragment (wrapped in one, kept in the plan) | ⬜ |
+| Search and replace across the plan | ⬜ |
+| Recording proxy inside the app (point the browser at it and record live; HTTPS needs a certificate the browser trusts) | ⬜ |
+| Function Helper dialog (build a `${__function()}` call and see what it gives) | ⬜ |
+| Distributed testing: remote hosts, remote start, stop and exit, key store set-up | ⬜ |
+| Backend Listener setup | ⬜ |
 | Log viewer, Start no pauses | ⬜ |
 | Hand-made forms for the other element types (about 90 have the generated form) | ⬜ |
-| Large plans: a plan of up to 60,000 elements opens in under five seconds (80,000 take about five in a test build on the development machine; 40,000 take about two), and going to an element, renaming, saving and the Problems list stay quick; the tests keep 40,000 under the limit and check that time grows with the plan, not its square. Bigger plans open with a notice that they are slow | ✅ |
 | Open and edit very large plans faster still: read the file on a background thread with a progress bar, draw the Problems list as a scrolling list instead of its first 100 notes, and load elements only when they are shown (nice to have) | ⬜ |
-| Small fixes found in the guide: the Users tile shows the peak after a run, the per-request table has a Total row and scrolls sideways, an empty HTTP Request setting shows the value it takes from HTTP Request Defaults, the palette hints at `+` when nothing matches, long element names end in an ellipsis, and another element opens at the top of its form | ✅ |
-| File pickers for CSV, include and script files | ⬜ |
-| Opening the HTML dashboard report only as a local file, with its own security check (arrives with the report viewer) | ⬜ |
-| Security review before every release (see `docs/PROGRESS.md`) | ⬜ |
 | Project concept: group plans, their run history and shared settings (a future idea, not planned yet) | ⬜ |
 | Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
-| Keyboard shortcuts for macOS and Linux: on a Mac the shortcuts use Command (Cmd+S, Cmd+Shift+T) and Option, tab switching keeps Ctrl, Cmd+Q quits; on Linux Ctrl+Q quits; the menus and the command palette show the keys of the system they run on. Checked by tests that no two actions share a key and that every key is valid on every platform; not yet tried by hand on a Mac or a Linux desktop | ✅ |
 
 ## Platform support
 
@@ -92,7 +90,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
-| Build and automated tests (about 600, including runs of the real JMeter) | ✅ | ✅ | ✅ |
+| Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
 | The 83 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
@@ -103,7 +101,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 
 ## Prerequisites
 
-**Windows:** Rust stable, Visual Studio 2022 C++ build tools, and the Windows 10/11 SDK. Java 8 or newer and a JMeter 5.6.3 install to run plans.
+**Windows:** Rust stable, Visual Studio 2022 C++ build tools, and the Windows 10/11 SDK. Java 17 or newer and a JMeter 5.6.3 install to run plans.
 
 **Linux:** the system libraries listed in the "System libraries for the window toolkit" step of `.github/workflows/ci.yml`. **macOS:** the Xcode command line tools. On both, the app builds and passes its automated tests, but the window itself has only been exercised by those tests so far; JMeter is ended when the app closes normally, not when it crashes.
 
