@@ -785,3 +785,82 @@ fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
     assert!(seen.load(std::sync::atomic::Ordering::Relaxed) > 0, "the reader saw the file");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+// ---- the Recent Plans submenu of the File menu ----
+
+fn recent_menu(app: &mut App) -> Vec<(String, bool)> {
+    app.state()["recent_plans_menu"].as_array().unwrap().iter().map(|e| (e["label"].as_str().unwrap().to_string(), e["missing"].as_bool().unwrap())).collect()
+}
+
+fn plan_file(dir: &std::path::Path, name: &str) -> PathBuf {
+    let p = dir.join(name);
+    std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+    std::fs::write(&p, plan_core::starters::new_plan_text(plan_core::starters::Starter::Empty, "p").unwrap()).unwrap();
+    p
+}
+
+#[gpui::test]
+fn the_recent_plans_submenu_lists_opened_plans_newest_first(cx: &mut TestAppContext) {
+    let d = temp_dir("recent-menu");
+    let (a, b) = (plan_file(&d, "first.jmx"), plan_file(&d, "second.jmx"));
+    let mut app = start(cx, None, Some(d.join("settings.json")));
+    assert!(recent_menu(&mut app).is_empty(), "nothing opened yet: the menu item is greyed");
+    app.open_path(&a);
+    app.open_path(&b);
+    assert_eq!(recent_menu(&mut app), vec![("second.jmx".to_string(), false), ("first.jmx".to_string(), false)]);
+    app.open_path(&a);
+    assert_eq!(recent_menu(&mut app).first().map(|e| e.0.as_str()), Some("first.jmx"), "opening an older one moves it to the top");
+    assert_eq!(recent_menu(&mut app).len(), 2, "and it is listed once");
+}
+
+#[gpui::test]
+fn two_recent_plans_with_the_same_file_name_show_their_folders(cx: &mut TestAppContext) {
+    let d = temp_dir("recent-twins");
+    let (a, b) = (plan_file(&d.join("one"), "test.jmx"), plan_file(&d.join("two"), "test.jmx"));
+    let mut app = start(cx, None, Some(d.join("settings.json")));
+    app.open_path(&a);
+    app.open_path(&b);
+    let labels: Vec<String> = recent_menu(&mut app).into_iter().map(|e| e.0).collect();
+    assert_eq!(labels.len(), 2);
+    assert_ne!(labels[0], labels[1], "{labels:?}");
+    assert!(labels[0].contains("two") && labels[1].contains("one"), "{labels:?}");
+}
+
+#[gpui::test]
+fn a_recent_plan_whose_file_is_gone_is_shown_as_missing_and_is_removed_when_chosen(cx: &mut TestAppContext) {
+    let d = temp_dir("recent-missing");
+    let (a, b) = (plan_file(&d, "keep.jmx"), plan_file(&d, "gone.jmx"));
+    let mut app = start(cx, None, Some(d.join("settings.json")));
+    app.open_path(&a);
+    app.open_path(&b);
+    std::fs::remove_file(&b).unwrap();
+    assert_eq!(recent_menu(&mut app), vec![("gone.jmx".to_string(), true), ("keep.jmx".to_string(), false)], "listed but marked");
+    let shell = app.shell.clone();
+    let gone = b.clone();
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.open_plan_path(&gone, window, cx)));
+    app.cx.run_until_parked();
+    assert_eq!(recent_menu(&mut app), vec![("keep.jmx".to_string(), false)], "a plan that cannot be opened leaves the list");
+    assert!(!app.state()["notice"].as_str().unwrap().is_empty());
+}
+
+#[gpui::test]
+fn clearing_the_recent_plans_empties_the_list_and_the_settings_but_not_the_open_plans(cx: &mut TestAppContext) {
+    let d = temp_dir("recent-clear");
+    let (a, b) = (plan_file(&d, "a.jmx"), plan_file(&d, "b.jmx"));
+    let settings_path = d.join("settings.json");
+    let mut app = start(cx, None, Some(settings_path.clone()));
+    app.open_path(&a);
+    app.open_path(&b);
+    assert_eq!(settings::load(&settings_path).settings.recent_files.len(), 2);
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.clear_recent_plans(window, cx)));
+    app.cx.run_until_parked();
+    assert!(recent_menu(&mut app).is_empty());
+    assert!(settings::load(&settings_path).settings.recent_files.is_empty(), "saved");
+    assert_eq!(app.tabs().len(), 2, "the open plans stay open");
+    assert!(a.is_file() && b.is_file(), "no plan file is touched");
+    assert!(app.state()["notice"].as_str().unwrap().contains("cleared"));
+    // Clearing an empty list is quiet.
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.clear_recent_plans(window, cx)));
+    assert!(recent_menu(&mut app).is_empty());
+}

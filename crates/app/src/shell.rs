@@ -564,6 +564,17 @@ impl Shell {
         }
     }
 
+    /// Empty the Recent Plans list (File > Recent Plans > Clear Recent Plans). The plans themselves are not touched.
+    pub fn clear_recent_plans(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.settings.recent_files.is_empty() {
+            return;
+        }
+        self.settings.recent_files.clear();
+        self.save_settings();
+        self.notify("Recent plans cleared", Severity::Info, window, cx);
+        cx.notify();
+    }
+
     pub fn open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Open JMeter Plan".into()) });
         cx.spawn_in(window, async move |this, cx| {
@@ -1075,6 +1086,7 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+            "recent_plans_menu": shell_core::menus::recent_entries(&self.settings.recent_files, shell_core::settings::MAX_RECENT, |p| std::path::Path::new(p).exists()).iter().map(|e| json!({ "label": e.label, "path": e.path, "missing": e.missing })).collect::<Vec<_>>(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),

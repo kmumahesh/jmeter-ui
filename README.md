@@ -18,7 +18,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 
 | Feature | Done |
 |---|:---:|
-| Open `.jmx` test plans (file dialog, command line, recent list, last session), several plans at once, one tab each | ✅ |
+| Open `.jmx` test plans (file dialog, command line, File > Recent Plans submenu with Clear Recent Plans, last session), several plans at once, one tab each | ✅ |
 | Test plan tree with element icons and colours, expand and collapse, keyboard navigation | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
 | Command palette: commands, go to element, add element, recent plans | ✅ |
