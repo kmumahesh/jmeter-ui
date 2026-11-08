@@ -5,7 +5,7 @@ use crate::fields::TextField;
 use crate::palette_view::{Palette, PaletteEvent, Snapshot};
 use crate::theme;
 use gpui::{
-    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, PathPromptOptions, ScrollHandle, Subscription, UniformListScrollHandle,
+    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, ScrollHandle, Subscription, UniformListScrollHandle,
     Window, prelude::*,
 };
 use plan_core::{EditablePlan, Move, NodeId, Plan, TreeState};
@@ -565,15 +565,14 @@ impl Shell {
     }
 
     pub fn open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Open JMeter Plan".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Plan, "Open JMeter Plan");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next() {
-                    this.update_in(cx, |this, window, cx| {
-                        this.open_plan_path(&path, window, cx);
-                    })
-                    .ok();
-                }
+            if let Some(path) = pick.await {
+                this.update_in(cx, |this, window, cx| {
+                    this.open_plan_path(&path, window, cx);
+                })
+                .ok();
+            }
         })
         .detach();
     }
