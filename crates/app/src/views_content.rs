@@ -731,14 +731,19 @@ impl Shell {
                 format!("{message}. Run files are kept in a runs folder, next to the .jmx file or in a folder you choose."),
                 vec![("dialog-use-plan-folder", "Use the .jmx Folder", true), ("dialog-choose-folder", "Choose Folder\u{2026}", false), ("dialog-cancel", "Cancel", false)],
             ),
-            Some(Dialog::ClearRuns { root, count }) => (
+            Some(Dialog::ClearRuns { root, count, kept }) => (
                 "Clear the runs folder?".to_string(),
-                format!("This removes {count} run{} (results, logs and reports) from {}. Other files in it are left alone.", if *count == 1 { "" } else { "s" }, root.display()),
+                format!(
+                    "This removes {count} run{} (results, logs and reports) from {}.{} Other files in it are left alone.",
+                    if *count == 1 { "" } else { "s" },
+                    root.display(),
+                    if *kept == 0 { String::new() } else { format!(" {kept} pinned run{} {} kept.", if *kept == 1 { "" } else { "s" }, if *kept == 1 { "is" } else { "are" }) }
+                ),
                 vec![("dialog-clear-runs", "Clear Runs", true), ("dialog-cancel", "Cancel", false)],
             ),
-            Some(Dialog::DeleteRun { name, .. }) => (
+            Some(Dialog::DeleteRun { name, pinned, .. }) => (
                 "Remove this run?".to_string(),
-                format!("This removes {name} with its results, log and reports."),
+                format!("This removes {name} with its results, log and reports.{}", if *pinned { " It is pinned; removing it here is the only way it goes." } else { "" }),
                 vec![("dialog-delete-run", "Remove Run", true), ("dialog-cancel", "Cancel", false)],
             ),
             Some(Dialog::QuitRunning) => (
@@ -766,8 +771,7 @@ impl Shell {
             _ => None,
         };
         let buttons = buttons.into_iter().map(|(id, label, primary)| {
-            let b = Button::new(id, label).style(if primary { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle });
-            div().debug_selector(move || id.to_string()).child(b.on_click(cx.listener(move |this, _, window, cx| {
+            let click = cx.listener(move |this, _, window, cx| {
             match id {
                 "dialog-save" => this.dialog_save(window, cx),
                 "dialog-discard" => this.dialog_discard(window, cx),
@@ -794,7 +798,13 @@ impl Shell {
             if this.dialog.is_none() {
                 window.focus(&this.focus, cx);
             }
-            })))
+            });
+            let button = if primary {
+                crate::ui_util::primary_button(id, label, &p, click).into_any_element()
+            } else {
+                Button::new(id, label).style(ButtonStyle::Subtle).on_click(click).into_any_element()
+            };
+            div().debug_selector(move || id.to_string()).child(button)
         })
         .collect::<Vec<_>>();
         div()

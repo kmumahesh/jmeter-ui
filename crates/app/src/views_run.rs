@@ -8,7 +8,7 @@ use crate::shell::{BottomTab, RunDetail, Shell};
 use crate::theme::{self, Palette, with_alpha};
 use gpui::{AnyElement, Context, FontWeight, IntoElement, div, prelude::*, px};
 use jvm_runtime::runs::Outcome;
-use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable};
+use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, Tooltip};
 
 /// Rows shown in the label table and the error list (the numbers above still count everything).
 const MAX_ROWS: usize = 200;
@@ -365,7 +365,8 @@ impl Shell {
         let rows = self.history_entries().iter().enumerate().map(|(i, e)| {
             let m = &e.meta;
             let dir = e.dir.clone();
-            let (dir_view, dir_open, dir_del, dir_cmp) = (dir.clone(), dir.clone(), dir.clone(), dir.clone());
+            let (dir_view, dir_open, dir_del, dir_cmp, dir_pin) = (dir.clone(), dir.clone(), dir.clone(), dir.clone(), dir.clone());
+            let pinned = m.pinned;
             let is_base = self.compare_base.as_ref() == Some(&e.dir);
             let waiting = self.compare_base.is_some() && !is_base;
             let live_now = current.as_ref() == Some(&e.dir) && self.run_in_progress();
@@ -394,6 +395,7 @@ impl Shell {
                 .child(div().w(px(140.)).font_family(MONO_FONT).text_color(p.muted).child(m.started.clone()))
                 .child(div().w(px(70.)).child(m.kind.label()))
                 .child(div().w(px(80.)).text_color(color).child(label))
+                .child(div().debug_selector(move || format!("history-pinned-{i}")).w(px(48.)).text_color(p.accent).child(if pinned { "Pinned" } else { "" }))
                 .child(div().w(px(60.)).text_color(p.muted).child(m.duration_secs().map(|s| clock(s as u64)).unwrap_or_else(|| "-".into())))
                 .child(div().w(px(90.)).child(format!("{} samples", thousands(m.samples))))
                 .child(div().w(px(70.)).text_color(if m.errors > 0 { p.err } else { p.fg }).child(format!("{err_pct:.1}% err")))
@@ -405,6 +407,14 @@ impl Shell {
                         .debug_selector(move || format!("history-compare-{i}"))
                         .child(Button::new(("history-compare", i), if is_base { "Baseline \u{2713}" } else if waiting { "Compare with it" } else { "Compare" }).style(if is_base { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle }).size(ButtonSize::Compact).disabled(live_now).on_click(cx.listener(move |this, _, w, cx| {
                             this.compare_pick(&dir_cmp, w, cx);
+                            cx.stop_propagation();
+                        }))),
+                )
+                .child(
+                    div()
+                        .debug_selector(move || format!("history-pin-{i}"))
+                        .child(Button::new(("history-pin", i), if pinned { "Unpin" } else { "Pin" }).style(ButtonStyle::Subtle).size(ButtonSize::Compact).tooltip(Tooltip::text(if pinned { "Let this run be removed by the limit again" } else { "Keep this run: it is never removed by the limit or by clearing the runs folder" })).on_click(cx.listener(move |this, _, w, cx| {
+                            this.toggle_pin_run(&dir_pin, w, cx);
                             cx.stop_propagation();
                         }))),
                 )
@@ -439,7 +449,7 @@ impl Shell {
                     .gap(px(10.))
                     .border_b_1()
                     .border_color(p.line)
-                    .child(div().id("history-root").debug_selector(|| "history-root".to_string()).flex_1().overflow_hidden().whitespace_nowrap().font_family(MONO_FONT).text_size(px(11.)).text_color(p.muted).child(format!("{}  \u{b7}  the last {keep} runs of this plan are kept", root.display())))
+                    .child(div().id("history-root").debug_selector(|| "history-root".to_string()).flex_1().overflow_hidden().whitespace_nowrap().font_family(MONO_FONT).text_size(px(11.)).text_color(p.muted).child(format!("{}  \u{b7}  the last {keep} runs of this plan are kept, and every pinned run", root.display())))
                     .child(div().debug_selector(|| "history-open-folder".to_string()).child(Button::new("history-open-folder", "Open folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.open_runs_folder(w, cx))))),
             )
             .child(
