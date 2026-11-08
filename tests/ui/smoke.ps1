@@ -559,6 +559,23 @@ Check "Escape closes it without saving" ($null -eq $s.dialog) ""
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "17. Add from the right-click menu"
+$r = New-Run "addmenu"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+$before = (Get-State $r.State).elements
+Click-At $p 150 (Row-Y 3)                 # something else is selected first
+RightClick-At $p 150 (Row-Y 0)           # the Test Plan
+Click-At $p 230 103                       # Add
+$w = Get-WindowRect $p
+# Travel to the row the way a hand does, in a straight line across the list, not along its edge.
+foreach ($i in 1..10) { [UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); Start-Sleep -Milliseconds 40 }
+Save-Shot $p "$($r.Dir)\add-menu.png"
+[UiNative]::Click($w.L + 425, $w.T + 177); Start-Sleep -Milliseconds 600   # setUp Thread Group
+$s = Get-State $r.State
+Check "Add > setUp Thread Group in the right-click menu of the Test Plan adds it" ($s.elements -eq $before + 1 -and $s.selected -eq "setUp Thread Group") "elements = $($s.elements), selected = $($s.selected)"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"

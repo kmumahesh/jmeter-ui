@@ -738,21 +738,18 @@ impl Tree {
                 match row {
                     shell_core::menus::Row::Separator => menu = menu.separator(),
                     shell_core::menus::Row::Add => {
-                        let allowed = category.map(plan_core::rules::allowed_children).unwrap_or_default();
+                        // One list with the kind of element as a heading, so reaching a row never crosses another kind.
+                        let groups = shell_core::menus::add_groups(category);
                         let sh = shell.clone();
                         menu = menu.submenu("Add", move |mut sub, _, _| {
-                            for c in &allowed {
-                                let sh = sh.clone();
-                                let types: Vec<_> = plan_core::catalog::addable().into_iter().filter(|t| t.category == *c).collect();
-                                sub = sub.submenu(c.plural(), move |mut list, _, _| {
-                                    for t in &types {
-                                        let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
-                                        list = list.entry(t.label, None, move |window, cx| {
-                                            sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
-                                        });
-                                    }
-                                    list
-                                });
+                            for g in &groups {
+                                sub = sub.header(g.category.plural());
+                                for t in &g.types {
+                                    let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
+                                    sub = sub.entry(t.label, None, move |window, cx| {
+                                        sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
+                                    });
+                                }
                             }
                             sub
                         });
