@@ -122,6 +122,29 @@ impl Shell {
 
 // ---- title bar and menus ----
 
+/// The menus in the title bar, in order.
+pub(crate) const MENU_TITLES: [&str; 6] = ["File", "Edit", "Run", "View", "Tools", "Help"];
+
+impl Shell {
+    /// The pointer moved over the title of menu `i`. While another menu is open, that one closes and this one opens, as in
+    /// other Windows programs; with no menu open nothing happens, so a menu only opens by a click.
+    pub(crate) fn hover_menu(&mut self, i: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(me) = self.menu_handles.get(i).cloned() else { return };
+        let other_open = self.menu_handles.iter().enumerate().any(|(j, h)| j != i && h.is_deployed());
+        if !other_open || me.is_deployed() {
+            return;
+        }
+        for (j, h) in self.menu_handles.iter().enumerate() {
+            if j != i {
+                h.hide(cx);
+            }
+        }
+        // The menu is built from the shell's state, so it is opened once this update has finished.
+        window.defer(cx, move |window, cx| me.show(window, cx));
+        cx.notify();
+    }
+}
+
 enum MenuItem {
     Action(Action),
     Separator,
@@ -204,10 +227,13 @@ impl Shell {
             ("Help", vec![MenuItem::Action(Action::About)]),
         ];
         let shell = cx.entity();
-        let menu_buttons = menus.into_iter().map(|(label, items)| {
+        let menu_buttons = menus.into_iter().enumerate().map(|(index, (label, items))| {
+            debug_assert_eq!(label, MENU_TITLES[index]);
+            let handle = self.menu_handles[index].clone();
             let shell = shell.clone();
             let items = Rc::new(items);
-            PopoverMenu::new(label)
+            let popover = PopoverMenu::new(label)
+                .with_handle(handle)
                 .anchor(Anchor::TopLeft)
                 .menu(move |window, cx| {
                     let shell = shell.clone();
@@ -250,7 +276,16 @@ impl Shell {
                         menu
                     }))
                 })
-                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact))
+                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact));
+            div()
+                .id(("menu-title", index))
+                .debug_selector(move || format!("menu-title-{label}"))
+                .on_hover(cx.listener(move |this, hovered: &bool, window, cx| {
+                    if *hovered {
+                        this.hover_menu(index, window, cx);
+                    }
+                }))
+                .child(popover)
         });
 
         let controls = |label: &'static str, area: WindowControlArea, hover: gpui::Hsla, id: &'static str| {

@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Changed
+- Menus: once a menu is open, moving the pointer over another title in the menu bar opens that menu (File, Edit, Run, View, Tools, Help), as in other Windows programs. With no menu open, a click is still needed to open one.
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed

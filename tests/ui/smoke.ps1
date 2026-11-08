@@ -83,6 +83,19 @@ Write-Host "4. Menus"
 Click-At $p 212 19        # View
 Save-Shot $p "$($r.Dir)\menu-view.png"
 Send-Keys "{ESC}"
+$w = Get-WindowRect $p
+[UiNative]::SetCursorPos($w.L + 150, $w.T + 19) | Out-Null; Start-Sleep -Milliseconds 700
+$s = Get-State $r.State
+Check "moving over a menu title opens nothing while no menu is open" ($null -eq $s.open_menu) "open_menu = $($s.open_menu)"
+Click-At $p 112 19        # File
+[UiNative]::SetCursorPos($w.L + 140, $w.T + 19) | Out-Null; Start-Sleep -Milliseconds 150
+[UiNative]::SetCursorPos($w.L + 143, $w.T + 20) | Out-Null; Start-Sleep -Milliseconds 1000
+$s = Get-State $r.State
+Check "with File open, moving over Edit opens Edit" ($s.open_menu -eq "Edit" -and $s.open_menu_count -eq 1) "open_menu = $($s.open_menu), count = $($s.open_menu_count)"
+Send-Keys "{ESC}"
+Start-Sleep -Milliseconds 500
+$s = Get-State $r.State
+Check "Escape closes the menu that was opened by moving over it" ($null -eq $s.open_menu) "open_menu = $($s.open_menu)"
 Send-Keys "^j"
 $s = Get-State $r.State
 Check "Ctrl+J shows the results panel" ($s.bottom -eq $true) ""
