@@ -1077,6 +1077,7 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+            "run_bar": { "run": format!("{:?}", self.run_bar_looks().0), "stop": format!("{:?}", self.run_bar_looks().1), "run_label": crate::run_bar::run_label(self.run_in_progress()) },
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),

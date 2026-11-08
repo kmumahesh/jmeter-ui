@@ -735,6 +735,34 @@ fn the_run_header_says_where_the_files_are_and_the_status_bar_follows_the_run(cx
 }
 
 #[gpui::test]
+fn the_run_and_stop_buttons_are_off_with_nothing_to_run_or_stop_and_stop_does_nothing_when_pressed(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    let bar = app.state()["run_bar"].clone();
+    assert_eq!((bar["run"].as_str(), bar["stop"].as_str(), bar["run_label"].as_str()), (Some("RunOff"), Some("StopOff"), Some("Run")), "no plan: {bar}");
+    assert!(app.has("run") && app.has("stop"), "both buttons are drawn, as unavailable");
+    app.click("stop");
+    app.click("run");
+    assert!(app.state()["run"].is_null(), "pressing an unavailable button starts nothing");
+    assert_eq!(app.state()["run_bar"]["run"], "RunOff");
+}
+
+#[gpui::test]
+fn the_run_button_says_running_during_a_run_and_stop_is_ready_then_both_go_back(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("run-bar", |p| jm::plan(p, 1, -1, 100, &[jm::request("Home", "/")], ""), |_, _| {}) else { return };
+    let mut app = open(cx, &s, true);
+    let before = app.state()["run_bar"].clone();
+    assert_eq!((before["run"].as_str(), before["stop"].as_str(), before["run_label"].as_str()), (Some("RunReady"), Some("StopOff"), Some("Run")), "{before}");
+    app.keys("f5");
+    wait_until(&mut app, Duration::from_secs(90), "samples", |st| st["run"]["samples"].as_u64().unwrap_or(0) >= 3);
+    let during = app.state()["run_bar"].clone();
+    assert_eq!((during["run"].as_str(), during["stop"].as_str(), during["run_label"].as_str()), (Some("Running"), Some("StopReady"), Some("Running")), "{during}");
+    perform(&mut app, shell_core::actions::Action::StopRunNow);
+    wait_run(&mut app, Duration::from_secs(60));
+    let after = app.state()["run_bar"].clone();
+    assert_eq!((after["run"].as_str(), after["stop"].as_str(), after["run_label"].as_str()), (Some("RunReady"), Some("StopOff"), Some("Run")), "{after}");
+}
+
+#[gpui::test]
 fn stop_ends_a_run_that_would_never_end_and_it_is_kept_as_stopped(cx: &mut TestAppContext) {
     let Some((s, _server)) = real("run-stop", |p| jm::plan(p, 1, -1, 100, &[jm::request("Home", "/")], ""), |_, _| {}) else { return };
     let mut app = open(cx, &s, true);
