@@ -3,7 +3,7 @@
 
 use crate::shell::{Dialog, Severity, Shell};
 use crate::textarea::TextArea;
-use gpui::{AppContext as _, Context, PathPromptOptions, Window};
+use gpui::{AppContext as _, Context, Window};
 use jvm_runtime::props;
 use std::path::Path;
 
@@ -33,11 +33,9 @@ impl Shell {
 
     /// Ask for a file and put its name in the setting `prop` of the open form.
     pub fn browse_for_file(&mut self, prop: String, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Choose a file".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Data, "Choose a file");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next()
-            {
+            if let Some(path) = pick.await {
                 this.update_in(cx, |this, window, cx| this.set_file_field(&prop, &path, window, cx)).ok();
             }
         })
@@ -103,11 +101,9 @@ impl Shell {
 
     /// "Load from file": choose a `.properties` file whose lines replace the text.
     pub fn dialog_props_load(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Load properties".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Properties, "Load properties");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next()
-            {
+            if let Some(path) = pick.await {
                 this.update(cx, |this, cx| this.props_from_file(&path, cx)).ok();
             }
         })

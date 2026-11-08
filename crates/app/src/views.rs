@@ -294,7 +294,7 @@ impl Shell {
                     .border_1()
                     .border_color(p.line)
                     .text_color(p.muted)
-                    .text_size(px(12.5))
+                    .text_size(px(crate::theme::scale::PALETTE_TEXT))
                     .cursor_pointer()
                     .hover(|d| d.border_color(p.accent))
                     .on_click(cx.listener(|this, _, window, cx| this.perform(Action::CommandPalette, window, cx)))
@@ -647,29 +647,6 @@ impl Tree {
             let ctx = shell.read(cx).context();
             let category = shell.read(cx).plan().and_then(|lp| lp.plan.node(id)).map(|n| n.category);
             let enabled = shell.read(cx).plan().and_then(|lp| lp.plan.node(id)).map(|n| n.enabled).unwrap_or(true);
-            if let Some(category) = category {
-                let allowed = plan_core::rules::allowed_children(category);
-                if !allowed.is_empty() {
-                    let sh = shell.clone();
-                    menu = menu.submenu("Add", move |mut sub, _, _| {
-                        for c in &allowed {
-                            let sh = sh.clone();
-                            let types: Vec<_> = plan_core::catalog::addable().into_iter().filter(|t| t.category == *c).collect();
-                            sub = sub.submenu(c.plural(), move |mut list, _, _| {
-                                for t in &types {
-                                    let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
-                                    list = list.entry(t.label, None, move |window, cx| {
-                                        sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
-                                    });
-                                }
-                                list
-                            });
-                        }
-                        sub
-                    });
-                    menu = menu.separator();
-                }
-            }
             let item = |menu: ContextMenu, label: String, action: Action, shell: &gpui::Entity<Shell>, ctx: &shell_core::actions::AppContext| {
                 let sh = shell.clone();
                 let entry = ContextMenuEntry::new(label)
@@ -680,34 +657,65 @@ impl Tree {
                     });
                 menu.item(ContextMenuItem::Entry(entry))
             };
-            menu = item(menu, "Cut".into(), Action::CutElement, &shell, &ctx);
-            menu = item(menu, "Copy".into(), Action::CopyElement, &shell, &ctx);
-            menu = item(menu, "Paste".into(), Action::PasteElement, &shell, &ctx);
-            menu = menu.separator();
-            menu = item(menu, "Duplicate".into(), Action::DuplicateElement, &shell, &ctx);
-            menu = item(menu, "Delete".into(), Action::DeleteElement, &shell, &ctx);
-            menu = item(menu, "Rename".into(), Action::RenameElement, &shell, &ctx);
-            menu = item(menu, if enabled { "Disable" } else { "Enable" }.into(), Action::ToggleElementEnabled, &shell, &ctx);
-            menu = menu.separator();
-            if category == Some(Category::Sampler) {
-                menu = menu.separator();
-                let sh = shell.clone();
-                let ready = Action::SendOnce.availability(&crate::shell::AppContext { can_send_once: true, ..ctx }).is_enabled();
-                let entry = ContextMenuEntry::new("Send once")
-                    .disabled(!ready)
-                    .handler(move |window, cx| {
-                        sh.update(cx, |s, cx| {
-                            s.select_node(id, window, cx);
-                            s.perform(Action::SendOnce, window, cx);
+            for row in shell_core::menus::tree_menu_rows(category) {
+                match row {
+                    shell_core::menus::Row::Separator => menu = menu.separator(),
+                    shell_core::menus::Row::Add => {
+                        let allowed = category.map(plan_core::rules::allowed_children).unwrap_or_default();
+                        let sh = shell.clone();
+                        menu = menu.submenu("Add", move |mut sub, _, _| {
+                            for c in &allowed {
+                                let sh = sh.clone();
+                                let types: Vec<_> = plan_core::catalog::addable().into_iter().filter(|t| t.category == *c).collect();
+                                sub = sub.submenu(c.plural(), move |mut list, _, _| {
+                                    for t in &types {
+                                        let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
+                                        list = list.entry(t.label, None, move |window, cx| {
+                                            sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
+                                        });
+                                    }
+                                    list
+                                });
+                            }
+                            sub
                         });
-                    });
-                menu = menu.item(ContextMenuItem::Entry(entry));
+                    }
+                    shell_core::menus::Row::SendOnce => {
+                        let sh = shell.clone();
+                        let ready = Action::SendOnce.availability(&crate::shell::AppContext { can_send_once: true, ..ctx }).is_enabled();
+                        let entry = ContextMenuEntry::new("Send once").disabled(!ready).handler(move |window, cx| {
+                            sh.update(cx, |s, cx| {
+                                s.select_node(id, window, cx);
+                                s.perform(Action::SendOnce, window, cx);
+                            });
+                        });
+                        menu = menu.item(ContextMenuItem::Entry(entry));
+                    }
+                    shell_core::menus::Row::Command(action) => {
+                        let label = match action {
+                            Action::CutElement => "Cut",
+                            Action::CopyElement => "Copy",
+                            Action::PasteElement => "Paste",
+                            Action::DuplicateElement => "Duplicate",
+                            Action::DeleteElement => "Delete",
+                            Action::RenameElement => "Rename",
+                            Action::ToggleElementEnabled => {
+                                if enabled {
+                                    "Disable"
+                                } else {
+                                    "Enable"
+                                }
+                            }
+                            Action::MoveElementUp => "Move Up",
+                            Action::MoveElementDown => "Move Down",
+                            Action::ExpandAll => "Expand All",
+                            Action::CollapseAll => "Collapse All",
+                            other => other.title(),
+                        };
+                        menu = item(menu, label.to_string(), action, &shell, &ctx);
+                    }
+                }
             }
-            menu = item(menu, "Move Up".into(), Action::MoveElementUp, &shell, &ctx);
-            menu = item(menu, "Move Down".into(), Action::MoveElementDown, &shell, &ctx);
-            menu = menu.separator();
-            menu = item(menu, "Expand All".into(), Action::ExpandAll, &shell, &ctx);
-            menu = item(menu, "Collapse All".into(), Action::CollapseAll, &shell, &ctx);
             menu
         })
     }

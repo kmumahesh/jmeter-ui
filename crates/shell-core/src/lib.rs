@@ -5,6 +5,7 @@ pub mod actions;
 pub mod highlight;
 pub mod layout;
 pub mod lines;
+pub mod menus;
 pub mod number;
 pub mod palette;
 pub mod settings;
