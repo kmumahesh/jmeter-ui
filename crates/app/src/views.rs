@@ -122,6 +122,29 @@ impl Shell {
 
 // ---- title bar and menus ----
 
+/// The menus in the title bar, in order.
+pub(crate) const MENU_TITLES: [&str; 6] = ["File", "Edit", "Run", "View", "Tools", "Help"];
+
+impl Shell {
+    /// The pointer moved over the title of menu `i`. While another menu is open, that one closes and this one opens, as in
+    /// other Windows programs; with no menu open nothing happens, so a menu only opens by a click.
+    pub(crate) fn hover_menu(&mut self, i: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(me) = self.menu_handles.get(i).cloned() else { return };
+        let other_open = self.menu_handles.iter().enumerate().any(|(j, h)| j != i && h.is_deployed());
+        if !other_open || me.is_deployed() {
+            return;
+        }
+        for (j, h) in self.menu_handles.iter().enumerate() {
+            if j != i {
+                h.hide(cx);
+            }
+        }
+        // The menu is built from the shell's state, so it is opened once this update has finished.
+        window.defer(cx, move |window, cx| me.show(window, cx));
+        cx.notify();
+    }
+}
+
 enum MenuItem {
     Action(Action),
     Separator,
@@ -204,10 +227,13 @@ impl Shell {
             ("Help", vec![MenuItem::Action(Action::About)]),
         ];
         let shell = cx.entity();
-        let menu_buttons = menus.into_iter().map(|(label, items)| {
+        let menu_buttons = menus.into_iter().enumerate().map(|(index, (label, items))| {
+            debug_assert_eq!(label, MENU_TITLES[index]);
+            let handle = self.menu_handles[index].clone();
             let shell = shell.clone();
             let items = Rc::new(items);
-            PopoverMenu::new(label)
+            let popover = PopoverMenu::new(label)
+                .with_handle(handle)
                 .anchor(Anchor::TopLeft)
                 .menu(move |window, cx| {
                     let shell = shell.clone();
@@ -250,7 +276,16 @@ impl Shell {
                         menu
                     }))
                 })
-                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact))
+                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact));
+            div()
+                .id(("menu-title", index))
+                .debug_selector(move || format!("menu-title-{label}"))
+                .on_hover(cx.listener(move |this, hovered: &bool, window, cx| {
+                    if *hovered {
+                        this.hover_menu(index, window, cx);
+                    }
+                }))
+                .child(popover)
         });
 
         let controls = |label: &'static str, area: WindowControlArea, hover: gpui::Hsla, id: &'static str| {
@@ -294,7 +329,7 @@ impl Shell {
                     .border_1()
                     .border_color(p.line)
                     .text_color(p.muted)
-                    .text_size(px(12.5))
+                    .text_size(px(crate::theme::scale::PALETTE_TEXT))
                     .cursor_pointer()
                     .hover(|d| d.border_color(p.accent))
                     .on_click(cx.listener(|this, _, window, cx| this.perform(Action::CommandPalette, window, cx)))
@@ -647,29 +682,6 @@ impl Tree {
             let ctx = shell.read(cx).context();
             let category = shell.read(cx).plan().and_then(|lp| lp.plan.node(id)).map(|n| n.category);
             let enabled = shell.read(cx).plan().and_then(|lp| lp.plan.node(id)).map(|n| n.enabled).unwrap_or(true);
-            if let Some(category) = category {
-                let allowed = plan_core::rules::allowed_children(category);
-                if !allowed.is_empty() {
-                    let sh = shell.clone();
-                    menu = menu.submenu("Add", move |mut sub, _, _| {
-                        for c in &allowed {
-                            let sh = sh.clone();
-                            let types: Vec<_> = plan_core::catalog::addable().into_iter().filter(|t| t.category == *c).collect();
-                            sub = sub.submenu(c.plural(), move |mut list, _, _| {
-                                for t in &types {
-                                    let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
-                                    list = list.entry(t.label, None, move |window, cx| {
-                                        sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
-                                    });
-                                }
-                                list
-                            });
-                        }
-                        sub
-                    });
-                    menu = menu.separator();
-                }
-            }
             let item = |menu: ContextMenu, label: String, action: Action, shell: &gpui::Entity<Shell>, ctx: &shell_core::actions::AppContext| {
                 let sh = shell.clone();
                 let entry = ContextMenuEntry::new(label)
@@ -680,34 +692,65 @@ impl Tree {
                     });
                 menu.item(ContextMenuItem::Entry(entry))
             };
-            menu = item(menu, "Cut".into(), Action::CutElement, &shell, &ctx);
-            menu = item(menu, "Copy".into(), Action::CopyElement, &shell, &ctx);
-            menu = item(menu, "Paste".into(), Action::PasteElement, &shell, &ctx);
-            menu = menu.separator();
-            menu = item(menu, "Duplicate".into(), Action::DuplicateElement, &shell, &ctx);
-            menu = item(menu, "Delete".into(), Action::DeleteElement, &shell, &ctx);
-            menu = item(menu, "Rename".into(), Action::RenameElement, &shell, &ctx);
-            menu = item(menu, if enabled { "Disable" } else { "Enable" }.into(), Action::ToggleElementEnabled, &shell, &ctx);
-            menu = menu.separator();
-            if category == Some(Category::Sampler) {
-                menu = menu.separator();
-                let sh = shell.clone();
-                let ready = Action::SendOnce.availability(&crate::shell::AppContext { can_send_once: true, ..ctx }).is_enabled();
-                let entry = ContextMenuEntry::new("Send once")
-                    .disabled(!ready)
-                    .handler(move |window, cx| {
-                        sh.update(cx, |s, cx| {
-                            s.select_node(id, window, cx);
-                            s.perform(Action::SendOnce, window, cx);
+            for row in shell_core::menus::tree_menu_rows(category) {
+                match row {
+                    shell_core::menus::Row::Separator => menu = menu.separator(),
+                    shell_core::menus::Row::Add => {
+                        let allowed = category.map(plan_core::rules::allowed_children).unwrap_or_default();
+                        let sh = shell.clone();
+                        menu = menu.submenu("Add", move |mut sub, _, _| {
+                            for c in &allowed {
+                                let sh = sh.clone();
+                                let types: Vec<_> = plan_core::catalog::addable().into_iter().filter(|t| t.category == *c).collect();
+                                sub = sub.submenu(c.plural(), move |mut list, _, _| {
+                                    for t in &types {
+                                        let (sh, tag, gui) = (sh.clone(), t.tag, t.gui.unwrap_or_default());
+                                        list = list.entry(t.label, None, move |window, cx| {
+                                            sh.update(cx, |s, cx| s.add_element(tag, gui, window, cx));
+                                        });
+                                    }
+                                    list
+                                });
+                            }
+                            sub
                         });
-                    });
-                menu = menu.item(ContextMenuItem::Entry(entry));
+                    }
+                    shell_core::menus::Row::SendOnce => {
+                        let sh = shell.clone();
+                        let ready = Action::SendOnce.availability(&crate::shell::AppContext { can_send_once: true, ..ctx }).is_enabled();
+                        let entry = ContextMenuEntry::new("Send once").disabled(!ready).handler(move |window, cx| {
+                            sh.update(cx, |s, cx| {
+                                s.select_node(id, window, cx);
+                                s.perform(Action::SendOnce, window, cx);
+                            });
+                        });
+                        menu = menu.item(ContextMenuItem::Entry(entry));
+                    }
+                    shell_core::menus::Row::Command(action) => {
+                        let label = match action {
+                            Action::CutElement => "Cut",
+                            Action::CopyElement => "Copy",
+                            Action::PasteElement => "Paste",
+                            Action::DuplicateElement => "Duplicate",
+                            Action::DeleteElement => "Delete",
+                            Action::RenameElement => "Rename",
+                            Action::ToggleElementEnabled => {
+                                if enabled {
+                                    "Disable"
+                                } else {
+                                    "Enable"
+                                }
+                            }
+                            Action::MoveElementUp => "Move Up",
+                            Action::MoveElementDown => "Move Down",
+                            Action::ExpandAll => "Expand All",
+                            Action::CollapseAll => "Collapse All",
+                            other => other.title(),
+                        };
+                        menu = item(menu, label.to_string(), action, &shell, &ctx);
+                    }
+                }
             }
-            menu = item(menu, "Move Up".into(), Action::MoveElementUp, &shell, &ctx);
-            menu = item(menu, "Move Down".into(), Action::MoveElementDown, &shell, &ctx);
-            menu = menu.separator();
-            menu = item(menu, "Expand All".into(), Action::ExpandAll, &shell, &ctx);
-            menu = item(menu, "Collapse All".into(), Action::CollapseAll, &shell, &ctx);
             menu
         })
     }
