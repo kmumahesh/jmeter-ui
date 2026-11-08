@@ -836,7 +836,9 @@ fn a_recent_plan_whose_file_is_gone_is_shown_as_missing_and_is_removed_when_chos
     std::fs::remove_file(&b).unwrap();
     assert_eq!(recent_menu(&mut app), vec![("gone.jmx".to_string(), true), ("keep.jmx".to_string(), false)], "listed but marked");
     let shell = app.shell.clone();
-    let gone = b.clone();
+    // Choose it the way the menu does: with the path the list holds (a system may spell a folder in more than one way,
+    // for example macOS temporary folders behind a link).
+    let gone = PathBuf::from(app.state()["recent_plans_menu"][0]["path"].as_str().unwrap());
     app.cx.update(|window, cx| shell.update(cx, |s, cx| s.open_plan_path(&gone, window, cx)));
     app.cx.run_until_parked();
     assert_eq!(recent_menu(&mut app), vec![("keep.jmx".to_string(), false)], "a plan that cannot be opened leaves the list");
