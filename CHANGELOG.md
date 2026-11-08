@@ -8,6 +8,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
+- Import from HAR File no longer needs a plan to be open or a Thread Group to be selected. With no plan open it makes a new plan named after the HAR file and opens it; a plan that has no Thread Group gets one. A file that has nothing to import leaves no plan behind.
 - Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.
 
 ## [0.1.0] - 2026-10-26

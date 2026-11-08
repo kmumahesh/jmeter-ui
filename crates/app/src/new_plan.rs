@@ -69,9 +69,26 @@ pub fn pick_new_plan_folder(beside_plan: Option<PathBuf>, recent: Option<PathBuf
 /// "New plan.jmx" in `dir`, or "New plan 2.jmx", "New plan 3.jmx"... for the first name nothing uses, so a new plan never
 /// replaces a file.
 pub fn unique_new_plan_path(dir: &Path) -> PathBuf {
-    let first = dir.join("New plan.jmx");
+    unique_plan_path(dir, "New plan")
+}
+
+/// "<stem>.jmx" in `dir`, or "<stem> 2.jmx", "<stem> 3.jmx"... for the first name nothing uses. The stem is cleaned to a
+/// safe file name: characters Windows does not allow in a name, and control characters, become underscores; an empty
+/// or over-long stem is replaced or cut.
+pub fn unique_plan_path(dir: &Path, stem: &str) -> PathBuf {
+    let cleaned: String = stem.chars().map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { '_' } else { c }).collect();
+    let cleaned = cleaned.trim().trim_matches('.').trim();
+    let cleaned: String = cleaned.chars().take(80).collect();
+    let mut stem = if cleaned.trim().is_empty() { "New plan".to_string() } else { cleaned.trim().to_string() };
+    // Windows treats these names as devices, whatever the extension.
+    let upper = stem.to_ascii_uppercase();
+    let reserved = ["CON", "PRN", "AUX", "NUL"].contains(&upper.as_str()) || (upper.len() == 4 && (upper.starts_with("COM") || upper.starts_with("LPT")) && upper.as_bytes()[3].is_ascii_digit());
+    if reserved {
+        stem.push_str(" plan");
+    }
+    let first = dir.join(format!("{stem}.jmx"));
     if !first.exists() {
         return first;
     }
-    (2..10_000).map(|n| dir.join(format!("New plan {n}.jmx"))).find(|p| !p.exists()).unwrap_or_else(|| dir.join(format!("New plan {}.jmx", std::process::id())))
+    (2..10_000).map(|n| dir.join(format!("{stem} {n}.jmx"))).find(|p| !p.exists()).unwrap_or_else(|| dir.join(format!("{stem} {}.jmx", std::process::id())))
 }

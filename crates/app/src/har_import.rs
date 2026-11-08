@@ -40,10 +40,6 @@ impl Shell {
 
     /// Read the file in the background and show what it holds.
     pub fn open_har_path(&mut self, path: &Path, window: &mut Window, cx: &mut Context<Self>) {
-        if self.plan().is_none() {
-            self.notify("Open a plan first", Severity::Info, window, cx);
-            return;
-        }
         let path = path.to_path_buf();
         cx.spawn_in(window, async move |this, cx| {
             let file = path.clone();
@@ -112,26 +108,57 @@ impl Shell {
         self.har_refresh(cx);
     }
 
-    /// "Add to Plan": the requests go in like a paste. A problem stays in the dialog.
+    /// Get a plan ready for a recording: with no plan open, make one named after the HAR file (next to the plan being
+    /// edited or the last one opened, as New Plan does); a plan with no thread group gets one. Returns whether it worked.
+    fn prepare_plan_for_import(&mut self, har_file: &Path, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.plan().is_none() {
+            let stem = har_file.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            let path = crate::new_plan::unique_plan_path(&self.new_plan_folder(), &stem);
+            if !self.create_plan_at(plan_core::starters::Starter::Empty, &path, window, cx) {
+                return false;
+            }
+        }
+        let has_group = self.plan().is_some_and(|lp| lp.plan.iter().any(|n| n.category == plan_core::Category::ThreadGroup));
+        if !has_group {
+            let root = self.plan().and_then(|lp| lp.plan.roots().first().copied());
+            if let Some(root) = root {
+                self.select_node(root, window, cx);
+            }
+            self.add_element("ThreadGroup", "ThreadGroupGui", window, cx);
+        }
+        self.plan().is_some_and(|lp| lp.plan.iter().any(|n| n.category == plan_core::Category::ThreadGroup))
+    }
+
+    /// "Add to Plan": the requests go in like a paste. A problem stays in the dialog. With no plan open a new one is made
+    /// first, and a plan without a thread group gets one, so a recording can always be imported.
     pub fn dialog_har_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(options) = self.har_options(cx) else { return };
-        let Some(Dialog::Har { raw, .. }) = self.dialog.clone() else { return };
-        self.aim_import_at_a_thread_group(window, cx);
+        let Some(Dialog::Har { raw, path, .. }) = self.dialog.clone() else { return };
+        // Read the file first: a file that gives nothing must not leave a new plan behind.
         let made = har::parse(&raw, &options).and_then(|(requests, _)| curl::plan_text(&requests).map(|t| (t, requests.len())));
-        match made {
-            Ok((text, count)) => {
-                if self.paste_text(&text, window, cx) {
-                    self.dialog = None;
-                    self.notify(format!("Added {count} request{} from the HAR file", if count == 1 { "" } else { "s" }), Severity::Info, window, cx);
-                } else if let Some(Dialog::Har { error, .. }) = &mut self.dialog {
-                    *error = Some(self.notice.as_ref().map(|n| n.text.clone()).unwrap_or_else(|| "The requests could not be added here.".to_string()));
-                }
-            }
+        let (text, count) = match made {
+            Ok(x) => x,
             Err(e) => {
                 if let Some(Dialog::Har { error, .. }) = &mut self.dialog {
                     *error = Some(format!("{e:#}"));
                 }
+                cx.notify();
+                return;
             }
+        };
+        if !self.prepare_plan_for_import(&path, window, cx) {
+            if let Some(Dialog::Har { error, .. }) = &mut self.dialog {
+                *error = Some(self.notice.as_ref().map(|n| n.text.clone()).unwrap_or_else(|| "A plan for the recording could not be made.".to_string()));
+            }
+            cx.notify();
+            return;
+        }
+        self.aim_import_at_a_thread_group(window, cx);
+        if self.paste_text(&text, window, cx) {
+            self.dialog = None;
+            self.notify(format!("Added {count} request{} from the HAR file", if count == 1 { "" } else { "s" }), Severity::Info, window, cx);
+        } else if let Some(Dialog::Har { error, .. }) = &mut self.dialog {
+            *error = Some(self.notice.as_ref().map(|n| n.text.clone()).unwrap_or_else(|| "The requests could not be added here.".to_string()));
         }
         cx.notify();
     }

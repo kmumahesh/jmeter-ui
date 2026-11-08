@@ -139,14 +139,97 @@ fn files_that_are_not_har_files_are_refused_or_explained(cx: &mut TestAppContext
     assert_eq!(dialog(&mut app)["kind"], "har", "the dialog stays for another try");
 }
 
+/// An app with no plan open whose last plan was in `dir`, so a plan made for a recording goes there and nowhere else.
+fn app_without_plan<'a>(cx: &'a mut TestAppContext, dir: &Path) -> App<'a> {
+    let settings_path = dir.join("settings.json");
+    let mut s = shell_core::settings::Settings::default();
+    s.push_recent(&dir.join("earlier.jmx").display().to_string());
+    shell_core::settings::save(&settings_path, &s).unwrap();
+    start(cx, None, Some(settings_path))
+}
+
 #[gpui::test]
-fn without_a_plan_there_is_nothing_to_add_to(cx: &mut TestAppContext) {
+fn with_no_plan_open_the_import_makes_a_plan_named_after_the_file_and_opens_it(cx: &mut TestAppContext) {
     let dir = temp_dir("har-noplan");
+    std::fs::write(dir.join("shop journey.har"), shop_har()).unwrap();
+    let mut app = app_without_plan(cx, &dir);
+    assert!(app.tabs().is_empty());
+    open_har(&mut app, &dir.join("shop journey.har"));
+    assert_eq!(dialog(&mut app)["kind"], "har", "the dialog opens with no plan open: {}", app.state()["notice"]);
+    assert!(app.tabs().is_empty(), "nothing is made until Add to Plan");
+    assert!(!dir.join("shop journey.jmx").exists());
+    app.click("dialog-har-add");
+    assert!(app.state()["dialog"].is_null(), "{}", app.state()["notice"]);
+    assert_eq!(app.tabs(), vec!["shop journey.jmx".to_string()]);
+    assert!(dir.join("shop journey.jmx").is_file(), "the plan is a file of its own");
+    assert!(elements(&mut app) >= 7, "Test Plan, a Thread Group, two pages and three requests: {}", elements(&mut app));
+    goto(&mut app, "Sign in");
+    assert_eq!(app.selected().as_deref(), Some("Sign in"), "the page became a Transaction Controller");
+    assert!(app.state()["notice"].as_str().unwrap().contains("Added 3 requests"));
+}
+
+#[gpui::test]
+fn a_plan_with_no_thread_group_gets_one_for_the_recording(cx: &mut TestAppContext) {
+    let dir = temp_dir("har-no-group");
+    let plan = dir.join("bare.jmx");
+    std::fs::write(&plan, plan_core::starters::new_plan_text(plan_core::starters::Starter::Empty, "bare").unwrap()).unwrap();
     std::fs::write(dir.join("shop.har"), shop_har()).unwrap();
-    let mut app = start(cx, None, None);
+    let mut app = start(cx, Some(plan.clone()), None);
+    assert_eq!(elements(&mut app), 1, "only the Test Plan");
     open_har(&mut app, &dir.join("shop.har"));
-    assert!(app.state()["dialog"].is_null());
-    assert!(app.state()["notice"].as_str().unwrap().contains("Open a plan first"));
+    app.click("dialog-har-add");
+    assert!(app.state()["dialog"].is_null(), "{}", app.state()["notice"]);
+    assert_eq!(app.tabs(), vec!["bare.jmx".to_string()], "no second plan is made when one is open");
+    goto(&mut app, "Thread Group");
+    assert_eq!(app.selected().as_deref(), Some("Thread Group"));
+    assert!(elements(&mut app) >= 7);
+}
+
+#[gpui::test]
+fn a_recording_with_nothing_left_makes_no_plan_and_says_why(cx: &mut TestAppContext) {
+    let dir = temp_dir("har-nothing-left");
+    let only_images = format!(r#"{{"log":{{"entries":[{}]}}}}"#, entry("p", "GET", "https://shop.example.com/a.png", "image/png", ""));
+    std::fs::write(dir.join("images.har"), only_images).unwrap();
+    let mut app = app_without_plan(cx, &dir);
+    open_har(&mut app, &dir.join("images.har"));
+    assert_eq!(dialog(&mut app)["kind"], "har");
+    app.click("dialog-har-add");
+    assert_eq!(dialog(&mut app)["kind"], "har", "the dialog stays with its message");
+    assert!(dialog(&mut app)["error"].as_str().is_some());
+    assert!(app.tabs().is_empty(), "a file that gives nothing leaves no plan behind");
+    assert!(!dir.join("images.jmx").exists());
+}
+
+#[gpui::test]
+fn import_from_har_is_available_with_no_plan_open(cx: &mut TestAppContext) {
+    let dir = temp_dir("har-available");
+    let mut app = app_without_plan(cx, &dir);
+    app.keys("ctrl-shift-p");
+    app.input(">import from har");
+    assert!(app.palette_titles().iter().any(|t| t.starts_with("Import from HAR")), "{:?}", app.palette_titles());
+    assert!(!app.palette_unavailable().iter().any(|t| t.starts_with("Import from HAR")), "it can be chosen with no plan open");
+    app.keys("escape");
+}
+
+#[test]
+fn plan_file_names_made_from_a_recording_are_safe() {
+    use jmeter_ui::new_plan::unique_plan_path;
+    let d = temp_dir("har-names");
+    let name = |stem: &str| unique_plan_path(&d, stem).file_name().unwrap().to_string_lossy().to_string();
+    assert_eq!(name("shop journey"), "shop journey.jmx");
+    assert_eq!(name("a:b*c?d"), "a_b_c_d.jmx");
+    assert_eq!(name("x/y\\z"), "x_y_z.jmx");
+    assert_eq!(name(""), "New plan.jmx");
+    assert_eq!(name("   "), "New plan.jmx");
+    assert_eq!(name(".."), "New plan.jmx");
+    assert_eq!(name("con"), "con plan.jmx", "device names are not used");
+    assert_eq!(name("COM1"), "COM1 plan.jmx");
+    assert_eq!(name("lpt9"), "lpt9 plan.jmx");
+    assert_eq!(name("com10"), "com10.jmx", "only COM1 to COM9 are devices");
+    assert_eq!(name("tab\there"), "tab_here.jmx");
+    assert_eq!(name(&"long".repeat(100)).chars().count(), 80 + ".jmx".len());
+    std::fs::write(d.join("taken.jmx"), "x").unwrap();
+    assert_eq!(name("taken"), "taken 2.jmx", "an existing file is never replaced");
 }
 
 #[gpui::test]

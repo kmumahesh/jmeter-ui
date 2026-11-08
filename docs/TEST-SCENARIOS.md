@@ -463,7 +463,7 @@ These test the logic without a window. Tests that start the real JMeter skip the
 335. Stop now follows the run state. — `stop_now_follows_the_run_state`
 336. Only a chosen runs folder can be cleared and not during a run. — `only_a_chosen_runs_folder_can_be_cleared_and_not_during_a_run`
 337. Think times need a selection that holds requests and an editable plan. — `think_times_need_a_selection_that_holds_requests_and_an_editable_plan`
-338. A har file needs an open plan that can be edited. — `a_har_file_needs_an_open_plan_that_can_be_edited`
+338. A har file can be imported with or without an open plan. — `a_har_file_can_be_imported_with_or_without_an_open_plan`
 339. Run properties belong to an open plan. — `run_properties_belong_to_an_open_plan`
 340. Results can be opened any time and a report needs a finished run. — `results_can_be_opened_any_time_and_a_report_needs_a_finished_run`
 341. An expression can be tried when java and jmeter are there. — `an_expression_can_be_tried_when_java_and_jmeter_are_there`
