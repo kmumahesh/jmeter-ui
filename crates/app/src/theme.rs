@@ -114,6 +114,16 @@ impl Palette {
         self.categories[i]
     }
 
+    /// The accent a little lighter (dark theme) or darker (light theme), for a default button under the pointer.
+    pub fn accent_hover(&self) -> Hsla {
+        shift_lightness(self.accent, if self.dark { 0.06 } else { -0.06 })
+    }
+
+    /// The accent further from its normal colour, for a default button while it is pressed.
+    pub fn accent_pressed(&self) -> Hsla {
+        shift_lightness(self.accent, if self.dark { -0.07 } else { -0.12 })
+    }
+
     /// A translucent accent for selections and highlights.
     pub fn selection(&self) -> Hsla {
         with_alpha(self.accent, if self.dark { 0.16 } else { 0.14 })
@@ -302,6 +312,11 @@ pub fn build_theme(base: &Theme, p: &Palette) -> Theme {
     t
 }
 
+/// `c` with its lightness moved by `by` (-1 to 1), staying in range.
+fn shift_lightness(c: Hsla, by: f32) -> Hsla {
+    Hsla { l: (c.l + by).clamp(0.0, 1.0), ..c }
+}
+
 /// Convenience for views: the active Zed colours.
 pub fn colors(cx: &App) -> &theme::ThemeColors {
     cx.theme().colors()
@@ -310,6 +325,19 @@ pub fn colors(cx: &App) -> &theme::ThemeColors {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_default_button_keeps_readable_text_when_hovered_and_pressed_in_both_themes() {
+        for p in [Palette::dark(), Palette::light()] {
+            let mode = if p.dark { "dark" } else { "light" };
+            for (state, fill) in [("normal", p.accent), ("hover", p.accent_hover()), ("pressed", p.accent_pressed())] {
+                assert!(contrast(p.on_accent, fill) >= 4.5, "{mode} {state}: text on the default button is {:.2}", contrast(p.on_accent, fill));
+                assert!(contrast(fill, p.panel) >= 3.0, "{mode} {state}: the default button stands out from the dialog, {:.2}", contrast(fill, p.panel));
+            }
+            assert!(contrast(p.accent, p.accent_hover()) >= 1.08, "{mode}: hover is a visible change");
+            assert!(contrast(p.accent, p.accent_pressed()) >= 1.1, "{mode}: pressed is a visible change");
+        }
+    }
 
     #[test]
     fn contrast_math_matches_known_values() {

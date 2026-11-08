@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Changed
+- The default button in a question (Save, Add to Plan, Clear Runs and so on) is now a solid accent-coloured button with text made to be read on it, a little lighter or darker under the pointer and while pressed, so it is the obvious choice. The other buttons stay quiet.
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
