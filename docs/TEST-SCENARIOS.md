@@ -954,201 +954,202 @@ These run the real window without a screen, driving it with simulated keys, clic
 725. A plan on the command line wins over the startup setting. — `a_plan_on_the_command_line_wins_over_the_startup_setting`
 726. Welcome screen stays when startup is welcome. — `welcome_screen_stays_when_startup_is_welcome`
 727. The state file is never seen half written. — `the_state_file_is_never_seen_half_written`
+728. Palette rows and the search box follow the menu scale. — `palette_rows_and_the_search_box_follow_the_menu_scale`
 
 ### Editing: add, delete, move, drag and drop, undo, saving, recovery, scope, big plans
 
 *crates/app/tests/editing.rs*
 
-728. Adding from the palette puts the element under the selection and selects it. — `adding_from_the_palette_puts_the_element_under_the_selection_and_selects_it`
-729. Adding with nothing selected goes under the test plan. — `adding_with_nothing_selected_goes_under_the_test_plan`
-730. Clicking a name in can add adds it at once. — `clicking_a_name_in_can_add_adds_it_at_once`
-731. Only allowed types can be added under the test plan. — `only_allowed_types_can_be_added_under_the_test_plan`
-732. Delete removes the element selects a neighbour and undo brings it back. — `delete_removes_the_element_selects_a_neighbour_and_undo_brings_it_back`
-733. The test plan cannot be deleted. — `the_test_plan_cannot_be_deleted`
-734. Duplicate copies the element with its children. — `duplicate_copies_the_element_with_its_children`
-735. Alt arrows move an element among its siblings. — `alt_arrows_move_an_element_among_its_siblings`
-736. Ctrl t switches an element off and on. — `ctrl_t_switches_an_element_off_and_on`
-737. Undo and redo walk through the history. — `undo_and_redo_walk_through_the_history`
-738. A new edit after undo clears redo. — `a_new_edit_after_undo_clears_redo`
-739. The edit commands are in the palette with their shortcuts. — `the_edit_commands_are_in_the_palette_with_their_shortcuts`
-740. Ctrl s saves the edits to the file and clears the unsaved mark. — `ctrl_s_saves_the_edits_to_the_file_and_clears_the_unsaved_mark`
-741. The recovery copy is written after a pause and removed on save. — `the_recovery_copy_is_written_after_a_pause_and_removed_on_save`
-742. Only the latest edit writes the recovery copy. — `only_the_latest_edit_writes_the_recovery_copy`
-743. Undoing back to the saved state removes the recovery copy. — `undoing_back_to_the_saved_state_removes_the_recovery_copy`
-744. A recovery copy from an earlier session can be recovered. — `a_recovery_copy_from_an_earlier_session_can_be_recovered`
-745. The recovery copy can be discarded. — `the_recovery_copy_can_be_discarded`
-746. A copy that matches the file is ignored. — `a_copy_that_matches_the_file_is_ignored`
-747. Closing a changed plan asks and cancel keeps it. — `closing_a_changed_plan_asks_and_cancel_keeps_it`
-748. Dont save closes and drops the recovery copy. — `dont_save_closes_and_drops_the_recovery_copy`
-749. Save in the question saves then closes. — `save_in_the_question_saves_then_closes`
-750. Closing an unchanged plan does not ask. — `closing_an_unchanged_plan_does_not_ask`
-751. Quitting with unsaved changes asks first. — `quitting_with_unsaved_changes_asks_first`
-752. Close all asks once for every changed plan. — `close_all_asks_once_for_every_changed_plan`
-753. Reloading a changed plan asks first. — `reloading_a_changed_plan_asks_first`
-754. Each plan has its own history and unsaved mark. — `each_plan_has_its_own_history_and_unsaved_mark`
-755. Save as writes a new file and renames the tab. — `save_as_writes_a_new_file_and_renames_the_tab`
-756. Edits keep the selection and the tree in step. — `edits_keep_the_selection_and_the_tree_in_step`
-757. Dropping onto an element makes it the last child. — `dropping_onto_an_element_makes_it_the_last_child`
-758. Dropping above or below a row reorders. — `dropping_above_or_below_a_row_reorders`
-759. Dropping below the last sibling moves to the end. — `dropping_below_the_last_sibling_moves_to_the_end`
-760. A move the rules forbid is refused with a message. — `a_move_the_rules_forbid_is_refused_with_a_message`
-761. The test plan cannot be dragged and nothing sits beside it. — `the_test_plan_cannot_be_dragged_and_nothing_sits_beside_it`
-762. An element cannot be dropped into its own subtree. — `an_element_cannot_be_dropped_into_its_own_subtree`
-763. The inspector lists what applies to a sampler and clicking selects it. — `the_inspector_lists_what_applies_to_a_sampler_and_clicking_selects_it`
-764. The inspector shows what a config element applies to. — `the_inspector_shows_what_a_config_element_applies_to`
-765. Scope follows edits. — `scope_follows_edits`
-766. A plan of twenty thousand elements stays usable. — `a_plan_of_twenty_thousand_elements_stays_usable`
+729. Adding from the palette puts the element under the selection and selects it. — `adding_from_the_palette_puts_the_element_under_the_selection_and_selects_it`
+730. Adding with nothing selected goes under the test plan. — `adding_with_nothing_selected_goes_under_the_test_plan`
+731. Clicking a name in can add adds it at once. — `clicking_a_name_in_can_add_adds_it_at_once`
+732. Only allowed types can be added under the test plan. — `only_allowed_types_can_be_added_under_the_test_plan`
+733. Delete removes the element selects a neighbour and undo brings it back. — `delete_removes_the_element_selects_a_neighbour_and_undo_brings_it_back`
+734. The test plan cannot be deleted. — `the_test_plan_cannot_be_deleted`
+735. Duplicate copies the element with its children. — `duplicate_copies_the_element_with_its_children`
+736. Alt arrows move an element among its siblings. — `alt_arrows_move_an_element_among_its_siblings`
+737. Ctrl t switches an element off and on. — `ctrl_t_switches_an_element_off_and_on`
+738. Undo and redo walk through the history. — `undo_and_redo_walk_through_the_history`
+739. A new edit after undo clears redo. — `a_new_edit_after_undo_clears_redo`
+740. The edit commands are in the palette with their shortcuts. — `the_edit_commands_are_in_the_palette_with_their_shortcuts`
+741. Ctrl s saves the edits to the file and clears the unsaved mark. — `ctrl_s_saves_the_edits_to_the_file_and_clears_the_unsaved_mark`
+742. The recovery copy is written after a pause and removed on save. — `the_recovery_copy_is_written_after_a_pause_and_removed_on_save`
+743. Only the latest edit writes the recovery copy. — `only_the_latest_edit_writes_the_recovery_copy`
+744. Undoing back to the saved state removes the recovery copy. — `undoing_back_to_the_saved_state_removes_the_recovery_copy`
+745. A recovery copy from an earlier session can be recovered. — `a_recovery_copy_from_an_earlier_session_can_be_recovered`
+746. The recovery copy can be discarded. — `the_recovery_copy_can_be_discarded`
+747. A copy that matches the file is ignored. — `a_copy_that_matches_the_file_is_ignored`
+748. Closing a changed plan asks and cancel keeps it. — `closing_a_changed_plan_asks_and_cancel_keeps_it`
+749. Dont save closes and drops the recovery copy. — `dont_save_closes_and_drops_the_recovery_copy`
+750. Save in the question saves then closes. — `save_in_the_question_saves_then_closes`
+751. Closing an unchanged plan does not ask. — `closing_an_unchanged_plan_does_not_ask`
+752. Quitting with unsaved changes asks first. — `quitting_with_unsaved_changes_asks_first`
+753. Close all asks once for every changed plan. — `close_all_asks_once_for_every_changed_plan`
+754. Reloading a changed plan asks first. — `reloading_a_changed_plan_asks_first`
+755. Each plan has its own history and unsaved mark. — `each_plan_has_its_own_history_and_unsaved_mark`
+756. Save as writes a new file and renames the tab. — `save_as_writes_a_new_file_and_renames_the_tab`
+757. Edits keep the selection and the tree in step. — `edits_keep_the_selection_and_the_tree_in_step`
+758. Dropping onto an element makes it the last child. — `dropping_onto_an_element_makes_it_the_last_child`
+759. Dropping above or below a row reorders. — `dropping_above_or_below_a_row_reorders`
+760. Dropping below the last sibling moves to the end. — `dropping_below_the_last_sibling_moves_to_the_end`
+761. A move the rules forbid is refused with a message. — `a_move_the_rules_forbid_is_refused_with_a_message`
+762. The test plan cannot be dragged and nothing sits beside it. — `the_test_plan_cannot_be_dragged_and_nothing_sits_beside_it`
+763. An element cannot be dropped into its own subtree. — `an_element_cannot_be_dropped_into_its_own_subtree`
+764. The inspector lists what applies to a sampler and clicking selects it. — `the_inspector_lists_what_applies_to_a_sampler_and_clicking_selects_it`
+765. The inspector shows what a config element applies to. — `the_inspector_shows_what_a_config_element_applies_to`
+766. Scope follows edits. — `scope_follows_edits`
+767. A plan of twenty thousand elements stays usable. — `a_plan_of_twenty_thousand_elements_stays_usable`
 
 ### Forms: boxes, numbers, drop-downs, tables, typing, hints, focus
 
 *crates/app/tests/forms.rs*
 
-767. A typed value is saved with enter and undone with undo. — `a_typed_value_is_saved_with_enter_and_undone_with_undo`
-768. Leaving a box saves what was typed. — `leaving_a_box_saves_what_was_typed`
-769. Tab moves to the next box and saves the one left. — `tab_moves_to_the_next_box_and_saves_the_one_left`
-770. Escape puts the saved value back. — `escape_puts_the_saved_value_back`
-771. The name box renames the element in the tree. — `the_name_box_renames_the_element_in_the_tree`
-772. F2 puts the cursor in the name box. — `f2_puts_the_cursor_in_the_name_box`
-773. The comment box edits the comments. — `the_comment_box_edits_the_comments`
-774. Ctrl s saves text that was typed but not confirmed. — `ctrl_s_saves_text_that_was_typed_but_not_confirmed`
-775. Number fields accept numbers and variables but not letters. — `number_fields_accept_numbers_and_variables_but_not_letters`
-776. A variable in a number setting turns it into a string setting. — `a_variable_in_a_number_setting_turns_it_into_a_string_setting`
-777. The loop count lives inside the main controller setting. — `the_loop_count_lives_inside_the_main_controller_setting`
-778. Checkboxes toggle a setting and undo reverts. — `checkboxes_toggle_a_setting_and_undo_reverts`
-779. A drop down saves the chosen value. — `a_drop_down_saves_the_chosen_value`
-780. Undo updates the drop down. — `undo_updates_the_drop_down`
-781. A value jmeter does not list is kept as a custom choice. — `a_value_jmeter_does_not_list_is_kept_as_a_custom_choice`
-782. A setting made of several flags is edited flag by flag. — `a_setting_made_of_several_flags_is_edited_flag_by_flag`
-783. Parameters are added edited and removed in a table. — `parameters_are_added_edited_and_removed_in_a_table`
-784. Table changes undo in order. — `table_changes_undo_in_order`
-785. User defined variables have their own table. — `user_defined_variables_have_their_own_table`
-786. Assertion patterns are a list of strings. — `assertion_patterns_are_a_list_of_strings`
-787. Elements without a hand made form get one from their settings. — `elements_without_a_hand_made_form_get_one_from_their_settings`
-788. A script is edited in a text area. — `a_script_is_edited_in_a_text_area`
-789. The test plan has a variables table and flags. — `the_test_plan_has_a_variables_table_and_flags`
-790. Enabled button switches the element off. — `enabled_button_switches_the_element_off`
-791. The form follows the selection. — `the_form_follows_the_selection`
-792. A variable nothing defines shows up in the problems list. — `a_variable_nothing_defines_shows_up_in_the_problems_list`
-793. The variable hints stay up to date with undo. — `the_variable_hints_stay_up_to_date_with_undo`
-794. The box keeps the focus after enter even when the form changes shape. — `the_box_keeps_the_focus_after_enter_even_when_the_form_changes_shape`
-795. Shortcuts work right after editing a box. — `shortcuts_work_right_after_editing_a_box`
-796. Undo from a box keeps the window usable. — `undo_from_a_box_keeps_the_window_usable`
-797. Typing marks the plan unsaved at once and deleting it again clears the mark. — `typing_marks_the_plan_unsaved_at_once_and_deleting_it_again_clears_the_mark`
-798. Closing a tab asks about text that was only typed. — `closing_a_tab_asks_about_text_that_was_only_typed`
-799. Typing in a table cell marks the plan at once. — `typing_in_a_table_cell_marks_the_plan_at_once`
-800. Text typed in a box reaches the plan and the recovery copy after a pause. — `text_typed_in_a_box_reaches_the_plan_and_the_recovery_copy_after_a_pause`
-801. Text typed in a table cell reaches the recovery copy. — `text_typed_in_a_table_cell_reaches_the_recovery_copy`
-802. Half a number does not raise an error while typing. — `half_a_number_does_not_raise_an_error_while_typing`
-803. The name box renames while typing. — `the_name_box_renames_while_typing`
+768. A typed value is saved with enter and undone with undo. — `a_typed_value_is_saved_with_enter_and_undone_with_undo`
+769. Leaving a box saves what was typed. — `leaving_a_box_saves_what_was_typed`
+770. Tab moves to the next box and saves the one left. — `tab_moves_to_the_next_box_and_saves_the_one_left`
+771. Escape puts the saved value back. — `escape_puts_the_saved_value_back`
+772. The name box renames the element in the tree. — `the_name_box_renames_the_element_in_the_tree`
+773. F2 puts the cursor in the name box. — `f2_puts_the_cursor_in_the_name_box`
+774. The comment box edits the comments. — `the_comment_box_edits_the_comments`
+775. Ctrl s saves text that was typed but not confirmed. — `ctrl_s_saves_text_that_was_typed_but_not_confirmed`
+776. Number fields accept numbers and variables but not letters. — `number_fields_accept_numbers_and_variables_but_not_letters`
+777. A variable in a number setting turns it into a string setting. — `a_variable_in_a_number_setting_turns_it_into_a_string_setting`
+778. The loop count lives inside the main controller setting. — `the_loop_count_lives_inside_the_main_controller_setting`
+779. Checkboxes toggle a setting and undo reverts. — `checkboxes_toggle_a_setting_and_undo_reverts`
+780. A drop down saves the chosen value. — `a_drop_down_saves_the_chosen_value`
+781. Undo updates the drop down. — `undo_updates_the_drop_down`
+782. A value jmeter does not list is kept as a custom choice. — `a_value_jmeter_does_not_list_is_kept_as_a_custom_choice`
+783. A setting made of several flags is edited flag by flag. — `a_setting_made_of_several_flags_is_edited_flag_by_flag`
+784. Parameters are added edited and removed in a table. — `parameters_are_added_edited_and_removed_in_a_table`
+785. Table changes undo in order. — `table_changes_undo_in_order`
+786. User defined variables have their own table. — `user_defined_variables_have_their_own_table`
+787. Assertion patterns are a list of strings. — `assertion_patterns_are_a_list_of_strings`
+788. Elements without a hand made form get one from their settings. — `elements_without_a_hand_made_form_get_one_from_their_settings`
+789. A script is edited in a text area. — `a_script_is_edited_in_a_text_area`
+790. The test plan has a variables table and flags. — `the_test_plan_has_a_variables_table_and_flags`
+791. Enabled button switches the element off. — `enabled_button_switches_the_element_off`
+792. The form follows the selection. — `the_form_follows_the_selection`
+793. A variable nothing defines shows up in the problems list. — `a_variable_nothing_defines_shows_up_in_the_problems_list`
+794. The variable hints stay up to date with undo. — `the_variable_hints_stay_up_to_date_with_undo`
+795. The box keeps the focus after enter even when the form changes shape. — `the_box_keeps_the_focus_after_enter_even_when_the_form_changes_shape`
+796. Shortcuts work right after editing a box. — `shortcuts_work_right_after_editing_a_box`
+797. Undo from a box keeps the window usable. — `undo_from_a_box_keeps_the_window_usable`
+798. Typing marks the plan unsaved at once and deleting it again clears the mark. — `typing_marks_the_plan_unsaved_at_once_and_deleting_it_again_clears_the_mark`
+799. Closing a tab asks about text that was only typed. — `closing_a_tab_asks_about_text_that_was_only_typed`
+800. Typing in a table cell marks the plan at once. — `typing_in_a_table_cell_marks_the_plan_at_once`
+801. Text typed in a box reaches the plan and the recovery copy after a pause. — `text_typed_in_a_box_reaches_the_plan_and_the_recovery_copy_after_a_pause`
+802. Text typed in a table cell reaches the recovery copy. — `text_typed_in_a_table_cell_reaches_the_recovery_copy`
+803. Half a number does not raise an error while typing. — `half_a_number_does_not_raise_an_error_while_typing`
+804. The name box renames while typing. — `the_name_box_renames_while_typing`
 
 ### Text and number boxes
 
 *crates/app/tests/fields.rs*
 
-804. Typing and backspace. — `typing_and_backspace`
-805. Caret movement and insertion. — `caret_movement_and_insertion`
-806. Select all and replace. — `select_all_and_replace`
-807. Shift arrows select and delete. — `shift_arrows_select_and_delete`
-808. Word navigation and deletion. — `word_navigation_and_deletion`
-809. Undo and redo. — `undo_and_redo`
-810. Clipboard copy cut paste. — `clipboard_copy_cut_paste`
-811. Pasting multiple lines gives one line. — `pasting_multiple_lines_gives_one_line`
-812. Characters a plan cannot hold are dropped when typed or pasted. — `characters_a_plan_cannot_hold_are_dropped_when_typed_or_pasted`
-813. Enter and escape emit events. — `enter_and_escape_emit_events`
-814. Changed is emitted for every edit but not for navigation. — `changed_is_emitted_for_every_edit_but_not_for_navigation`
-815. Number field rejects letters. — `number_field_rejects_letters`
-816. Number field steps with arrow keys. — `number_field_steps_with_arrow_keys`
-817. Number field accepts variables and does not step them. — `number_field_accepts_variables_and_does_not_step_them`
-818. Number field reports problems. — `number_field_reports_problems`
-819. Read only field ignores edits but allows copy. — `read_only_field_ignores_edits_but_allows_copy`
-820. Set text replaces the content. — `set_text_replaces_the_content`
-821. Typing unicode. — `typing_unicode`
-822. Losing the focus is reported once. — `losing_the_focus_is_reported_once`
+805. Typing and backspace. — `typing_and_backspace`
+806. Caret movement and insertion. — `caret_movement_and_insertion`
+807. Select all and replace. — `select_all_and_replace`
+808. Shift arrows select and delete. — `shift_arrows_select_and_delete`
+809. Word navigation and deletion. — `word_navigation_and_deletion`
+810. Undo and redo. — `undo_and_redo`
+811. Clipboard copy cut paste. — `clipboard_copy_cut_paste`
+812. Pasting multiple lines gives one line. — `pasting_multiple_lines_gives_one_line`
+813. Characters a plan cannot hold are dropped when typed or pasted. — `characters_a_plan_cannot_hold_are_dropped_when_typed_or_pasted`
+814. Enter and escape emit events. — `enter_and_escape_emit_events`
+815. Changed is emitted for every edit but not for navigation. — `changed_is_emitted_for_every_edit_but_not_for_navigation`
+816. Number field rejects letters. — `number_field_rejects_letters`
+817. Number field steps with arrow keys. — `number_field_steps_with_arrow_keys`
+818. Number field accepts variables and does not step them. — `number_field_accepts_variables_and_does_not_step_them`
+819. Number field reports problems. — `number_field_reports_problems`
+820. Read only field ignores edits but allows copy. — `read_only_field_ignores_edits_but_allows_copy`
+821. Set text replaces the content. — `set_text_replaces_the_content`
+822. Typing unicode. — `typing_unicode`
+823. Losing the focus is reported once. — `losing_the_focus_is_reported_once`
 
 ### Running plans: questions before a run, live numbers, stopping, run history, the runs folder, settings
 
 *crates/app/tests/runs.rs*
 
-823. Without java or jmeter the run buttons say why. — `without_java_or_jmeter_the_run_buttons_say_why`
-824. The run menu and palette list every run command. — `the_run_menu_and_palette_list_every_run_command`
-825. A plan with unsaved changes asks to save before running. — `a_plan_with_unsaved_changes_asks_to_save_before_running`
-826. Saving to run writes the file then goes on to the next question. — `saving_to_run_writes_the_file_then_goes_on_to_the_next_question`
-827. A runs folder that cannot be used stops the run and offers a way out. — `a_runs_folder_that_cannot_be_used_stops_the_run_and_offers_a_way_out`
-828. Using the jmx folder from the question changes the setting and carries on. — `using_the_jmx_folder_from_the_question_changes_the_setting_and_carries_on`
-829. A custom folder that is a file is refused. — `a_custom_folder_that_is_a_file_is_refused`
-830. A plan with scripts asks once for that plan file. — `a_plan_with_scripts_asks_once_for_that_plan_file`
-831. A plan without scripts is never asked about them. — `a_plan_without_scripts_is_never_asked_about_them`
-832. The settings tab chooses where run files go. — `the_settings_tab_chooses_where_run_files_go`
-833. The number of runs kept is a checked number. — `the_number_of_runs_kept_is_a_checked_number`
-834. Lowering the number kept removes the older runs of the open plan at once. — `lowering_the_number_kept_removes_the_older_runs_of_the_open_plan_at_once`
-835. The history tab lists the runs of the open plan newest first. — `the_history_tab_lists_the_runs_of_the_open_plan_newest_first`
-836. History shows runs of the plan in the tab not every plan. — `history_shows_runs_of_the_plan_in_the_tab_not_every_plan`
-837. Clicking a stored run shows its numbers and charts. — `clicking_a_stored_run_shows_its_numbers_and_charts`
-838. A damaged results file still opens as a stored run. — `a_damaged_results_file_still_opens_as_a_stored_run`
-839. A run that was cut short is shown as interrupted. — `a_run_that_was_cut_short_is_shown_as_interrupted`
-840. Removing one run asks first and removes only that run. — `removing_one_run_asks_first_and_removes_only_that_run`
-841. Removing never touches a folder that is not a run. — `removing_never_touches_a_folder_that_is_not_a_run`
-842. Clearing the shared runs folder asks and removes only runs. — `clearing_the_shared_runs_folder_asks_and_removes_only_runs`
-843. Clear is not available for the runs next to the plan. — `clear_is_not_available_for_the_runs_next_to_the_plan`
-844. Clearing an empty shared folder says so without asking. — `clearing_an_empty_shared_folder_says_so_without_asking`
-845. F5 runs the saved plan and shows the live numbers. — `f5_runs_the_saved_plan_and_shows_the_live_numbers`
-846. The run header says where the files are and the status bar follows the run. — `the_run_header_says_where_the_files_are_and_the_status_bar_follows_the_run`
-847. Stop ends a run that would never end and it is kept as stopped. — `stop_ends_a_run_that_would_never_end_and_it_is_kept_as_stopped`
-848. Stop now and ending jmeter by force both work. — `stop_now_and_ending_jmeter_by_force_both_work`
-849. The chosen folder gets a runs folder with a folder for each run. — `the_chosen_folder_gets_a_runs_folder_with_a_folder_for_each_run`
-850. Only the newest runs are kept after a run and their files stay. — `only_the_newest_runs_are_kept_after_a_run_and_their_files_stay`
-851. Validate runs the whole plan once with one user. — `validate_runs_the_whole_plan_once_with_one_user`
-852. Send once sends the selected request and only that. — `send_once_sends_the_selected_request_and_only_that`
-853. Send once is not available on something that is not a request. — `send_once_is_not_available_on_something_that_is_not_a_request`
-854. Quitting during a run asks and cancelling leaves the run going. — `quitting_during_a_run_asks_and_cancelling_leaves_the_run_going`
-855. A plan jmeter cannot read ends as failed with a reason. — `a_plan_jmeter_cannot_read_ends_as_failed_with_a_reason`
-856. A run with a flood of samples keeps the window responsive. — `a_run_with_a_flood_of_samples_keeps_the_window_responsive`
-857. Viewing a large stored run is quick and does not block the window. — `viewing_a_large_stored_run_is_quick_and_does_not_block_the_window`
-858. A run keeps the failed requests and the viewer shows what was sent and received. — `a_run_keeps_the_failed_requests_and_the_viewer_shows_what_was_sent_and_received`
-859. All requests can be kept and walked through with the arrow keys. — `all_requests_can_be_kept_and_walked_through_with_the_arrow_keys`
-860. With details off nothing is kept and the viewer says how to turn it on. — `with_details_off_nothing_is_kept_and_the_viewer_says_how_to_turn_it_on`
-861. Send once opens the viewer on the answer. — `send_once_opens_the_viewer_on_the_answer`
-862. The viewer is not available before a run. — `the_viewer_is_not_available_before_a_run`
-863. A stored run loads its details and counts damaged lines. — `a_stored_run_loads_its_details_and_counts_damaged_lines`
-864. A huge or hostile details file cannot hang or flood the window. — `a_huge_or_hostile_details_file_cannot_hang_or_flood_the_window`
-865. The variables of a request are listed and a request without any says so. — `the_variables_of_a_request_are_listed_and_a_request_without_any_says_so`
-866. The response of a request can be tried with an expression. — `the_response_of_a_request_can_be_tried_with_an_expression`
-867. After a real run an expression can be tried on what came back. — `after_a_real_run_an_expression_can_be_tried_on_what_came_back`
-868. A results file opens as a run with its numbers and charts. — `a_results_file_opens_as_a_run_with_its_numbers_and_charts`
-869. Files that are not results say so and change nothing. — `files_that_are_not_results_say_so_and_change_nothing`
-870. Opening a large results file is quick and the window stays responsive. — `opening_a_large_results_file_is_quick_and_the_window_stays_responsive`
-871. The html report is made once and then opened. — `the_html_report_is_made_once_and_then_opened`
-872. A results file opened on its own gets its report next to it. — `a_results_file_opened_on_its_own_gets_its_report_next_to_it`
-873. A report that cannot be made says why and leaves nothing. — `a_report_that_cannot_be_made_says_why_and_leaves_nothing`
-874. A report without java or jmeter says so. — `a_report_without_java_or_jmeter_says_so`
-875. The run properties dialog keeps the lines for this plan. — `the_run_properties_dialog_keeps_the_lines_for_this_plan`
-876. Wrong lines are explained and nothing is saved. — `wrong_lines_are_explained_and_nothing_is_saved`
-877. Properties can be loaded from a file and hostile files are refused. — `properties_can_be_loaded_from_a_file_and_hostile_files_are_refused`
-878. The properties reach the plan in a run a check and a single request. — `the_properties_reach_the_plan_in_a_run_a_check_and_a_single_request`
-879. Properties that became invalid stop the run with a reason. — `properties_that_became_invalid_stop_the_run_with_a_reason`
-880. A chosen file is written in the form relative when it is next to the plan. — `a_chosen_file_is_written_in_the_form_relative_when_it_is_next_to_the_plan`
-881. The per request table has a total row and scrolls instead of cutting columns. — `the_per_request_table_has_a_total_row_and_scrolls_instead_of_cutting_columns`
-882. Another element opens at the top of its form. — `another_element_opens_at_the_top_of_its_form`
-883. A request chosen in the table is charted and the total row shows all again. — `a_request_chosen_in_the_table_is_charted_and_the_total_row_shows_all_again`
-884. The table is copied as csv with a total row. — `the_table_is_copied_as_csv_with_a_total_row`
-885. A run with a thousand requests opens quickly and lists a limited number. — `a_run_with_a_thousand_requests_opens_quickly_and_lists_a_limited_number`
-886. Two runs chosen in the history are compared with the earlier one as the baseline. — `two_runs_chosen_in_the_history_are_compared_with_the_earlier_one_as_the_baseline`
-887. Choosing the baseline again takes it back and an empty tab says what to do. — `choosing_the_baseline_again_takes_it_back_and_an_empty_tab_says_what_to_do`
-888. The comparison is copied as csv with the worst first. — `the_comparison_is_copied_as_csv_with_the_worst_first`
-889. A run whose results are gone says so and the window keeps working. — `a_run_whose_results_are_gone_says_so_and_the_window_keeps_working`
-890. Two big runs are compared quickly. — `two_big_runs_are_compared_quickly`
+824. Without java or jmeter the run buttons say why. — `without_java_or_jmeter_the_run_buttons_say_why`
+825. The run menu and palette list every run command. — `the_run_menu_and_palette_list_every_run_command`
+826. A plan with unsaved changes asks to save before running. — `a_plan_with_unsaved_changes_asks_to_save_before_running`
+827. Saving to run writes the file then goes on to the next question. — `saving_to_run_writes_the_file_then_goes_on_to_the_next_question`
+828. A runs folder that cannot be used stops the run and offers a way out. — `a_runs_folder_that_cannot_be_used_stops_the_run_and_offers_a_way_out`
+829. Using the jmx folder from the question changes the setting and carries on. — `using_the_jmx_folder_from_the_question_changes_the_setting_and_carries_on`
+830. A custom folder that is a file is refused. — `a_custom_folder_that_is_a_file_is_refused`
+831. A plan with scripts asks once for that plan file. — `a_plan_with_scripts_asks_once_for_that_plan_file`
+832. A plan without scripts is never asked about them. — `a_plan_without_scripts_is_never_asked_about_them`
+833. The settings tab chooses where run files go. — `the_settings_tab_chooses_where_run_files_go`
+834. The number of runs kept is a checked number. — `the_number_of_runs_kept_is_a_checked_number`
+835. Lowering the number kept removes the older runs of the open plan at once. — `lowering_the_number_kept_removes_the_older_runs_of_the_open_plan_at_once`
+836. The history tab lists the runs of the open plan newest first. — `the_history_tab_lists_the_runs_of_the_open_plan_newest_first`
+837. History shows runs of the plan in the tab not every plan. — `history_shows_runs_of_the_plan_in_the_tab_not_every_plan`
+838. Clicking a stored run shows its numbers and charts. — `clicking_a_stored_run_shows_its_numbers_and_charts`
+839. A damaged results file still opens as a stored run. — `a_damaged_results_file_still_opens_as_a_stored_run`
+840. A run that was cut short is shown as interrupted. — `a_run_that_was_cut_short_is_shown_as_interrupted`
+841. Removing one run asks first and removes only that run. — `removing_one_run_asks_first_and_removes_only_that_run`
+842. Removing never touches a folder that is not a run. — `removing_never_touches_a_folder_that_is_not_a_run`
+843. Clearing the shared runs folder asks and removes only runs. — `clearing_the_shared_runs_folder_asks_and_removes_only_runs`
+844. Clear is not available for the runs next to the plan. — `clear_is_not_available_for_the_runs_next_to_the_plan`
+845. Clearing an empty shared folder says so without asking. — `clearing_an_empty_shared_folder_says_so_without_asking`
+846. F5 runs the saved plan and shows the live numbers. — `f5_runs_the_saved_plan_and_shows_the_live_numbers`
+847. The run header says where the files are and the status bar follows the run. — `the_run_header_says_where_the_files_are_and_the_status_bar_follows_the_run`
+848. Stop ends a run that would never end and it is kept as stopped. — `stop_ends_a_run_that_would_never_end_and_it_is_kept_as_stopped`
+849. Stop now and ending jmeter by force both work. — `stop_now_and_ending_jmeter_by_force_both_work`
+850. The chosen folder gets a runs folder with a folder for each run. — `the_chosen_folder_gets_a_runs_folder_with_a_folder_for_each_run`
+851. Only the newest runs are kept after a run and their files stay. — `only_the_newest_runs_are_kept_after_a_run_and_their_files_stay`
+852. Validate runs the whole plan once with one user. — `validate_runs_the_whole_plan_once_with_one_user`
+853. Send once sends the selected request and only that. — `send_once_sends_the_selected_request_and_only_that`
+854. Send once is not available on something that is not a request. — `send_once_is_not_available_on_something_that_is_not_a_request`
+855. Quitting during a run asks and cancelling leaves the run going. — `quitting_during_a_run_asks_and_cancelling_leaves_the_run_going`
+856. A plan jmeter cannot read ends as failed with a reason. — `a_plan_jmeter_cannot_read_ends_as_failed_with_a_reason`
+857. A run with a flood of samples keeps the window responsive. — `a_run_with_a_flood_of_samples_keeps_the_window_responsive`
+858. Viewing a large stored run is quick and does not block the window. — `viewing_a_large_stored_run_is_quick_and_does_not_block_the_window`
+859. A run keeps the failed requests and the viewer shows what was sent and received. — `a_run_keeps_the_failed_requests_and_the_viewer_shows_what_was_sent_and_received`
+860. All requests can be kept and walked through with the arrow keys. — `all_requests_can_be_kept_and_walked_through_with_the_arrow_keys`
+861. With details off nothing is kept and the viewer says how to turn it on. — `with_details_off_nothing_is_kept_and_the_viewer_says_how_to_turn_it_on`
+862. Send once opens the viewer on the answer. — `send_once_opens_the_viewer_on_the_answer`
+863. The viewer is not available before a run. — `the_viewer_is_not_available_before_a_run`
+864. A stored run loads its details and counts damaged lines. — `a_stored_run_loads_its_details_and_counts_damaged_lines`
+865. A huge or hostile details file cannot hang or flood the window. — `a_huge_or_hostile_details_file_cannot_hang_or_flood_the_window`
+866. The variables of a request are listed and a request without any says so. — `the_variables_of_a_request_are_listed_and_a_request_without_any_says_so`
+867. The response of a request can be tried with an expression. — `the_response_of_a_request_can_be_tried_with_an_expression`
+868. After a real run an expression can be tried on what came back. — `after_a_real_run_an_expression_can_be_tried_on_what_came_back`
+869. A results file opens as a run with its numbers and charts. — `a_results_file_opens_as_a_run_with_its_numbers_and_charts`
+870. Files that are not results say so and change nothing. — `files_that_are_not_results_say_so_and_change_nothing`
+871. Opening a large results file is quick and the window stays responsive. — `opening_a_large_results_file_is_quick_and_the_window_stays_responsive`
+872. The html report is made once and then opened. — `the_html_report_is_made_once_and_then_opened`
+873. A results file opened on its own gets its report next to it. — `a_results_file_opened_on_its_own_gets_its_report_next_to_it`
+874. A report that cannot be made says why and leaves nothing. — `a_report_that_cannot_be_made_says_why_and_leaves_nothing`
+875. A report without java or jmeter says so. — `a_report_without_java_or_jmeter_says_so`
+876. The run properties dialog keeps the lines for this plan. — `the_run_properties_dialog_keeps_the_lines_for_this_plan`
+877. Wrong lines are explained and nothing is saved. — `wrong_lines_are_explained_and_nothing_is_saved`
+878. Properties can be loaded from a file and hostile files are refused. — `properties_can_be_loaded_from_a_file_and_hostile_files_are_refused`
+879. The properties reach the plan in a run a check and a single request. — `the_properties_reach_the_plan_in_a_run_a_check_and_a_single_request`
+880. Properties that became invalid stop the run with a reason. — `properties_that_became_invalid_stop_the_run_with_a_reason`
+881. A chosen file is written in the form relative when it is next to the plan. — `a_chosen_file_is_written_in_the_form_relative_when_it_is_next_to_the_plan`
+882. The per request table has a total row and scrolls instead of cutting columns. — `the_per_request_table_has_a_total_row_and_scrolls_instead_of_cutting_columns`
+883. Another element opens at the top of its form. — `another_element_opens_at_the_top_of_its_form`
+884. A request chosen in the table is charted and the total row shows all again. — `a_request_chosen_in_the_table_is_charted_and_the_total_row_shows_all_again`
+885. The table is copied as csv with a total row. — `the_table_is_copied_as_csv_with_a_total_row`
+886. A run with a thousand requests opens quickly and lists a limited number. — `a_run_with_a_thousand_requests_opens_quickly_and_lists_a_limited_number`
+887. Two runs chosen in the history are compared with the earlier one as the baseline. — `two_runs_chosen_in_the_history_are_compared_with_the_earlier_one_as_the_baseline`
+888. Choosing the baseline again takes it back and an empty tab says what to do. — `choosing_the_baseline_again_takes_it_back_and_an_empty_tab_says_what_to_do`
+889. The comparison is copied as csv with the worst first. — `the_comparison_is_copied_as_csv_with_the_worst_first`
+890. A run whose results are gone says so and the window keeps working. — `a_run_whose_results_are_gone_says_so_and_the_window_keeps_working`
+891. Two big runs are compared quickly. — `two_big_runs_are_compared_quickly`
 
 ### Starting the app: the release program is a window program and opens no terminal window
 
 *crates/app/tests/subsystem.rs*
 
-891. Reads window and console programs. — `reads_window_and_console_programs`
-892. Damaged headers give nothing and never panic. — `damaged_headers_give_nothing_and_never_panic`
-893. The release program is a window program. — `the_release_program_is_a_window_program`
-894. Script accepts a window program. — `script_accepts_a_window_program`
-895. Script rejects a console program. — `script_rejects_a_console_program`
-896. Script rejects a file that is not a program. — `script_rejects_a_file_that_is_not_a_program`
-897. The debug build is a console program. — `the_debug_build_is_a_console_program`
+892. Reads window and console programs. — `reads_window_and_console_programs`
+893. Damaged headers give nothing and never panic. — `damaged_headers_give_nothing_and_never_panic`
+894. The release program is a window program. — `the_release_program_is_a_window_program`
+895. Script accepts a window program. — `script_accepts_a_window_program`
+896. Script rejects a console program. — `script_rejects_a_console_program`
+897. Script rejects a file that is not a program. — `script_rejects_a_file_that_is_not_a_program`
+898. The debug build is a console program. — `the_debug_build_is_a_console_program`
 
 ## 3. Real-window checks
 
@@ -1157,134 +1158,134 @@ These start the built app, drive it with real mouse and keyboard input, and read
 
 ### 1. Open a plan, select by mouse, navigate by keyboard
 
-898. Plan loads. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-899. Tree shows 15 rows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-900. Clicking a row selects it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-901. And the editor shows it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-902. Without opening a tab. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-903. Down moves the selection and the editor follows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-904. End selects the last row. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+899. Plan loads. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+900. Tree shows 15 rows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+901. Clicking a row selects it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+902. And the editor shows it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+903. Without opening a tab. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+904. Down moves the selection and the editor follows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+905. End selects the last row. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
 
 ### 2. Command palette
 
-905. Ctrl+K opens the palette. — `smoke.ps1`, section "2. Command palette"
-906. Typing filters commands. — `smoke.ps1`, section "2. Command palette"
-907. Escape closes it. — `smoke.ps1`, section "2. Command palette"
-908. Go to element selects it. — `smoke.ps1`, section "2. Command palette"
-909. And the editor shows it, still in one tab. — `smoke.ps1`, section "2. Command palette"
+906. Ctrl+K opens the palette. — `smoke.ps1`, section "2. Command palette"
+907. Typing filters commands. — `smoke.ps1`, section "2. Command palette"
+908. Escape closes it. — `smoke.ps1`, section "2. Command palette"
+909. Go to element selects it. — `smoke.ps1`, section "2. Command palette"
+910. And the editor shows it, still in one tab. — `smoke.ps1`, section "2. Command palette"
 
 ### 3. Inspector
 
-910. The inspector starts hidden. — `smoke.ps1`, section "3. Inspector"
-911. Ctrl+Alt+B shows it. — `smoke.ps1`, section "3. Inspector"
-912. An empty title bar click changes nothing. — `smoke.ps1`, section "3. Inspector"
+911. The inspector starts hidden. — `smoke.ps1`, section "3. Inspector"
+912. Ctrl+Alt+B shows it. — `smoke.ps1`, section "3. Inspector"
+913. An empty title bar click changes nothing. — `smoke.ps1`, section "3. Inspector"
 
 ### 4. Menus
 
-913. Ctrl+J shows the results panel. — `smoke.ps1`, section "4. Menus"
-914. Ctrl+B hides the test plan panel. — `smoke.ps1`, section "4. Menus"
+914. Ctrl+J shows the results panel. — `smoke.ps1`, section "4. Menus"
+915. Ctrl+B hides the test plan panel. — `smoke.ps1`, section "4. Menus"
 
 ### 5. Themes
 
-915. Light theme applies. — `smoke.ps1`, section "5. Themes"
-916. Dark theme applies. — `smoke.ps1`, section "5. Themes"
+916. Light theme applies. — `smoke.ps1`, section "5. Themes"
+917. Dark theme applies. — `smoke.ps1`, section "5. Themes"
 
 ### 6. Resizing a panel and remembering it
 
-917. Dragging the handle widens the panel. — `smoke.ps1`, section "6. Resizing a panel and remembering it"
+918. Dragging the handle widens the panel. — `smoke.ps1`, section "6. Resizing a panel and remembering it"
 
 ### 7. Window controls and remembered size
 
-918. Maximize fills the screen. — `smoke.ps1`, section "7. Window controls and remembered size"
-919. Close button ends the app. — `smoke.ps1`, section "7. Window controls and remembered size"
-920. Window state is saved. — `smoke.ps1`, section "7. Window controls and remembered size"
+919. Maximize fills the screen. — `smoke.ps1`, section "7. Window controls and remembered size"
+920. Close button ends the app. — `smoke.ps1`, section "7. Window controls and remembered size"
+921. Window state is saved. — `smoke.ps1`, section "7. Window controls and remembered size"
 
 ### 8. Settings tab and drop-down
 
-921. Ctrl+, opens settings. — `smoke.ps1`, section "8. Settings tab and drop-down"
-922. Choosing from the drop-down with the keyboard saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
-923. Choosing with the mouse saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
-924. An invalid heap size is rejected. — `smoke.ps1`, section "8. Settings tab and drop-down"
-925. A valid heap size is saved. — `smoke.ps1`, section "8. Settings tab and drop-down"
+922. Ctrl+, opens settings. — `smoke.ps1`, section "8. Settings tab and drop-down"
+923. Choosing from the drop-down with the keyboard saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
+924. Choosing with the mouse saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
+925. An invalid heap size is rejected. — `smoke.ps1`, section "8. Settings tab and drop-down"
+926. A valid heap size is saved. — `smoke.ps1`, section "8. Settings tab and drop-down"
 
 ### 9. Open dialog
 
-926. Ctrl+O opens a file dialog and loads the chosen plan. — `smoke.ps1`, section "9. Open dialog"
-927. A second plan gets its own tab. — `smoke.ps1`, section "9. Open dialog"
-928. And the tree shows the second plan. — `smoke.ps1`, section "9. Open dialog"
-929. Ctrl+Tab switches back to the first plan. — `smoke.ps1`, section "9. Open dialog"
+927. Ctrl+O opens a file dialog and loads the chosen plan. — `smoke.ps1`, section "9. Open dialog"
+928. A second plan gets its own tab. — `smoke.ps1`, section "9. Open dialog"
+929. And the tree shows the second plan. — `smoke.ps1`, section "9. Open dialog"
+930. Ctrl+Tab switches back to the first plan. — `smoke.ps1`, section "9. Open dialog"
 
 ### 10. Editing: forms, add, delete, undo, drag, save, recovery
 
-930. Go to element shows its form. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-931. Typing in a box and pressing Enter changes the plan. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-932. Clicking a checkbox is another change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-933. Ctrl+Z undoes the last change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-934. Ctrl+S saves. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-935. The file keeps its original formatting elsewhere. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-936. Adding from the palette selects the new element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-937. Delete removes the selected element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-938. And undo brings it back. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-939. Dragging a row onto another moves the element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-940. A recovery copy is written next to the plan after a pause. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-941. Opening the plan again offers the unsaved work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-942. Recovering brings the changes back, unsaved. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-943. Closing the window with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-944. Cancel keeps the app open with the work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-945. Quitting with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-946. Don't Save quits. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-947. And removes the recovery copy. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+931. Go to element shows its form. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+932. Typing in a box and pressing Enter changes the plan. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+933. Clicking a checkbox is another change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+934. Ctrl+Z undoes the last change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+935. Ctrl+S saves. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+936. The file keeps its original formatting elsewhere. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+937. Adding from the palette selects the new element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+938. Delete removes the selected element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+939. And undo brings it back. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+940. Dragging a row onto another moves the element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+941. A recovery copy is written next to the plan after a pause. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+942. Opening the plan again offers the unsaved work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+943. Recovering brings the changes back, unsaved. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+944. Closing the window with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+945. Cancel keeps the app open with the work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+946. Quitting with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+947. Don't Save quits. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+948. And removes the recovery copy. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
 
 ### 11. Running: F5, live numbers, history, Validate, Send once
 
-948. Java and JMeter are found in the background. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-949. F5 starts the run and opens the lower panel on the Run tab. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-950. The run finishes. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-951. All 12 samples were counted, 6 of them errors. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-952. The plan file was not changed by the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-953. The run has its own folder inside runs next to the plan. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-954. With results, log, the plan as run and run.json. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-955. The history lists the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-956. The six failed requests were kept with what was sent and received. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-957. Ctrl+Shift+R opens the request viewer on the first failure. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-958. It shows the request that was sent and the answer that came back. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-959. The Down key moves to the next request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-960. Ctrl+Shift+T opens the expression dialog with the response of the chosen request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-961. The real JMeter libraries answer, and say that the text is not JSON. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-962. Escape closes the dialog. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-963. Ctrl+F5 validates: one user once, so each request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-964. F6 sends the selected request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-965. All three runs are in the history. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-966. Ctrl+Shift+H makes the HTML report with JMeter's generator and opens its page. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+949. Java and JMeter are found in the background. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+950. F5 starts the run and opens the lower panel on the Run tab. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+951. The run finishes. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+952. All 12 samples were counted, 6 of them errors. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+953. The plan file was not changed by the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+954. The run has its own folder inside runs next to the plan. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+955. With results, log, the plan as run and run.json. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+956. The history lists the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+957. The six failed requests were kept with what was sent and received. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+958. Ctrl+Shift+R opens the request viewer on the first failure. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+959. It shows the request that was sent and the answer that came back. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+960. The Down key moves to the next request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+961. Ctrl+Shift+T opens the expression dialog with the response of the chosen request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+962. The real JMeter libraries answer, and say that the text is not JSON. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+963. Escape closes the dialog. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+964. Ctrl+F5 validates: one user once, so each request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+965. F6 sends the selected request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+966. All three runs are in the history. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+967. Ctrl+Shift+H makes the HTML report with JMeter's generator and opens its page. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
 
 ### 12. New plan
 
-967. Ctrl+N makes an empty plan at once, with no question. — `smoke.ps1`, section "12. New plan"
-968. The new plan is a file next to the open plan. — `smoke.ps1`, section "12. New plan"
+968. Ctrl+N makes an empty plan at once, with no question. — `smoke.ps1`, section "12. New plan"
+969. The new plan is a file next to the open plan. — `smoke.ps1`, section "12. New plan"
 
 ### 13. Text area for a script
 
-969. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
-970. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
-971. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
-972. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
+970. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
+971. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
+972. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
+973. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
 
 ### 14. Copy and paste of elements
 
-973. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
-974. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
-975. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
-976. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
+974. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
+975. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
+976. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
+977. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
 
 ### 15. Import from cURL
 
-977. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
-978. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
+978. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
+979. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
 
 ### 16. Run properties
 
-979. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
-980. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
-981. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
+980. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
+981. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
+982. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
 
-Total scenarios listed: 981.
+Total scenarios listed: 982.

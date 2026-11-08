@@ -302,6 +302,22 @@ pub fn build_theme(base: &Theme, p: &Palette) -> Theme {
     t
 }
 
+/// One size scale for the menu bar, the menus, the right-click menu and the command palette, in pixels. Text in pop-up menus
+/// is 0.875 rem at 16 pixels to the rem, which is `MENU_TEXT`; the palette uses the same text size so a row in the palette
+/// reads like an item in a menu, with the same kind of room around it.
+pub mod scale {
+    /// The text of the menu bar titles, the items in menus and the rows in the command palette.
+    pub const MENU_TEXT: f32 = 14.0;
+    /// The text of the command palette's search box in the title bar and of its rows.
+    pub const PALETTE_TEXT: f32 = MENU_TEXT;
+    /// The height of a row in the command palette.
+    pub const PALETTE_ROW: f32 = 30.0;
+    /// Smaller text beside a row's title (the type of an element, a file's folder).
+    pub const PALETTE_DETAIL_TEXT: f32 = 12.0;
+    /// The small group names above the rows.
+    pub const PALETTE_GROUP_TEXT: f32 = 11.0;
+}
+
 /// Convenience for views: the active Zed colours.
 pub fn colors(cx: &App) -> &theme::ThemeColors {
     cx.theme().colors()
