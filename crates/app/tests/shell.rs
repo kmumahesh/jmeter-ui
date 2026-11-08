@@ -786,7 +786,6 @@ fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-<<<<<<< HEAD
 // ---- opening another menu by moving over its title ----
 
 fn hover(app: &mut App, selector: &'static str) {
@@ -847,7 +846,8 @@ fn a_click_on_the_title_of_a_menu_opened_by_moving_over_it_closes_it_and_then_ho
     assert_eq!(open_menu(&mut app), None, "with every menu closed, moving over a title opens nothing again");
     app.click("menu-title-Edit");
     assert_eq!(open_menu(&mut app).as_deref(), Some("Edit"));
-=======
+}
+
 // ---- one size scale for the menu bar, the menus and the command palette ----
 
 #[gpui::test]
@@ -867,5 +867,4 @@ fn palette_rows_and_the_search_box_follow_the_menu_scale(cx: &mut TestAppContext
     assert!((f32::from(first.size.height) - PALETTE_ROW).abs() < 0.5, "row height {}", f32::from(first.size.height));
     assert!((f32::from(second.origin.y) - f32::from(first.origin.y) - PALETTE_ROW).abs() < 1.5, "rows are one row height apart");
     app.keys("escape");
->>>>>>> origin/main
 }

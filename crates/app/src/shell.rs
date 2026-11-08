@@ -1077,13 +1077,9 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
-<<<<<<< HEAD
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
-            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
-=======
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
->>>>>>> origin/main
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,
