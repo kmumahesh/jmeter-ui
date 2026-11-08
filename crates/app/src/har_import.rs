@@ -3,7 +3,7 @@
 
 use crate::fields::TextField;
 use crate::shell::{Dialog, Severity, Shell};
-use gpui::{AppContext as _, Context, PathPromptOptions, Window};
+use gpui::{AppContext as _, Context, Window};
 use plan_core::har::{self, Options, Summary};
 use plan_core::curl;
 use std::path::{Path, PathBuf};
@@ -27,11 +27,9 @@ impl Shell {
 
     /// Ask for a HAR file and open the dialog for it.
     pub fn open_har_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Choose a HAR file".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Har, "Choose a HAR file");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next()
-            {
+            if let Some(path) = pick.await {
                 this.update_in(cx, |this, window, cx| this.open_har_path(&path, window, cx)).ok();
             }
         })

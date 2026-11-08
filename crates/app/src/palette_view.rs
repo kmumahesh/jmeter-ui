@@ -280,7 +280,7 @@ impl Render for Palette {
 fn empty_text(mode: Mode, has_plan: bool) -> &'static str {
     match (mode, has_plan) {
         (Mode::Elements | Mode::Add, false) => "Open a plan first",
-        (Mode::Add, true) => "Nothing can be added under the selected element",
+        (Mode::Add, true) => "Nothing can be added under the selected element. Select a Thread Group or a controller first.",
         (Mode::Commands | Mode::Elements | Mode::Everything, true) => "No matches. Start with + to add an element.",
         (Mode::Commands | Mode::Everything, false) => "No matches",
     }
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn empty_messages() {
         assert_eq!(empty_text(Mode::Elements, false), "Open a plan first");
-        assert_eq!(empty_text(Mode::Add, true), "Nothing can be added under the selected element");
+        assert_eq!(empty_text(Mode::Add, true), "Nothing can be added under the selected element. Select a Thread Group or a controller first.");
         assert_eq!(empty_text(Mode::Commands, true), "No matches. Start with + to add an element.");
         assert!(empty_text(Mode::Elements, true).contains('+'));
     }
