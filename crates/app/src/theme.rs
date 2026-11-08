@@ -330,7 +330,10 @@ mod tests {
     #[test]
     fn popup_menus_are_drawn_at_the_scale_of_the_window_so_items_are_as_large_as_the_menu_bar() {
         const WINDOW_REM: f32 = 16.;
-        assert!(UI_FONT_SIZE >= WINDOW_REM, "pop-up text would be {:.1} pixels against {:.1} in the window", UI_FONT_SIZE * 0.875, WINDOW_REM * 0.875);
+        // Checked when the program is built: smaller pop-up text than the window's would not compile.
+        const { assert!(UI_FONT_SIZE >= WINDOW_REM) };
+        let popup = UI_FONT_SIZE * 0.875;
+        assert!(popup >= WINDOW_REM * 0.875, "pop-up text would be {popup:.1} pixels");
     }
 
     #[test]
