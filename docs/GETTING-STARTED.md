@@ -21,7 +21,7 @@ You do not need to start JMeter yourself or set up any environment variable.
 1. Download `jmeter-ui-0.1.0-windows-x64.zip` from the [releases page](https://github.com/kmumahesh/jmeter-ui/releases).
 2. Check the download (optional, recommended): compare the SHA-256 in `SHA256SUMS.txt` with `Get-FileHash jmeter-ui-0.1.0-windows-x64.zip` in PowerShell.
 3. Unzip it anywhere, for example `C:\Tools\jmeter-ui`.
-4. Unzip the JMeter download too. A folder called `apache-jmeter-5.6.3` in your *Downloads* folder is found by itself; any other place you choose in Settings.
+4. Unzip the JMeter download too. If you put the `apache-jmeter-<version>` folder in one of the usual places (for example your *Downloads* folder), the app finds it by itself; if you put it anywhere else, choose it in Settings. The [README](../README.md#where-the-app-looks-for-java-and-jmeter) lists every place.
 5. Start `jmeter-ui.exe`.
 
 > **Windows may warn about an unknown publisher** the first time (SmartScreen). The app is not signed with a certificate yet. Choose *More info*, then *Run anyway*, if you trust the download.
