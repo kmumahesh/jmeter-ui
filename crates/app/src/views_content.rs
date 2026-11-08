@@ -731,14 +731,19 @@ impl Shell {
                 format!("{message}. Run files are kept in a runs folder, next to the .jmx file or in a folder you choose."),
                 vec![("dialog-use-plan-folder", "Use the .jmx Folder", true), ("dialog-choose-folder", "Choose Folder\u{2026}", false), ("dialog-cancel", "Cancel", false)],
             ),
-            Some(Dialog::ClearRuns { root, count }) => (
+            Some(Dialog::ClearRuns { root, count, kept }) => (
                 "Clear the runs folder?".to_string(),
-                format!("This removes {count} run{} (results, logs and reports) from {}. Other files in it are left alone.", if *count == 1 { "" } else { "s" }, root.display()),
+                format!(
+                    "This removes {count} run{} (results, logs and reports) from {}.{} Other files in it are left alone.",
+                    if *count == 1 { "" } else { "s" },
+                    root.display(),
+                    if *kept == 0 { String::new() } else { format!(" {kept} pinned run{} {} kept.", if *kept == 1 { "" } else { "s" }, if *kept == 1 { "is" } else { "are" }) }
+                ),
                 vec![("dialog-clear-runs", "Clear Runs", true), ("dialog-cancel", "Cancel", false)],
             ),
-            Some(Dialog::DeleteRun { name, .. }) => (
+            Some(Dialog::DeleteRun { name, pinned, .. }) => (
                 "Remove this run?".to_string(),
-                format!("This removes {name} with its results, log and reports."),
+                format!("This removes {name} with its results, log and reports.{}", if *pinned { " It is pinned; removing it here is the only way it goes." } else { "" }),
                 vec![("dialog-delete-run", "Remove Run", true), ("dialog-cancel", "Cancel", false)],
             ),
             Some(Dialog::QuitRunning) => (

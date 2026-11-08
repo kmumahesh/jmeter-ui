@@ -83,6 +83,10 @@ pub struct RunMeta {
     pub p95_ms: u64,
     /// The `-J` overrides and other things worth knowing about the run.
     pub notes: Vec<String>,
+    /// A pinned run is never removed by the limit on how many runs are kept or by clearing the runs folder. Runs written
+    /// before pinning existed read as not pinned.
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 impl RunMeta {
@@ -102,6 +106,7 @@ impl RunMeta {
             avg_ms: 0,
             p95_ms: 0,
             notes: Vec::new(),
+            pinned: false,
         }
     }
 
@@ -213,6 +218,19 @@ pub fn new_run(root: &Path, plan: &Path, kind: RunKind, now: DateTime<Local>) ->
     Err(io::Error::other("too many runs in the same second"))
 }
 
+/// Pin a run so it is kept, or unpin it. Only a run folder of this app is changed. Returns the new `run.json`.
+pub fn set_pinned(dir: &Path, pinned: bool) -> Result<RunMeta, String> {
+    if !is_real_dir(dir) {
+        return Err(format!("{} is not a run folder", dir.display()));
+    }
+    let mut meta = read_meta(dir).ok_or_else(|| format!("{} is not a run of this app", dir.display()))?;
+    if meta.pinned != pinned {
+        meta.pinned = pinned;
+        write_meta(dir, &meta).map_err(|e| format!("The run could not be updated: {e}"))?;
+    }
+    Ok(meta)
+}
+
 pub fn write_meta(dir: &Path, meta: &RunMeta) -> io::Result<()> {
     let text = serde_json::to_string_pretty(meta).map_err(io::Error::other)?;
     let tmp = dir.join(format!("{META_FILE}.tmp"));
@@ -271,7 +289,8 @@ pub fn list_runs(root: &Path, plan: Option<&Path>) -> Vec<RunEntry> {
 pub const STALE_RUNNING_MS: u64 = 24 * 60 * 60 * 1000;
 
 /// Remove the oldest runs of `plan` so that at most `keep` remain, with everything in their folders. A run
-/// that has not ended is not removed unless it started more than a day ago. Returns the folders removed.
+/// that has not ended is not removed unless it started more than a day ago. Pinned runs are never removed and do not count
+/// towards `keep`. Returns the folders removed.
 pub fn prune(root: &Path, plan: &Path, keep: usize) -> Vec<PathBuf> {
     prune_at(root, plan, keep, now_ms())
 }
@@ -280,7 +299,7 @@ pub fn prune(root: &Path, plan: &Path, keep: usize) -> Vec<PathBuf> {
 pub fn prune_at(root: &Path, plan: &Path, keep: usize, now: u64) -> Vec<PathBuf> {
     let runs = list_runs(root, Some(plan));
     let mut removed = Vec::new();
-    for r in runs.into_iter().skip(keep.max(1)) {
+    for r in runs.into_iter().filter(|r| !r.meta.pinned).skip(keep.max(1)) {
         if r.meta.outcome == Outcome::Running && now.saturating_sub(r.meta.started_ms) < STALE_RUNNING_MS {
             continue;
         }
@@ -291,8 +310,8 @@ pub fn prune_at(root: &Path, plan: &Path, keep: usize, now: u64) -> Vec<PathBuf>
     removed
 }
 
-/// Empty a shared `runs` folder: remove every run folder this app made in it. Anything else in the folder,
-/// and anything behind a link, is left alone. Only a folder named `runs` is accepted.
+/// Empty a shared `runs` folder: remove every run folder this app made in it, except pinned runs. Anything else in the
+/// folder, and anything behind a link, is left alone. Only a folder named `runs` is accepted. Returns how many were removed.
 pub fn clear_root(root: &Path) -> Result<usize, String> {
     if root.file_name().is_none_or(|n| n != RUNS_DIR) {
         return Err(format!("{} is not a folder named {RUNS_DIR}", root.display()));
@@ -301,12 +320,17 @@ pub fn clear_root(root: &Path) -> Result<usize, String> {
         return Ok(0);
     }
     let mut n = 0;
-    for r in list_runs(root, None) {
+    for r in list_runs(root, None).into_iter().filter(|r| !r.meta.pinned) {
         if std::fs::remove_dir_all(&r.dir).is_ok() {
             n += 1;
         }
     }
     Ok(n)
+}
+
+/// How many runs in `root` are pinned, so the question before clearing can say they stay.
+pub fn pinned_count(root: &Path) -> usize {
+    list_runs(root, None).iter().filter(|r| r.meta.pinned).count()
 }
 
 /// Total size in bytes of the files in a run folder (not following links).
@@ -561,6 +585,134 @@ mod tests {
         std::fs::write(d.join("a").join("x"), vec![0u8; 100]).unwrap();
         std::fs::write(d.join("y"), vec![0u8; 50]).unwrap();
         assert_eq!(folder_size(&d), 150);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn runs_written_before_pinning_read_as_not_pinned() {
+        let d = dir("old-meta");
+        let (run, meta) = new_run(&d.join("runs"), &d.join("p.jmx"), RunKind::Run, at(1)).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(run.join(META_FILE)).unwrap()).unwrap();
+        value.as_object_mut().unwrap().remove("pinned");
+        std::fs::write(run.join(META_FILE), value.to_string()).unwrap();
+        let read = read_meta(&run).expect("an older run.json is still read");
+        assert!(!read.pinned);
+        assert_eq!(read.started_ms, meta.started_ms);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn pinning_and_unpinning_is_stored_in_the_run_and_survives_reading_it_again() {
+        let d = dir("pin-store");
+        let (run, _) = new_run(&d.join("runs"), &d.join("p.jmx"), RunKind::Run, at(1)).unwrap();
+        assert!(set_pinned(&run, true).unwrap().pinned);
+        assert!(read_meta(&run).unwrap().pinned, "stored in run.json");
+        assert!(set_pinned(&run, true).unwrap().pinned, "pinning twice changes nothing");
+        assert!(!set_pinned(&run, false).unwrap().pinned);
+        assert!(!read_meta(&run).unwrap().pinned);
+        assert!(!run.join(format!("{META_FILE}.tmp")).exists(), "no temporary file is left");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn only_a_run_folder_of_this_app_can_be_pinned() {
+        let d = dir("pin-refuse");
+        std::fs::create_dir_all(d.join("other")).unwrap();
+        assert!(set_pinned(&d.join("other"), true).is_err(), "a folder without run.json");
+        assert!(set_pinned(&d.join("missing"), true).is_err());
+        std::fs::write(d.join("other").join(META_FILE), r#"{"app":"someone-else","plan_path":"x"}"#).unwrap();
+        assert!(set_pinned(&d.join("other"), true).is_err(), "another program's run.json");
+        assert_eq!(std::fs::read_to_string(d.join("other").join(META_FILE)).unwrap(), r#"{"app":"someone-else","plan_path":"x"}"#, "and it is not changed");
+        std::fs::write(d.join("plain.txt"), "x").unwrap();
+        assert!(set_pinned(&d.join("plain.txt"), true).is_err(), "a file");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_damaged_run_json_is_not_pinned_and_not_rewritten() {
+        let d = dir("pin-damaged");
+        let (run, _) = new_run(&d.join("runs"), &d.join("p.jmx"), RunKind::Run, at(1)).unwrap();
+        std::fs::write(run.join(META_FILE), b"{ not json").unwrap();
+        assert!(set_pinned(&run, true).is_err());
+        assert_eq!(std::fs::read(run.join(META_FILE)).unwrap(), b"{ not json");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn the_limit_never_removes_a_pinned_run_and_pinned_runs_do_not_count_towards_it() {
+        let d = dir("pin-prune");
+        let plan = d.join("p.jmx");
+        let root = d.join("runs");
+        let mut dirs = Vec::new();
+        for s in 1..=6 {
+            let (run, mut meta) = new_run(&root, &plan, RunKind::Run, at(s)).unwrap();
+            meta.outcome = Outcome::Finished;
+            write_meta(&run, &meta).unwrap();
+            dirs.push(run);
+        }
+        set_pinned(&dirs[0], true).unwrap(); // the oldest
+        set_pinned(&dirs[1], true).unwrap();
+        let removed = prune(&root, &plan, 2);
+        assert_eq!(removed.len(), 2, "6 runs, 2 pinned, 2 kept: two of the four others go: {removed:?}");
+        assert!(dirs[0].is_dir() && dirs[1].is_dir(), "pinned runs stay");
+        assert!(dirs[4].is_dir() && dirs[5].is_dir(), "the newest two others stay");
+        assert!(!dirs[2].exists() && !dirs[3].exists());
+        assert_eq!(list_runs(&root, Some(&plan)).len(), 4);
+        // Unpinned, the old runs are ordinary again.
+        set_pinned(&dirs[0], false).unwrap();
+        assert_eq!(prune(&root, &plan, 2).len(), 1, "the unpinned oldest one goes, the pinned one stays");
+        assert!(!dirs[0].exists() && dirs[1].is_dir());
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_limit_of_one_still_keeps_every_pinned_run() {
+        let d = dir("pin-limit-one");
+        let plan = d.join("p.jmx");
+        let root = d.join("runs");
+        let mut all = Vec::new();
+        for s in 1..=4 {
+            let (run, mut meta) = new_run(&root, &plan, RunKind::Run, at(s)).unwrap();
+            meta.outcome = Outcome::Finished;
+            write_meta(&run, &meta).unwrap();
+            set_pinned(&run, true).unwrap();
+            all.push(run);
+        }
+        assert!(prune(&root, &plan, 1).is_empty());
+        assert!(all.iter().all(|r| r.is_dir()));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn clearing_the_runs_folder_keeps_pinned_runs_and_everything_that_is_not_a_run() {
+        let d = dir("pin-clear");
+        let root = d.join("runs");
+        let plan = d.join("p.jmx");
+        let (a, _) = new_run(&root, &plan, RunKind::Run, at(1)).unwrap();
+        let (b, _) = new_run(&root, &plan, RunKind::Run, at(2)).unwrap();
+        let (c, _) = new_run(&root, &plan, RunKind::Run, at(3)).unwrap();
+        set_pinned(&b, true).unwrap();
+        std::fs::create_dir_all(root.join("notes")).unwrap();
+        std::fs::write(root.join("keep.txt"), "x").unwrap();
+        assert_eq!(pinned_count(&root), 1);
+        assert_eq!(clear_root(&root).unwrap(), 2, "two unpinned runs removed");
+        assert!(!a.exists() && !c.exists());
+        assert!(b.is_dir(), "the pinned run stays");
+        assert!(root.join("notes").is_dir() && root.join("keep.txt").is_file());
+        assert_eq!(clear_root(&root).unwrap(), 0, "nothing more to remove");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_pinned_run_that_never_ended_is_still_kept_after_a_day() {
+        let d = dir("pin-stale");
+        let plan = d.join("p.jmx");
+        let root = d.join("runs");
+        let (old, meta) = new_run(&root, &plan, RunKind::Run, at(1)).unwrap();
+        set_pinned(&old, true).unwrap();
+        let (_new, _) = new_run(&root, &plan, RunKind::Run, at(2)).unwrap();
+        let removed = prune_at(&root, &plan, 1, meta.started_ms + STALE_RUNNING_MS * 3);
+        assert!(removed.is_empty() && old.is_dir());
         let _ = std::fs::remove_dir_all(d);
     }
 }

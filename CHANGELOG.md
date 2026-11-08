@@ -4,6 +4,9 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+- Pin a run: the History tab has a Pin button on every run. A pinned run shows "Pinned" and is never removed by the limit on how many runs are kept or by clearing the shared runs folder (pinned runs do not count towards the limit). Unpin makes it an ordinary run again. Runs from earlier versions are not pinned.
+
 ### Changed
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 

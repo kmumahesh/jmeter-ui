@@ -429,7 +429,21 @@ impl Shell {
         }
         let Some(e) = self.history.iter().find(|e| e.dir == dir) else { return };
         let name = e.dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        self.dialog = Some(Dialog::DeleteRun { dir: dir.to_path_buf(), name });
+        let pinned = e.meta.pinned;
+        self.dialog = Some(Dialog::DeleteRun { dir: dir.to_path_buf(), name, pinned });
+        cx.notify();
+    }
+
+    /// Pin a run so it is never removed by the limit on how many runs are kept or by clearing the runs folder, or unpin it.
+    pub fn toggle_pin_run(&mut self, dir: &Path, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(pin) = self.history.iter().find(|e| e.dir == dir).map(|e| !e.meta.pinned) else { return };
+        match runs::set_pinned(dir, pin) {
+            Ok(_) => {
+                self.refresh_history();
+                self.notify(if pin { "Run pinned. It is kept until you unpin it." } else { "Run unpinned. It can be removed like any other run." }, Severity::Info, window, cx);
+            }
+            Err(e) => self.notify(e, Severity::Error, window, cx),
+        }
         cx.notify();
     }
 
@@ -457,12 +471,15 @@ impl Shell {
             self.notify("Only a runs folder chosen in Settings can be cleared", Severity::Info, window, cx);
             return;
         };
-        let count = runs::list_runs(&root, None).len();
+        let all = runs::list_runs(&root, None);
+        let kept = all.iter().filter(|r| r.meta.pinned).count();
+        let count = all.len() - kept;
         if count == 0 {
-            self.notify(format!("{} has no runs to clear", root.display()), Severity::Info, window, cx);
+            let why = if kept == 0 { "has no runs to clear".to_string() } else { format!("has only pinned runs ({kept}), which are kept") };
+            self.notify(format!("{} {why}", root.display()), Severity::Info, window, cx);
             return;
         }
-        self.dialog = Some(Dialog::ClearRuns { root, count });
+        self.dialog = Some(Dialog::ClearRuns { root, count, kept });
         cx.notify();
     }
 
