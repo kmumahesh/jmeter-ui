@@ -208,7 +208,7 @@ impl Action {
             Action::PasteElement => "Paste Element",
             Action::SaveSelectionAs => "Save Selection As…",
             Action::MergePlan => "Merge Plan…",
-            Action::NewPlan => "New Plan…",
+            Action::NewPlan => "New Plan",
             Action::OpenPlan => "Open Plan…",
             Action::SavePlan => "Save Plan",
             Action::SavePlanAs => "Save Plan As…",

@@ -31,7 +31,7 @@ The right-click menu can only be tested in the real window (section 3), because 
 - Real-window checks: `cargo build -p jmeter-ui`, then `powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1`
 - Everything at once, with the time each part took written to `docs/TEST-TIMINGS.md`: `powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1` (add `-Smoke` to include the real-window script, which takes over the mouse and keyboard).
 - This list is rebuilt from the test sources with `python tools/gen-test-doc.py`; the summary above is written by hand.
-- On GitHub (`.github/workflows/ci.yml`), every push and pull request installs Java 17 and JMeter 5.6.3 (download checked against Apache's SHA-512) so the tests that run the real JMeter are not skipped. The real-window checks run in their own workflow, `.github/workflows/ui-smoke.yml` (every pull request and push to `main`): the runner screen is raised to 1920x1080 first, and all 83 checks pass there in about 6.5 minutes.
+- On GitHub (`.github/workflows/ci.yml`), every push and pull request installs Java 17 and JMeter 5.6.3 (download checked against Apache's SHA-512) so the tests that run the real JMeter are not skipped. The real-window checks run in their own workflow, `.github/workflows/ui-smoke.yml` (every pull request and push to `main`): the runner screen is raised to 1920x1080 first, and all 84 checks pass there in about 6.5 minutes.
 - Linux and macOS: the same automated tests run there in CI (`Build and test (ubuntu-latest)`, `Build and test (macos-latest)`), including the ones that start the real JMeter. Text shortcuts in the tests use `secondary(...)` in `crates/app/tests/common/mod.rs`, which turns Ctrl into Cmd on macOS. The check that JMeter is ended when the app crashes asserts on Windows only.
 - Fuzzing (Linux, nightly compiler, about a minute per target): `cargo install cargo-fuzz`, then `cargo +nightly fuzz run jmx_parse` (also `jmx_text`, `plan_load`, `results_jtl`, `curl_import`, `paste_text`, `details_file`, `har_import`) from the repo root; it runs on GitHub for changes to the readers. Test coverage: `.github/workflows/coverage.yml` (every push to `main`) keeps a summary, an lcov file and an HTML report.
 - The rule that skips the build and tests for documentation-only changes on GitHub: `bash tests/ci/classify-test.sh`.
@@ -1259,31 +1259,32 @@ These start the built app, drive it with real mouse and keyboard input, and read
 
 ### 12. New plan
 
-967. Ctrl+N asks which kind of plan to start. — `smoke.ps1`, section "12. New plan"
+967. Ctrl+N makes an empty plan at once, with no question. — `smoke.ps1`, section "12. New plan"
+968. The new plan is a file next to the open plan. — `smoke.ps1`, section "12. New plan"
 
 ### 13. Text area for a script
 
-968. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
-969. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
-970. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
-971. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
+969. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
+970. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
+971. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
+972. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
 
 ### 14. Copy and paste of elements
 
-972. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
-973. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
-974. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
-975. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
+973. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
+974. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
+975. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
+976. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
 
 ### 15. Import from cURL
 
-976. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
-977. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
+977. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
+978. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
 
 ### 16. Run properties
 
-978. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
-979. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
-980. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
+979. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
+980. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
+981. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
 
-Total scenarios listed: 980.
+Total scenarios listed: 981.
