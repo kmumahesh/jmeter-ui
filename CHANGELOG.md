@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Fixed
+- The right-click menu on a request in the left pane showed two separator lines after Disable; it shows one now. The menu rows are built in one place and a test checks every kind of element for a separator at the start, the end or two in a row.
 - Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.
 
 ## [0.1.0] - 2026-10-26
