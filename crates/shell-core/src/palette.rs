@@ -92,7 +92,7 @@ pub fn results(input: &Input, raw: &str, limit: usize) -> Vec<Ranked> {
     match mode {
         Mode::Commands => items.extend(action_items(input)),
         Mode::Elements => items.extend(element_items(input)),
-        Mode::Add => items.extend(add_items(input, query)),
+        Mode::Add => items.extend(add_items(input)),
         Mode::Everything => {
             items.extend(action_items(input));
             if query.is_empty() {
@@ -170,25 +170,18 @@ fn element_items(input: &Input) -> Vec<Item> {
         .collect()
 }
 
-/// Types that can be added under the selection. With a query, types that do not fit are listed too,
-/// marked unavailable with the reason.
-fn add_items(input: &Input, query: &str) -> Vec<Item> {
+/// Types that can be added under the selection. Types that do not fit are never listed, with or without a query: a
+/// list of things that cannot be chosen only gets in the way.
+fn add_items(input: &Input) -> Vec<Item> {
     let Some(plan) = input.plan else { return vec![] };
     let parent = input.selected.and_then(|id| plan.node(id)).or_else(|| plan.roots().first().and_then(|&r| plan.node(r)));
     let Some(parent) = parent else { return vec![] };
     let mut out = Vec::new();
     for t in catalog::addable() {
-        let fits = rules::can_add(parent.category, t.category);
-        let disabled = if !input.context.can_edit {
-            Some("Open a plan to add elements".to_string())
-        } else if !fits {
-            Some(format!("Cannot go under {} \"{}\"", parent.category.label().to_lowercase(), parent.name))
-        } else {
-            None
-        };
-        if !fits && query.is_empty() {
+        if !rules::can_add(parent.category, t.category) {
             continue;
         }
+        let disabled = if input.context.can_edit { None } else { Some("Open a plan to add elements".to_string()) };
         out.push(Item { target: Target::Add(t.clone()), title: t.label.to_string(), detail: t.category.label().to_string(), group: t.category.plural().to_string(), shortcut: None, category: Some(t.category), disabled });
     }
     out
@@ -318,18 +311,36 @@ mod tests {
     }
 
     #[test]
-    fn add_mode_with_a_query_also_lists_what_does_not_fit_as_unavailable() {
+    fn add_mode_never_lists_what_does_not_fit_even_when_the_query_asks_for_it() {
         let p = plan();
         let sampler = p.find_by_name("POST /api/login").unwrap();
         let r = results(&input(Some(&p), Some(sampler), &[], ctx()), "+loop", 20);
-        let lc = r.iter().find(|r| r.item.title == "Loop Controller").expect("listed");
-        let why = lc.item.disabled.as_deref().unwrap();
-        assert!(why.contains("Cannot go under") && why.contains("POST /api/login"), "{why}");
-        // Available matches come before unavailable ones.
-        let first_dis = r.iter().position(|r| r.item.disabled.is_some());
-        if let Some(i) = first_dis {
-            assert!(r[i..].iter().all(|r| r.item.disabled.is_some()));
+        assert!(!titles(&r).contains(&"Loop Controller"), "a controller cannot go under a request: {:?}", titles(&r));
+        assert!(r.iter().all(|x| x.item.disabled.is_none()), "everything listed can be chosen");
+    }
+
+    #[test]
+    fn add_mode_lists_only_choosable_types_for_every_kind_of_selection_and_every_query() {
+        let p = plan();
+        let ids: Vec<_> = p.iter().map(|n| n.id).collect();
+        for id in ids {
+            let parent = p.node(id).unwrap();
+            for q in ["+", "+h", "+loop", "+timer", "+zzzz", "+ ", "+assert", "+http"] {
+                let r = results(&input(Some(&p), Some(id), &[], ctx()), q, 500);
+                for x in &r {
+                    let c = x.item.category.unwrap();
+                    assert!(rules::can_add(parent.category, c), "{q}: {:?} cannot go under {:?} \"{}\"", x.item.title, parent.category, parent.name);
+                    assert!(x.item.disabled.is_none(), "{q}: {:?} is listed but cannot be chosen", x.item.title);
+                }
+            }
         }
+    }
+
+    #[test]
+    fn add_mode_has_nothing_to_list_under_an_element_that_takes_no_children() {
+        let p = plan();
+        let token = p.find_by_name("token").unwrap();
+        assert!(results(&input(Some(&p), Some(token), &[], ctx()), "+", 200).is_empty());
     }
 
     #[test]

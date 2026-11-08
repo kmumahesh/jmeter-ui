@@ -5,6 +5,9 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Fixed
+- The command palette's add list (`+`, Edit > Add) now shows only the elements that can be added where you are. Elements that cannot go there are no longer listed after the ones that can, with or without typing a name. When nothing can be added, it says to select a Thread Group or a controller first.
+
+### Fixed
 - Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.
 
 ## [0.1.0] - 2026-10-26
