@@ -87,9 +87,9 @@ pub enum Dialog {
     /// The place for run files cannot be used.
     RunsPlace { message: String, kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId> },
     /// Empty the shared runs folder?
-    ClearRuns { root: PathBuf, count: usize },
+    ClearRuns { root: PathBuf, count: usize, kept: usize },
     /// Remove one stored run?
-    DeleteRun { dir: PathBuf, name: String },
+    DeleteRun { dir: PathBuf, name: String, pinned: bool },
     /// Quitting while a run is going.
     QuitRunning,
 }
@@ -1028,8 +1028,8 @@ impl Shell {
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
                 Dialog::Scripts { text, .. } => json!({ "kind": "scripts", "text": text }),
                 Dialog::RunsPlace { message, .. } => json!({ "kind": "runs_place", "message": message }),
-                Dialog::ClearRuns { root, count } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count }),
-                Dialog::DeleteRun { name, .. } => json!({ "kind": "delete_run", "name": name }),
+                Dialog::ClearRuns { root, count, kept } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count, "pinned_kept": kept }),
+                Dialog::DeleteRun { name, pinned, .. } => json!({ "kind": "delete_run", "name": name, "pinned": pinned }),
                 Dialog::QuitRunning => json!({ "kind": "quit_running" }),
             }),
             "run": self.run.as_ref().map(|r| {
@@ -1074,7 +1074,7 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
-            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
+            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,
