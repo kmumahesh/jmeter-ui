@@ -8,6 +8,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
+- Menus are easier to read. The items under File, Edit and the other menus, and the right-click menu in the left pane, are now drawn at the same size as the menu titles (they were about 20% smaller), with roomier rows, and the dimmed text of unavailable items has more contrast.
 - Import from HAR File no longer needs a plan to be open or a Thread Group to be selected. With no plan open it makes a new plan named after the HAR file and opens it; a plan that has no Thread Group gets one. A file that has nothing to import leaves no plan behind.
 - Open and Save As on Windows now show "JMeter file (*.jmx)" by default and list only `.jmx` files, with "All files" as the second choice. Save As adds `.jmx` to a name without an extension. Import from HAR File, Open Results File, Load properties and the data file chooser filter the same way. Other systems keep their own dialogs.
 - The right-click menu on a request in the left pane showed two separator lines after Disable; it shows one now. The menu rows are built in one place and a test checks every kind of element for a separator at the start, the end or two in a row.
