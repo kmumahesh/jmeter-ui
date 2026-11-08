@@ -2570,11 +2570,13 @@ dependencies = [
  "jvm-runtime",
  "menu",
  "plan-core",
+ "raw-window-handle",
  "rust-embed",
  "serde_json",
  "shell-core",
  "theme",
  "ui",
+ "windows 0.62.2",
 ]
 
 [[package]]

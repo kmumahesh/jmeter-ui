@@ -3,7 +3,7 @@
 
 use crate::running::RunSession;
 use crate::shell::{Severity, Shell};
-use gpui::{Context, PathPromptOptions, Window};
+use gpui::{Context, Window};
 use jvm_runtime::live::LiveStats;
 use jvm_runtime::report;
 use std::io::Read;
@@ -38,11 +38,9 @@ pub fn refuse(path: &Path) -> Option<String> {
 impl Shell {
     /// Ask for a results file and look at it.
     pub fn open_results_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Open JMeter Results File".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Results, "Open JMeter Results File");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next()
-            {
+            if let Some(path) = pick.await {
                 this.update_in(cx, |this, window, cx| this.open_results_path(&path, window, cx)).ok();
             }
         })
