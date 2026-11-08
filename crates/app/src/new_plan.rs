@@ -1,41 +1,27 @@
-//! Starting a new plan: choose a starter, choose where to save it, and the plan opens ready to edit and run.
+//! Starting a new plan: File > New Plan makes an empty plan in a file and opens it, ready to edit and run.
 
-use crate::shell::{Dialog, Severity, Shell};
+use crate::shell::{Severity, Shell};
 use gpui::{Context, Window};
 use plan_core::files;
 use plan_core::starters::{self, Starter};
 use std::path::{Path, PathBuf};
 
 impl Shell {
-    /// The starter was chosen in the New Plan question: ask where to save it.
-    pub fn dialog_new_plan(&mut self, starter: Starter, window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.dialog, Some(Dialog::NewPlan)) {
-            return;
-        }
-        self.dialog = None;
-        let dir = self.new_plan_folder();
-        let rx = cx.prompt_for_new_path(&dir, Some(&format!("{}.jmx", starter.file_stem())));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(path))) = rx.await {
-                this.update_in(cx, |this, window, cx| {
-                    this.create_plan_at(starter, &path, window, cx);
-                })
-                .ok();
-            }
-        })
-        .detach();
-        cx.notify();
+    /// File > New Plan: make an empty plan in a file of its own and open it, with no question. The file is named
+    /// "New plan.jmx" (then "New plan 2.jmx" and so on) in the folder of the plan being edited, else the folder of the
+    /// last plan opened, else the user's home folder. Save As moves it where the user wants.
+    pub fn new_empty_plan(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let path = unique_new_plan_path(&self.new_plan_folder());
+        self.create_plan_at(Starter::Empty, &path, window, cx)
     }
 
-    /// Where the save question starts: next to the plan being edited, else next to the last plan opened, else the
-    /// user's home folder.
+    /// Where a plan made without a file question starts: next to the plan being edited, else next to the last plan opened,
+    /// else the user's home folder.
     pub fn new_plan_folder(&self) -> PathBuf {
-        let beside = |p: &Path| p.parent().filter(|d| d.is_dir()).map(Path::to_path_buf);
-        self.plan()
-            .and_then(|lp| beside(&lp.path))
-            .or_else(|| self.settings.recent_files.first().and_then(|p| beside(Path::new(p))))
-            .or_else(|| std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from).filter(|d| d.is_dir()))
-            .unwrap_or_else(std::env::temp_dir)
+        let beside_plan = self.plan().and_then(|lp| lp.path.parent().map(Path::to_path_buf));
+        let recent = self.settings.recent_files.first().map(PathBuf::from);
+        let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
+        pick_new_plan_folder(beside_plan, recent, home)
     }
 
     /// Write a new plan of the given kind to `path` (`.jmx` is added when there is no extension) and open it.
@@ -68,4 +54,24 @@ impl Shell {
         }
         self.open_plan_path(&path, window, cx)
     }
+}
+
+/// The folder a new plan is made in: next to the plan being edited, else next to the last plan opened, else the user's
+/// home folder, else the temporary folder. Only folders that exist are used; none is made.
+pub fn pick_new_plan_folder(beside_plan: Option<PathBuf>, recent: Option<PathBuf>, home: Option<PathBuf>) -> PathBuf {
+    let existing = |p: Option<PathBuf>| p.filter(|d| d.is_dir());
+    existing(beside_plan)
+        .or_else(|| existing(recent.and_then(|p| p.parent().map(Path::to_path_buf))))
+        .or_else(|| existing(home))
+        .unwrap_or_else(std::env::temp_dir)
+}
+
+/// "New plan.jmx" in `dir`, or "New plan 2.jmx", "New plan 3.jmx"... for the first name nothing uses, so a new plan never
+/// replaces a file.
+pub fn unique_new_plan_path(dir: &Path) -> PathBuf {
+    let first = dir.join("New plan.jmx");
+    if !first.exists() {
+        return first;
+    }
+    (2..10_000).map(|n| dir.join(format!("New plan {n}.jmx"))).find(|p| !p.exists()).unwrap_or_else(|| dir.join(format!("New plan {}.jmx", std::process::id())))
 }

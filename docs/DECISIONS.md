@@ -229,6 +229,8 @@ Added with the engineering-practice work, to test the two places that read files
 3. **The name comes from the file.** The Test Plan is named after the file name, cleaned: control characters are dropped, the length is limited and an empty name becomes "Test Plan". Names are written as text, never as markup.
 4. **No surprises on disk.** The app never makes folders for the user, refuses a folder where a file is expected, refuses a name that is open in another tab, and replaces an existing file only after the system's own save question (which is where the user confirms it).
 
+5. **New Plan makes an empty plan at once (changed 2026-11-08).** File > New Plan, Ctrl+N and the welcome button no longer ask which starter or where to save. They write `New plan.jmx` (then `New plan 2.jmx`, ...) in the folder of the plan being edited, else the folder of the last plan opened, else the home folder, and open it. The file is still real from the start, so recovery copies, runs and the rest work as before, and no folder is ever made. The starters other than the empty plan are no longer offered in the app. Save As moves the plan where the user wants. A plan that is not saved to a file of its own is still not supported.
+
 ## Text areas for bodies and scripts (2026-10-25)
 1. **One editing engine.** Text fields and text areas share the same editing rules; a text area is the same buffer in "keep the lines" mode, so undo, word moves, selection and the clipboard behave the same everywhere. Editing is tested without a window; the window part only draws and listens.
 2. **Draw only what shows.** A text area draws the visible lines, coloured one line at a time, so a body of a hundred thousand lines is as quick as a short one. Lines over 20,000 characters are drawn plain.

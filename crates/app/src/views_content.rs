@@ -47,7 +47,7 @@ impl Shell {
                 div()
                     .flex()
                     .gap(px(8.))
-                    .child(div().debug_selector(|| "welcome-new".to_string()).child(Button::new("welcome-new", "New Plan\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx)))))
+                    .child(div().debug_selector(|| "welcome-new".to_string()).child(Button::new("welcome-new", "New Plan").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx)))))
                     .child(div().debug_selector(|| "welcome-open".to_string()).child(Button::new("welcome-open", "Open Plan\u{2026}").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenPlan, window, cx))))),
             )
             .when(self.runtime_checked, |d| d.child(self.setup_card(cx)))
@@ -673,11 +673,6 @@ impl Shell {
                     vec![("dialog-save", "Save", true), ("dialog-discard", "Don't Save", false), ("dialog-cancel", "Cancel", false)],
                 )
             }
-            Some(Dialog::NewPlan) => (
-                "New plan".to_string(),
-                "Choose a starting point. You pick where to save it next.".to_string(),
-                vec![("dialog-cancel", "Cancel", false)],
-            ),
             Some(Dialog::Curl { .. }) => (
                 "Import from cURL".to_string(),
                 "Paste one or more curl commands, for example from \"Copy as cURL\" in a browser's developer tools. Each becomes an HTTP request; its headers go in an HTTP Header Manager under it.".to_string(),
@@ -758,26 +753,6 @@ impl Shell {
             Some(Dialog::RunProps { area, error }) => Some((area.clone(), error.clone())),
             _ => None,
         };
-        // The New Plan question lists every template with what it holds.
-        let templates = matches!(self.dialog, Some(Dialog::NewPlan)).then(|| {
-            plan_core::starters::Starter::ALL
-                .iter()
-                .map(|s| {
-                    let (id, s) = (s.button_id(), *s);
-                    div()
-                        .flex()
-                        .items_start()
-                        .gap(px(12.))
-                        .child(div().debug_selector(move || id.to_string()).w(px(250.)).flex_none().child(Button::new(id, s.label()).style(if s == plan_core::starters::Starter::Api { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle }).size(ButtonSize::Compact).on_click(cx.listener(move |this, _, window, cx| {
-                            this.dialog_new_plan(s, window, cx);
-                            if this.dialog.is_none() {
-                                window.focus(&this.focus, cx);
-                            }
-                        }))))
-                        .child(div().flex_1().min_w_0().pt(px(3.)).text_size(px(12.)).text_color(p.muted).child(format!("{}.", s.description())))
-                })
-                .collect::<Vec<_>>()
-        });
         let think = match &self.dialog {
             Some(Dialog::ThinkTimes { min, max, error, .. }) => Some((min.clone(), max.clone(), error.clone())),
             _ => None,
@@ -803,11 +778,6 @@ impl Shell {
                 "dialog-props-save" => this.dialog_props_save(window, cx),
                 "dialog-props-load" => this.dialog_props_load(window, cx),
                 "dialog-expr-try" => this.expression_try(window, cx),
-                other if plan_core::starters::Starter::ALL.iter().any(|s| s.button_id() == other) => {
-                    if let Some(s) = plan_core::starters::Starter::ALL.iter().find(|s| s.button_id() == other) {
-                        this.dialog_new_plan(*s, window, cx)
-                    }
-                }
                 "dialog-recover" => this.resolve_recovery(true, window, cx),
                 "dialog-discard-recovery" => this.resolve_recovery(false, window, cx),
                 "dialog-save-run" => this.dialog_save_and_run(window, cx),
@@ -846,7 +816,7 @@ impl Shell {
             }))
             .child(
                 div()
-                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. } | Dialog::NewPlan)) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
+                    .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))
                     .max_w_full()
                     .p(px(22.))
                     .flex()
@@ -859,7 +829,6 @@ impl Shell {
                     .shadow_lg()
                     .child(div().text_size(px(17.)).font_weight(FontWeight::SEMIBOLD).child(title))
                     .child(div().text_color(p.muted).child(body))
-                    .when_some(templates, |d, rows| d.child(div().id("templates").flex().flex_col().gap(px(8.)).children(rows)))
                     .when_some(think, |d, (min, max, error)| {
                         d.child(
                             div()

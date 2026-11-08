@@ -442,7 +442,7 @@ impl Shell {
                 .text_color(p.muted)
                 .text_size(px(12.5))
                 .child("No plan open")
-                .child(Button::new("sidebar-new", "New Plan\u{2026}").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx))))
+                .child(Button::new("sidebar-new", "New Plan").style(ButtonStyle::Subtle).on_click(cx.listener(|this, _, window, cx| this.perform(Action::NewPlan, window, cx))))
                 .child(Button::new("sidebar-open", "Open Plan\u{2026}").style(ButtonStyle::Tinted(ui::TintColor::Accent)).on_click(cx.listener(|this, _, window, cx| this.perform(Action::OpenPlan, window, cx))))
                 .into_any_element(),
         };

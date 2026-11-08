@@ -9,7 +9,7 @@ mod curl_import;
 mod editing;
 mod expression;
 mod har_import;
-mod new_plan;
+pub mod new_plan;
 mod requests;
 mod run_props;
 mod think_times;
