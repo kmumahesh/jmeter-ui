@@ -98,9 +98,46 @@ fn only_allowed_types_can_be_added_under_the_test_plan(cx: &mut TestAppContext) 
     app.click("tree-row-0");
     app.keys("ctrl-k");
     app.input("+http request");
-    assert!(app.palette_unavailable().contains(&"HTTP Request".to_string()), "a sampler is listed but cannot be chosen under the test plan");
+    assert!(!app.palette_titles().contains(&"HTTP Request".to_string()), "a sampler cannot go under the test plan, so it is not listed at all");
+    assert!(app.palette_unavailable().is_empty(), "nothing is listed that cannot be chosen");
     assert_eq!(app.palette_titles()[0], "HTTP Request Defaults", "what fits comes first");
-    app.keys("down enter");
+    app.keys("enter");
+}
+
+#[gpui::test]
+fn the_add_list_under_a_request_has_only_what_can_be_added_for_any_query(cx: &mut TestAppContext) {
+    let mut app = start(cx, Some(copy_of("add-list-request", WEB)), None);
+    goto(&mut app, "Home Page");
+    app.keys("ctrl-k");
+    app.input("+");
+    let all = app.palette_titles();
+    assert!(!all.is_empty());
+    assert!(app.palette_unavailable().is_empty(), "everything listed can be chosen");
+    for forbidden in ["Loop Controller", "If Controller", "Thread Group", "HTTP Request"] {
+        assert!(!all.contains(&forbidden.to_string()), "{forbidden} cannot go under a request");
+    }
+    for query in ["+loop", "+if", "+thread", "+http", "+h", "+x"] {
+        app.input(query);
+        let titles = app.palette_titles();
+        assert!(app.palette_unavailable().is_empty(), "{query}: nothing unavailable is listed");
+        for forbidden in ["Loop Controller", "If Controller", "Thread Group", "HTTP Request"] {
+            assert!(!titles.contains(&forbidden.to_string()), "{query}: {forbidden} is listed");
+        }
+    }
+    app.keys("escape");
+}
+
+#[gpui::test]
+fn the_add_list_is_empty_with_a_hint_under_an_element_that_takes_nothing(cx: &mut TestAppContext) {
+    let mut app = start(cx, Some(copy_of("add-list-empty", WEB)), None);
+    app.keys("ctrl-p");
+    app.input("Response Assertion");
+    app.keys("enter");
+    app.keys("ctrl-k");
+    app.input("+");
+    assert!(app.palette_titles().is_empty(), "{:?}", app.palette_titles());
+    assert!(app.palette_unavailable().is_empty());
+    app.keys("escape");
 }
 
 // ---- deleting, duplicating, moving, toggling ----
