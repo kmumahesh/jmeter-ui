@@ -231,6 +231,8 @@ pub struct Shell {
     pub settings_fields: Option<SettingsFields>,
     state_dump: Option<PathBuf>,
     pub(crate) _subscriptions: Vec<Subscription>,
+    /// One handle for each menu in the title bar (File, Edit, ...), to know which one is open and to open another.
+    pub(crate) menu_handles: Vec<ui::PopoverMenuHandle<ui::ContextMenu>>,
 }
 
 impl EventEmitter<DismissEvent> for Shell {}
@@ -425,6 +427,7 @@ impl Shell {
             settings_fields: None,
             state_dump: options.state_dump.clone(),
             _subscriptions: Vec::new(),
+            menu_handles: (0..crate::views::MENU_TITLES.len()).map(|_| Default::default()).collect(),
         };
         // Follow the system colour mode while the choice is "system".
         let sub = window.observe_window_appearance(|_, cx| theme::system_appearance_changed(cx));
@@ -1074,6 +1077,8 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+            "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
+            "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),

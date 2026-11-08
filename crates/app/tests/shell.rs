@@ -786,6 +786,68 @@ fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+// ---- opening another menu by moving over its title ----
+
+fn hover(app: &mut App, selector: &'static str) {
+    app.settle();
+    let b = app.cx.debug_bounds(selector).unwrap_or_else(|| panic!("no element with selector {selector}"));
+    app.cx.simulate_mouse_move(b.center(), None, Modifiers::default());
+    app.cx.run_until_parked();
+    app.settle();
+}
+
+fn open_menu(app: &mut App) -> Option<String> {
+    app.state()["open_menu"].as_str().map(str::to_string)
+}
+
+#[gpui::test]
+fn moving_over_a_menu_title_opens_nothing_while_no_menu_is_open(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    for title in ["menu-title-File", "menu-title-Edit", "menu-title-Help"] {
+        hover(&mut app, title);
+        assert_eq!(open_menu(&mut app), None, "{title}: a menu opens by a click only");
+    }
+}
+
+#[gpui::test]
+fn once_a_menu_is_open_moving_over_another_title_opens_that_one(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-File");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"));
+    hover(&mut app, "menu-title-Edit");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Edit"), "the open menu follows the pointer");
+    hover(&mut app, "menu-title-Help");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Help"));
+    hover(&mut app, "menu-title-File");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"), "and back again");
+}
+
+#[gpui::test]
+fn only_one_menu_is_open_at_a_time_and_moving_over_the_open_one_changes_nothing(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-View");
+    hover(&mut app, "menu-title-Tools");
+    hover(&mut app, "menu-title-Tools");
+    hover(&mut app, "menu-title-Tools");
+    let open = app.state()["open_menu"].clone();
+    assert_eq!(open, "Tools");
+    assert_eq!(app.state()["open_menu_count"], 1, "never two menus at once");
+}
+
+#[gpui::test]
+fn a_click_on_the_title_of_a_menu_opened_by_moving_over_it_closes_it_and_then_hovering_opens_nothing(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-File");
+    hover(&mut app, "menu-title-Run");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Run"));
+    app.click("menu-title-Run");
+    assert_eq!(open_menu(&mut app), None, "a click on the open menu's title closes it");
+    hover(&mut app, "menu-title-Edit");
+    assert_eq!(open_menu(&mut app), None, "with every menu closed, moving over a title opens nothing again");
+    app.click("menu-title-Edit");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Edit"));
+}
+
 // ---- one size scale for the menu bar, the menus and the command palette ----
 
 #[gpui::test]
