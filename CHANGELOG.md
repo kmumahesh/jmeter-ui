@@ -8,6 +8,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
+- The command palette's add list (`+`, Edit > Add) now shows only the elements that can be added where you are. Elements that cannot go there are no longer listed after the ones that can, with or without typing a name. When nothing can be added, it says to select a Thread Group or a controller first.
 - Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.
 
 ## [0.1.0] - 2026-10-26
