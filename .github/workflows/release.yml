@@ -54,6 +54,10 @@ jobs:
       - name: Build
         run: cargo build --release --locked -p jmeter-ui
 
+      - name: Check the program opens no terminal window
+        shell: pwsh
+        run: ./tools/check-subsystem.ps1 -Exe target\release\jmeter-ui.exe
+
       - name: Make the package
         shell: pwsh
         run: |
