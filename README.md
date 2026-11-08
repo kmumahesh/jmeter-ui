@@ -59,7 +59,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
 | Compare two runs (History tab: *Compare* on the baseline, then on the run to check): each request side by side with its average, 95th percentile, errors and rate, how much each changed, and a verdict (worse, better, same, new, gone) with the worst first; copy as CSV. A change counts only when it is large in share and in milliseconds | ✅ |
 | Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. It works with no plan open (a new plan named after the file is made and opened) and with a plan that has no Thread Group (one is added). Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
-| First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself, and a Getting started page comes in the download | ✅ |
+| First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, Java and an unpacked JMeter are found by themselves in the usual places (see "Where the app looks for Java and JMeter"), and a Getting started page comes in the download | ✅ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
 | Run properties (Run > Run Properties, Ctrl+Shift+J): `name=value` lines kept for each plan and given to every run, check and single request, so the plan can read them with `${__P(name)}`; they can be loaded from a `.properties` file; the run header names them without showing values | ✅ |
@@ -83,6 +83,27 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Telemetry and crash reporting (opt-in, planned for a later release) | ⬜ |
 | Keyboard shortcut editor, accessibility pass, installer | ⬜ |
 | Close the gaps listed under Platform support (Linux and macOS) | ⬜ |
+
+## Where the app looks for Java and JMeter
+
+The app does not include Java or Apache JMeter. It needs both to run, validate or send a plan, and looks for them when it starts. You can open and edit plans without them.
+
+**Java** (a Java runtime of version 17 or newer is enough; you do not need the full JDK). The first of these that works is used:
+
+1. The `java` program chosen in Settings.
+2. The folder named by the `JAVA_HOME` environment variable (its `bin` folder).
+3. Your `PATH`.
+
+Java that is installed somewhere else, and is not on `PATH`, is not found by itself: choose it in Settings.
+
+**Apache JMeter** (the binary `.zip` from [jmeter.apache.org](https://jmeter.apache.org/download_jmeter.cgi), unpacked). If you have not chosen a JMeter folder in Settings, the app uses:
+
+1. The folder named by the `JMETER_HOME` environment variable, if it holds `bin/ApacheJMeter.jar`.
+2. A folder called `apache-jmeter-<version>` placed directly inside one of these places. If it finds more than one, it uses the newest version.
+   - **Windows:** your Downloads, Desktop, Documents and `tools` folders, your user folder, and the top of the drives `C:` and `D:`, plus `C:\tools`, `D:\tools`, `C:\Program Files` and `C:\Program Files (x86)`.
+   - **Linux and macOS:** the same folders in your home folder, plus `/opt`, `/usr/local`, `/usr/share` and `/Applications`.
+
+The app only reads folder names and checks for `bin/ApacheJMeter.jar` while looking. A folder you choose in Settings is never replaced by one it found. If a search fails, the welcome screen says which one is missing and **Open Settings** lets you choose it.
 
 ## Platform support
 
