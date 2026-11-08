@@ -29,6 +29,27 @@ function New-Run([string]$name) {
 
 function Row-Y([int]$i) { return 86 + 25 * $i }   # y of tree row i
 
+# Wait until a condition holds (checked every quarter of a second) instead of guessing how long something takes.
+function Wait-Until([scriptblock]$Condition, [int]$Seconds = 8) {
+    $end = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $end) { if (& $Condition) { return $true }; Start-Sleep -Milliseconds 250 }
+    return [bool](& $Condition)
+}
+
+# Open a plan through the Open dialog: press Ctrl+O, type the path, press Enter, and wait for the app to say the plan is
+# in. If it is not (the dialog was slow to appear and the keys went nowhere), close whatever is open and try again.
+function Open-Through-Dialog([string]$Path, [string]$StateFile, [scriptblock]$Loaded) {
+    for ($try = 1; $try -le 3; $try++) {
+        Send-Keys "^o"
+        Start-Sleep -Milliseconds 2500
+        Send-Keys $Path
+        Send-Keys "{ENTER}"
+        if (Wait-Until { & $Loaded (Get-State $StateFile) } 8) { return }
+        Send-Keys "{ESC}"
+        Start-Sleep -Milliseconds 800
+    }
+}
+
 # ---------------------------------------------------------------------------------------------
 Write-Host "1. Open a plan, select by mouse, navigate by keyboard"
 $r = New-Run "tree"
@@ -157,6 +178,7 @@ Save-Shot $p "$($r.Dir)\settings-invalid.png"
 Send-Keys "^a"
 Send-Keys "2048"
 Click-At $p 417 558
+[void](Wait-Until { ((Get-Content $r.Settings -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json).heap_mb) -eq 2048 } 6)
 $saved = Get-Content $r.Settings -Raw | ConvertFrom-Json
 Check "a valid heap size is saved" ($saved.heap_mb -eq 2048) "heap_mb = $($saved.heap_mb)"
 Stop-Ui $p
@@ -164,19 +186,11 @@ Stop-Ui $p
 Write-Host "9. Open dialog"
 $r = New-Run "dialog"
 $p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
-Send-Keys "^o"
-Start-Sleep -Milliseconds 2500
-Send-Keys $plan
-Send-Keys "{ENTER}"
-Start-Sleep -Milliseconds 1800
+Open-Through-Dialog $plan $r.State { param($st) $st.elements -eq 23 }
 $s = Get-State $r.State
 Check "Ctrl+O opens a file dialog and loads the chosen plan" ($s.elements -eq 23) "elements = $($s.elements)"
 $second = (Resolve-Path "$PSScriptRoot\..\..\crates\plan-core\tests\fixtures\Test.jmx").Path
-Send-Keys "^o"
-Start-Sleep -Milliseconds 2500
-Send-Keys $second
-Send-Keys "{ENTER}"
-Start-Sleep -Milliseconds 1800
+Open-Through-Dialog $second $r.State { param($st) $st.tabs.Count -eq 2 }
 $s = Get-State $r.State
 Check "a second plan gets its own tab" ($s.tabs.Count -eq 2 -and $s.active_tab -eq "Test.jmx") (($s.tabs | ForEach-Object { $_.title }) -join ", ")
 Check "and the tree shows the second plan" ($s.elements -ne 23) "elements = $($s.elements)"
