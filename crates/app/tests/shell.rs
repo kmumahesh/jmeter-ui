@@ -829,21 +829,27 @@ fn two_recent_plans_with_the_same_file_name_show_their_folders(cx: &mut TestAppC
 #[gpui::test]
 fn a_recent_plan_whose_file_is_gone_is_shown_as_missing_and_is_removed_when_chosen(cx: &mut TestAppContext) {
     let d = temp_dir("recent-missing");
-    let (a, b) = (plan_file(&d, "keep.jmx"), plan_file(&d, "gone.jmx"));
-    let mut app = start(cx, None, Some(d.join("settings.json")));
-    app.open_path(&a);
-    app.open_path(&b);
-    std::fs::remove_file(&b).unwrap();
+    let (keep, gone) = (plan_file(&d, "keep.jmx"), plan_file(&d, "gone.jmx"));
+    // The list comes from an earlier session: neither plan is open now.
+    let settings_path = d.join("settings.json");
+    let mut s = Settings::default();
+    s.push_recent(&keep.display().to_string());
+    s.push_recent(&gone.display().to_string());
+    settings::save(&settings_path, &s).unwrap();
+    std::fs::remove_file(&gone).unwrap();
+    let mut app = start(cx, None, Some(settings_path));
+    assert!(app.tabs().is_empty());
     assert_eq!(recent_menu(&mut app), vec![("gone.jmx".to_string(), true), ("keep.jmx".to_string(), false)], "listed but marked");
+    // Choose it the way the menu does: with the path the list holds.
     let shell = app.shell.clone();
-    // Choose it the way the menu does: with the path the list holds (a system may spell a folder in more than one way,
-    // for example macOS temporary folders behind a link).
-    let gone = PathBuf::from(app.state()["recent_plans_menu"][0]["path"].as_str().unwrap());
-    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.open_plan_path(&gone, window, cx)));
+    let chosen = PathBuf::from(app.state()["recent_plans_menu"][0]["path"].as_str().unwrap());
+    app.cx.update(|window, cx| shell.update(cx, |s, cx| s.open_plan_path(&chosen, window, cx)));
     app.cx.run_until_parked();
     assert_eq!(recent_menu(&mut app), vec![("keep.jmx".to_string(), false)], "a plan that cannot be opened leaves the list");
     assert!(!app.state()["notice"].as_str().unwrap().is_empty());
+    assert!(app.tabs().is_empty(), "nothing was opened");
 }
+
 
 #[gpui::test]
 fn clearing_the_recent_plans_empties_the_list_and_the_settings_but_not_the_open_plans(cx: &mut TestAppContext) {
