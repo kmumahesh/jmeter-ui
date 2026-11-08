@@ -4,6 +4,9 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Fixed
+- Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.
+
 ## [0.1.0] - 2026-10-26
 
 The first test version, for performance engineers to try on Windows with HTTP and HTTPS web and API testing. Start with `docs/GETTING-STARTED.md`.

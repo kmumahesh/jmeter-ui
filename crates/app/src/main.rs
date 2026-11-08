@@ -1,3 +1,7 @@
+// A release build is a Windows window program, so starting it does not open a terminal window. A debug build keeps the console
+// for development output.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size};
 use gpui_platform::application;
 use jmeter_ui::assets::{self, Assets};
@@ -39,7 +43,43 @@ fn parse_args() -> Args {
     a
 }
 
+/// A window program has no console of its own. When it is started from a terminal, join that terminal so text for options
+/// such as `--help` still shows there. Started from the Start menu or by a double click there is no terminal and nothing
+/// happens.
+#[cfg(all(windows, not(debug_assertions)))]
+fn attach_parent_console() {
+    use std::os::windows::io::AsRawHandle;
+    unsafe extern "system" {
+        fn AttachConsole(process_id: u32) -> i32;
+        fn GetStdHandle(which: u32) -> *mut core::ffi::c_void;
+        fn SetStdHandle(which: u32, handle: *mut core::ffi::c_void) -> i32;
+    }
+    const ATTACH_PARENT_PROCESS: u32 = u32::MAX;
+    const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
+    const STD_ERROR_HANDLE: u32 = -12i32 as u32;
+    // SAFETY: plain calls to documented Windows functions with valid arguments.
+    unsafe {
+        if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
+            return;
+        }
+        // Output that was redirected to a file or a pipe keeps its handle; otherwise point it at the terminal.
+        for which in [STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+            let current = GetStdHandle(which);
+            if current.is_null() || current as isize == -1 {
+                if let Ok(console) = std::fs::OpenOptions::new().write(true).open("CONOUT$") {
+                    SetStdHandle(which, console.as_raw_handle());
+                    std::mem::forget(console);
+                }
+            }
+        }
+    }
+}
+
+#[cfg(not(all(windows, not(debug_assertions))))]
+fn attach_parent_console() {}
+
 fn main() {
+    attach_parent_console();
     let args = parse_args();
     let settings_path = args.settings.clone().unwrap_or_else(settings::default_path);
     let loaded = settings::load(&settings_path);
