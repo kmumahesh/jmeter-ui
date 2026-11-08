@@ -419,9 +419,9 @@ impl Shell {
     pub fn save_active_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(lp) = self.plan() else { return };
         let (id, dir, name) = (lp.id, lp.path.parent().map(Path::to_path_buf).unwrap_or_default(), lp.name());
-        let rx = cx.prompt_for_new_path(&dir, Some(&name));
+        let pick = crate::file_dialog::save(window, cx, crate::file_dialog::Kind::Plan, &dir, &name);
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(path))) = rx.await {
+            if let Some(path) = pick.await {
                 this.update_in(cx, |this, window, cx| this.save_plan_as_path(id, &path, window, cx)).ok();
             }
         })

@@ -158,6 +158,15 @@ struct Provider {
     buffer: Font,
 }
 
+/// The size popup menus and other pop-ups scale by. The window itself is drawn at 16 pixels to the "rem"; pop-ups are drawn at
+/// `ui_font_size` to the rem, so anything below 16 makes their text smaller than the same text in the window (the menu bar
+/// titles were 14 pixels and the items under them 11). Keep this at 16 so both read the same.
+pub const UI_FONT_SIZE: f32 = 16.;
+
+/// How opaque the text and icons of unavailable items are. Dimmer than normal text so they read as unavailable, but at
+/// least a 3 to 1 contrast against the menu surface in both themes (a test checks it).
+pub const DISABLED_ALPHA: f32 = 0.8;
+
 impl theme::ThemeSettingsProvider for Provider {
     fn ui_font<'a>(&'a self, _cx: &'a App) -> &'a Font {
         &self.ui
@@ -166,7 +175,7 @@ impl theme::ThemeSettingsProvider for Provider {
         &self.buffer
     }
     fn ui_font_size(&self, _cx: &App) -> Pixels {
-        px(13.)
+        px(UI_FONT_SIZE)
     }
     fn buffer_font_size(&self, _cx: &App) -> Pixels {
         px(12.5)
@@ -251,11 +260,11 @@ pub fn build_theme(base: &Theme, p: &Palette) -> Theme {
     c.text = p.fg;
     c.text_muted = p.muted;
     c.text_placeholder = with_alpha(p.muted, 0.8);
-    c.text_disabled = with_alpha(p.muted, 0.6);
+    c.text_disabled = with_alpha(p.muted, DISABLED_ALPHA);
     c.text_accent = p.accent;
     c.icon = p.fg;
     c.icon_muted = p.muted;
-    c.icon_disabled = with_alpha(p.muted, 0.6);
+    c.icon_disabled = with_alpha(p.muted, DISABLED_ALPHA);
     c.icon_placeholder = p.muted;
     c.icon_accent = p.accent;
     c.status_bar_background = p.accent;
@@ -302,6 +311,22 @@ pub fn build_theme(base: &Theme, p: &Palette) -> Theme {
     t
 }
 
+/// One size scale for the menu bar, the menus, the right-click menu and the command palette, in pixels. Text in pop-up menus
+/// is 0.875 rem at 16 pixels to the rem, which is `MENU_TEXT`; the palette uses the same text size so a row in the palette
+/// reads like an item in a menu, with the same kind of room around it.
+pub mod scale {
+    /// The text of the menu bar titles, the items in menus and the rows in the command palette.
+    pub const MENU_TEXT: f32 = 14.0;
+    /// The text of the command palette's search box in the title bar and of its rows.
+    pub const PALETTE_TEXT: f32 = MENU_TEXT;
+    /// The height of a row in the command palette.
+    pub const PALETTE_ROW: f32 = 30.0;
+    /// Smaller text beside a row's title (the type of an element, a file's folder).
+    pub const PALETTE_DETAIL_TEXT: f32 = 12.0;
+    /// The small group names above the rows.
+    pub const PALETTE_GROUP_TEXT: f32 = 11.0;
+}
+
 /// Convenience for views: the active Zed colours.
 pub fn colors(cx: &App) -> &theme::ThemeColors {
     cx.theme().colors()
@@ -310,6 +335,36 @@ pub fn colors(cx: &App) -> &theme::ThemeColors {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The colour of text with some transparency, as it shows on a solid surface.
+    fn over(text: Hsla, surface: Hsla) -> Hsla {
+        let (t, s) = (text.to_rgb(), surface.to_rgb());
+        let mix = |a: f32, b: f32| a * text.a + b * (1.0 - text.a);
+        gpui::Rgba { r: mix(t.r, s.r), g: mix(t.g, s.g), b: mix(t.b, s.b), a: 1.0 }.into()
+    }
+
+    #[test]
+    fn popup_menus_are_drawn_at_the_scale_of_the_window_so_items_are_as_large_as_the_menu_bar() {
+        const WINDOW_REM: f32 = 16.;
+        // Checked when the program is built: smaller pop-up text than the window's would not compile.
+        const { assert!(UI_FONT_SIZE >= WINDOW_REM) };
+        let popup = UI_FONT_SIZE * 0.875;
+        assert!(popup >= WINDOW_REM * 0.875, "pop-up text would be {popup:.1} pixels");
+    }
+
+    #[test]
+    fn menu_text_shortcuts_and_disabled_items_are_legible_on_the_menu_surface() {
+        for p in [Palette::dark(), Palette::light()] {
+            let mode = if p.dark { "dark" } else { "light" };
+            let surface = p.raise;
+            assert!(contrast(p.fg, surface) >= 7.0, "{mode}: item text {:.2}", contrast(p.fg, surface));
+            assert!(contrast(p.muted, surface) >= 4.5, "{mode}: shortcut text {:.2}", contrast(p.muted, surface));
+            let disabled = over(with_alpha(p.muted, DISABLED_ALPHA), surface);
+            assert!(contrast(disabled, surface) >= 3.0, "{mode}: a disabled item is {:.2}", contrast(disabled, surface));
+            let header = over(with_alpha(p.muted, 0.8), surface);
+            assert!(contrast(header, surface) >= 4.5 || contrast(p.muted, surface) >= 4.5, "{mode}: header text");
+        }
+    }
 
     #[test]
     fn contrast_math_matches_known_values() {

@@ -5,7 +5,7 @@ use crate::fields::TextField;
 use crate::palette_view::{Palette, PaletteEvent, Snapshot};
 use crate::theme;
 use gpui::{
-    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, PathPromptOptions, ScrollHandle, Subscription, UniformListScrollHandle,
+    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, ScrollHandle, Subscription, UniformListScrollHandle,
     Window, prelude::*,
 };
 use plan_core::{EditablePlan, Move, NodeId, Plan, TreeState};
@@ -87,9 +87,9 @@ pub enum Dialog {
     /// The place for run files cannot be used.
     RunsPlace { message: String, kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId> },
     /// Empty the shared runs folder?
-    ClearRuns { root: PathBuf, count: usize },
+    ClearRuns { root: PathBuf, count: usize, kept: usize },
     /// Remove one stored run?
-    DeleteRun { dir: PathBuf, name: String },
+    DeleteRun { dir: PathBuf, name: String, pinned: bool },
     /// Quitting while a run is going.
     QuitRunning,
 }
@@ -568,15 +568,14 @@ impl Shell {
     }
 
     pub fn open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Open JMeter Plan".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Plan, "Open JMeter Plan");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next() {
-                    this.update_in(cx, |this, window, cx| {
-                        this.open_plan_path(&path, window, cx);
-                    })
-                    .ok();
-                }
+            if let Some(path) = pick.await {
+                this.update_in(cx, |this, window, cx| {
+                    this.open_plan_path(&path, window, cx);
+                })
+                .ok();
+            }
         })
         .detach();
     }
@@ -1032,8 +1031,8 @@ impl Shell {
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
                 Dialog::Scripts { text, .. } => json!({ "kind": "scripts", "text": text }),
                 Dialog::RunsPlace { message, .. } => json!({ "kind": "runs_place", "message": message }),
-                Dialog::ClearRuns { root, count } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count }),
-                Dialog::DeleteRun { name, .. } => json!({ "kind": "delete_run", "name": name }),
+                Dialog::ClearRuns { root, count, kept } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count, "pinned_kept": kept }),
+                Dialog::DeleteRun { name, pinned, .. } => json!({ "kind": "delete_run", "name": name, "pinned": pinned }),
                 Dialog::QuitRunning => json!({ "kind": "quit_running" }),
             }),
             "run": self.run.as_ref().map(|r| {
@@ -1078,9 +1077,13 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+<<<<<<< HEAD
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
+=======
+            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
+>>>>>>> origin/main
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,
