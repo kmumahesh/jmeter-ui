@@ -19,6 +19,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Feature | Done |
 |---|:---:|
 | Open `.jmx` test plans (file dialog, command line, recent list, last session), several plans at once, one tab each | ✅ |
+| File dialogs ask for the right kind of file on Windows: Open and Save As show "JMeter file (*.jmx)" and list only those files (All files is the second choice), Save As adds `.jmx` to a name without an extension, and the HAR, results and properties dialogs filter the same way | ✅ |
 | Test plan tree with element icons and colours, expand and collapse, keyboard navigation | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
 | Command palette: commands, go to element, add element, recent plans | ✅ |

@@ -10,6 +10,7 @@ mod editing;
 mod expression;
 mod har_import;
 pub mod new_plan;
+pub mod file_dialog;
 mod requests;
 mod run_props;
 mod think_times;
