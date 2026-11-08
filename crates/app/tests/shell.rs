@@ -792,12 +792,12 @@ fn the_state_file_is_never_seen_half_written(cx: &mut TestAppContext) {
 fn palette_rows_and_the_search_box_follow_the_menu_scale(cx: &mut TestAppContext) {
     use jmeter_ui::theme::scale::{MENU_TEXT, PALETTE_ROW, PALETTE_TEXT};
     assert_eq!(PALETTE_TEXT, MENU_TEXT, "the palette reads at the size of the menus");
-    assert!(PALETTE_ROW >= MENU_TEXT * 2.0, "a row has room above and below its text");
+    const { assert!(PALETTE_ROW >= MENU_TEXT * 2.0) }; // a row has room above and below its text
     let mut app = start(cx, None, None);
     app.settle();
     let trigger = app.cx.debug_bounds("palette-trigger").expect("the search box is in the title bar");
     let trigger_height = f32::from(trigger.size.height);
-    assert!(trigger_height >= MENU_TEXT * 1.8 && trigger_height <= 38.0 - 4.0, "search box height {trigger_height} must fit the 38 pixel title bar");
+    assert!((MENU_TEXT * 1.8..=38.0 - 4.0).contains(&trigger_height), "search box height {trigger_height} must fit the 38 pixel title bar");
     app.keys("ctrl-k");
     app.settle();
     let first = app.cx.debug_bounds("palette-row-0").expect("the palette lists rows");
