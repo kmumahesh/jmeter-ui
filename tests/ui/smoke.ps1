@@ -463,11 +463,26 @@ $firstPlan = "$($r.Dir)\first.jmx"
 <hashTree/></hashTree></jmeterTestPlan>
 '@)
 $p = Start-Ui $Exe @($firstPlan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+# Ctrl+N asks where to save the new plan. Cancel first: nothing is made.
 Send-Keys "^n"
+Start-Sleep -Milliseconds 2500
+Send-Keys "{ESC}"
 Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
-Check "Ctrl+N makes an empty plan at once, with no question" ($null -eq $s.dialog -and $s.active_tab -eq "New plan.jmx" -and $s.tabs.Count -eq 2) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab)"
-Check "the new plan is a file next to the open plan" (Test-Path "$($r.Dir)\New plan.jmx") ""
+Check "cancelling the New Plan question makes no plan" ($s.tabs.Count -eq 1 -and -not (Test-Path "$($r.Dir)\New plan.jmx")) "tabs = $($s.tabs.Count)"
+# Then answer it: type a name and press Enter, as a person does.
+$named = "$($r.Dir)\Shop checks.jmx"
+for ($try = 1; $try -le 3 -and -not (Test-Path $named); $try++) {
+    Send-Keys "^n"
+    Start-Sleep -Milliseconds 2500
+    Send-Keys $named
+    Send-Keys "{ENTER}"
+    [void](Wait-Until { (Get-State $r.State).tabs.Count -eq 2 } 8)
+    if (-not (Test-Path $named)) { Send-Keys "{ESC}"; Start-Sleep -Milliseconds 800 }
+}
+$s = Get-State $r.State
+Check "Ctrl+N asks for a name, then opens an empty plan with that name, already saved" ($null -eq $s.dialog -and $s.active_tab -eq "Shop checks.jmx" -and $s.tabs.Count -eq 2 -and $s.elements -eq 1 -and $s.dirty -eq $false) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab), elements = $($s.elements)"
+Check "the new plan is a file where it was saved" (Test-Path $named) ""
 Save-Shot $p "$($r.Dir)\new-plan.png"
 Stop-Ui $p
 

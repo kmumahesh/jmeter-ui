@@ -100,7 +100,7 @@ Tests: **607 automated tests, all passing** (jmx-model 58, plan-core 157, shell-
 | Part | State |
 |---|---|
 | Branch rules | `main` protected (pull request, five required checks, signed commits, no force-push, no bypass); see `docs/DECISIONS.md` |
-| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 87 real-window checks; fuzzing and coverage when relevant |
+| Checks on every change | build, tests and clippy on Windows; build and tests on Linux and macOS (with real JMeter); advisories, licences and sources; code scanning; the 88 real-window checks; fuzzing and coverage when relevant |
 | Release | signed tag on `main` builds the package, SBOM, checksums and build provenance as a draft release (`docs/RELEASING.md`) |
 | Repository files | `SECURITY.md` (private reporting is on), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, templates, `CODEOWNERS`, pinned Rust toolchain |
 | Supply chain | actions pinned to commit hashes, tools pinned by version, JMeter download checked by checksum, Dependabot for crates and actions |

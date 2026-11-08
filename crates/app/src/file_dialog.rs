@@ -65,8 +65,39 @@ pub fn with_default_extension(path: &Path, kind: Kind) -> PathBuf {
     path
 }
 
+/// Answers that stand in for the real file question while a test runs: set it as a global, and each question takes the
+/// next answer (`None` is "cancelled"; an empty list cancels too), so no window is opened. The questions asked are kept
+/// so a test can check what was asked.
+#[derive(Default)]
+pub struct ScriptedAnswers {
+    pub answers: std::collections::VecDeque<Option<PathBuf>>,
+    pub asked: Vec<Asked>,
+}
+
+impl gpui::Global for ScriptedAnswers {}
+
+/// A question a test answered: its kind, the folder it started in (saving only) and the name it suggested.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Asked {
+    pub kind: Kind,
+    pub dir: Option<PathBuf>,
+    pub suggested: String,
+}
+
+fn scripted(cx: &mut App, asked: Asked) -> Option<Option<PathBuf>> {
+    if !cx.has_global::<ScriptedAnswers>() {
+        return None;
+    }
+    let s = cx.global_mut::<ScriptedAnswers>();
+    s.asked.push(asked);
+    Some(s.answers.pop_front().unwrap_or(None))
+}
+
 /// Ask for a file to open. The task gives the chosen file, or nothing when the question was cancelled.
 pub fn open(window: &Window, cx: &mut App, kind: Kind, title: &str) -> Task<Option<PathBuf>> {
+    if let Some(answer) = scripted(cx, Asked { kind, dir: None, suggested: String::new() }) {
+        return Task::ready(answer);
+    }
     #[cfg(windows)]
     {
         let owner = native::owner_of(window);
@@ -87,6 +118,9 @@ pub fn open(window: &Window, cx: &mut App, kind: Kind, title: &str) -> Task<Opti
 /// Ask for a file name to save to, starting in `dir` with `suggested` filled in. The task gives the chosen path (with the
 /// kind's extension added when the name has none), or nothing when the question was cancelled.
 pub fn save(window: &Window, cx: &mut App, kind: Kind, dir: &Path, suggested: &str) -> Task<Option<PathBuf>> {
+    if let Some(answer) = scripted(cx, Asked { kind, dir: Some(dir.to_path_buf()), suggested: suggested.to_string() }) {
+        return Task::ready(answer.map(|p| with_default_extension(&p, kind)));
+    }
     #[cfg(windows)]
     {
         let owner = native::owner_of(window);
