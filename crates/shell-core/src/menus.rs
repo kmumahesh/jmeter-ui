@@ -2,7 +2,6 @@
 //! checked without a window. The window turns each row into a menu entry.
 
 use crate::actions::Action;
-use std::path::Path;
 use plan_core::catalog::Category;
 use plan_core::rules;
 
@@ -63,7 +62,9 @@ pub fn recent_entries(recent: &[String], limit: usize, exists: impl Fn(&str) -> 
             let name = name_of(p);
             let twins = shown.iter().filter(|q| name_of(q).eq_ignore_ascii_case(&name)).count();
             let label = if twins > 1 {
-                let folder = Path::new(p.as_str()).parent().map(|d| d.display().to_string()).unwrap_or_default();
+                // Split on either kind of separator so a Windows path is read the same on every system.
+                let trimmed = p.trim_end_matches(['/', '\\']);
+                let folder = trimmed.rfind(['/', '\\']).map(|i| trimmed[..i].to_string()).unwrap_or_default();
                 if folder.is_empty() { name } else { format!("{name}  ({folder})") }
             } else {
                 name
