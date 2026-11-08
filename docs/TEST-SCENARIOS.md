@@ -1247,31 +1247,32 @@ These start the built app, drive it with real mouse and keyboard input, and read
 
 ### 12. New plan
 
-960. Ctrl+N asks which kind of plan to start. — `smoke.ps1`, section "12. New plan"
+960. Ctrl+N makes an empty plan at once, with no question. — `smoke.ps1`, section "12. New plan"
+961. The new plan is a file next to the open plan. — `smoke.ps1`, section "12. New plan"
 
 ### 13. Text area for a script
 
-961. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
-962. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
-963. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
-964. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
+962. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
+963. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
+964. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
+965. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
 
 ### 14. Copy and paste of elements
 
-965. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
-966. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
-967. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
-968. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
+966. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
+967. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
+968. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
+969. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
 
 ### 15. Import from cURL
 
-969. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
-970. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
+970. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
+971. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
 
 ### 16. Run properties
 
-971. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
-972. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
-973. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
+972. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
+973. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
+974. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
 
-Total scenarios listed: 973.
+Total scenarios listed: 974.
