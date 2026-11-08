@@ -8,6 +8,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 - Pin a run: the History tab has a Pin button on every run. A pinned run shows "Pinned" and is never removed by the limit on how many runs are kept or by clearing the shared runs folder (pinned runs do not count towards the limit). Unpin makes it an ordinary run again. Runs from earlier versions are not pinned.
 
 ### Changed
+- The default button in a question (Save, Add to Plan, Clear Runs and so on) is now a solid accent-coloured button with text made to be read on it, a little lighter or darker under the pointer and while pressed, so it is the obvious choice. The other buttons stay quiet.
 - Menus: once a menu is open, moving the pointer over another title in the menu bar opens that menu (File, Edit, Run, View, Tools, Help), as in other Windows programs. With no menu open, a click is still needed to open one.
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 

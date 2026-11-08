@@ -771,8 +771,7 @@ impl Shell {
             _ => None,
         };
         let buttons = buttons.into_iter().map(|(id, label, primary)| {
-            let b = Button::new(id, label).style(if primary { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle });
-            div().debug_selector(move || id.to_string()).child(b.on_click(cx.listener(move |this, _, window, cx| {
+            let click = cx.listener(move |this, _, window, cx| {
             match id {
                 "dialog-save" => this.dialog_save(window, cx),
                 "dialog-discard" => this.dialog_discard(window, cx),
@@ -799,7 +798,13 @@ impl Shell {
             if this.dialog.is_none() {
                 window.focus(&this.focus, cx);
             }
-            })))
+            });
+            let button = if primary {
+                crate::ui_util::primary_button(id, label, &p, click).into_any_element()
+            } else {
+                Button::new(id, label).style(ButtonStyle::Subtle).on_click(click).into_any_element()
+            };
+            div().debug_selector(move || id.to_string()).child(button)
         })
         .collect::<Vec<_>>();
         div()
