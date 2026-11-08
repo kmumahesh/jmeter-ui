@@ -294,7 +294,7 @@ impl Shell {
                     .border_1()
                     .border_color(p.line)
                     .text_color(p.muted)
-                    .text_size(px(12.5))
+                    .text_size(px(crate::theme::scale::PALETTE_TEXT))
                     .cursor_pointer()
                     .hover(|d| d.border_color(p.accent))
                     .on_click(cx.listener(|this, _, window, cx| this.perform(Action::CommandPalette, window, cx)))
