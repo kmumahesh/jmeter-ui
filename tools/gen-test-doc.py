@@ -56,6 +56,7 @@ areas = [
     ('forms.rs', 'Forms: boxes, numbers, drop-downs, tables, typing, hints, focus'),
     ('fields.rs', 'Text and number boxes'),
     ('runs.rs', 'Running plans: questions before a run, live numbers, stopping, run history, the runs folder, settings'),
+    ('subsystem.rs', 'Starting the app: the release program is a window program and opens no terminal window'),
 ]
 
 md = []
