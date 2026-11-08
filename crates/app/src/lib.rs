@@ -1,5 +1,8 @@
 //! The JMeter UI application.
 
+// The state shown to tests and the state file is one large `json!` object; its many keys need a deeper limit.
+#![recursion_limit = "256"]
+
 pub mod assets;
 pub mod combo;
 mod aggregate;
@@ -10,6 +13,8 @@ mod editing;
 mod expression;
 mod har_import;
 pub mod new_plan;
+mod run_bar;
+pub mod file_dialog;
 mod requests;
 mod run_props;
 mod think_times;

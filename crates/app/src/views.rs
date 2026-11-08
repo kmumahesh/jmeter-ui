@@ -122,6 +122,29 @@ impl Shell {
 
 // ---- title bar and menus ----
 
+/// The menus in the title bar, in order.
+pub(crate) const MENU_TITLES: [&str; 6] = ["File", "Edit", "Run", "View", "Tools", "Help"];
+
+impl Shell {
+    /// The pointer moved over the title of menu `i`. While another menu is open, that one closes and this one opens, as in
+    /// other Windows programs; with no menu open nothing happens, so a menu only opens by a click.
+    pub(crate) fn hover_menu(&mut self, i: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(me) = self.menu_handles.get(i).cloned() else { return };
+        let other_open = self.menu_handles.iter().enumerate().any(|(j, h)| j != i && h.is_deployed());
+        if !other_open || me.is_deployed() {
+            return;
+        }
+        for (j, h) in self.menu_handles.iter().enumerate() {
+            if j != i {
+                h.hide(cx);
+            }
+        }
+        // The menu is built from the shell's state, so it is opened once this update has finished.
+        window.defer(cx, move |window, cx| me.show(window, cx));
+        cx.notify();
+    }
+}
+
 enum MenuItem {
     Action(Action),
     Separator,
@@ -204,10 +227,13 @@ impl Shell {
             ("Help", vec![MenuItem::Action(Action::About)]),
         ];
         let shell = cx.entity();
-        let menu_buttons = menus.into_iter().map(|(label, items)| {
+        let menu_buttons = menus.into_iter().enumerate().map(|(index, (label, items))| {
+            debug_assert_eq!(label, MENU_TITLES[index]);
+            let handle = self.menu_handles[index].clone();
             let shell = shell.clone();
             let items = Rc::new(items);
-            PopoverMenu::new(label)
+            let popover = PopoverMenu::new(label)
+                .with_handle(handle)
                 .anchor(Anchor::TopLeft)
                 .menu(move |window, cx| {
                     let shell = shell.clone();
@@ -261,7 +287,16 @@ impl Shell {
                         menu
                     }))
                 })
-                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact))
+                .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact));
+            div()
+                .id(("menu-title", index))
+                .debug_selector(move || format!("menu-title-{label}"))
+                .on_hover(cx.listener(move |this, hovered: &bool, window, cx| {
+                    if *hovered {
+                        this.hover_menu(index, window, cx);
+                    }
+                }))
+                .child(popover)
         });
 
         let controls = |label: &'static str, area: WindowControlArea, hover: gpui::Hsla, id: &'static str| {
@@ -305,7 +340,7 @@ impl Shell {
                     .border_1()
                     .border_color(p.line)
                     .text_color(p.muted)
-                    .text_size(px(12.5))
+                    .text_size(px(crate::theme::scale::PALETTE_TEXT))
                     .cursor_pointer()
                     .hover(|d| d.border_color(p.accent))
                     .on_click(cx.listener(|this, _, window, cx| this.perform(Action::CommandPalette, window, cx)))
@@ -320,26 +355,57 @@ impl Shell {
                     .items_center()
                     .gap(px(4.))
                     .pr(px(10.))
-                    .child(div().debug_selector(|| "run".to_string()).child(
-                        Button::new("run", "Run")
-                            .style(ButtonStyle::Tinted(ui::TintColor::Accent))
-                            .size(ButtonSize::Compact)
-                            .disabled(!Action::RunPlan.availability(&self.context()).is_enabled())
-                            .tooltip(Tooltip::text("Run the saved plan (F5)"))
-                            .on_click(cx.listener(|this, _, window, cx| this.perform(Action::RunPlan, window, cx))),
-                    ))
-                    .child(div().debug_selector(|| "stop".to_string()).child(
-                        Button::new("stop", "Stop")
-                            .style(ButtonStyle::Subtle)
-                            .size(ButtonSize::Compact)
-                            .disabled(!Action::StopRun.availability(&self.context()).is_enabled())
-                            .tooltip(Tooltip::text("Stop the run after the current iteration (Shift+F5)"))
-                            .on_click(cx.listener(|this, _, window, cx| this.perform(Action::StopRun, window, cx))),
-                    )),
+                    .child(self.run_button(&p, cx))
+                    .child(self.stop_button(&p, cx)),
             )
             .child(controls("\u{2013}", WindowControlArea::Min, p.panel2, "win-min"))
             .child(controls("\u{25a1}", WindowControlArea::Max, p.panel2, "win-max"))
             .child(controls("\u{00d7}", WindowControlArea::Close, with_alpha(p.err, 0.8), "win-close"))
+    }
+
+    /// The state of the Run and Stop buttons: which look each has.
+    pub(crate) fn run_bar_looks(&self) -> (crate::run_bar::Look, crate::run_bar::Look) {
+        let ctx = self.context();
+        let run = crate::run_bar::run_look(Action::RunPlan.availability(&ctx).is_enabled(), self.run_in_progress());
+        let stop = crate::run_bar::stop_look(Action::StopRun.availability(&ctx).is_enabled());
+        (run, stop)
+    }
+
+    fn title_button(id: &'static str, icon_path: &'static str, label: &'static str, look: crate::run_bar::Look, action: Action, p: &theme::Palette, cx: &mut Context<Self>) -> impl IntoElement {
+        use crate::run_bar::Look;
+        let c = crate::run_bar::colors(p, look);
+        let usable = matches!(look, Look::RunReady | Look::StopReady);
+        let button = div()
+            .id(id)
+            .debug_selector(move || id.to_string())
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .h(px(26.))
+            .px(px(10.))
+            .rounded(px(4.))
+            .bg(c.fill)
+            .text_color(c.text)
+            .text_size(px(13.))
+            .font_weight(FontWeight::MEDIUM)
+            .tooltip(Tooltip::text(crate::run_bar::tooltip(look)))
+            .child(icon(icon_path, 13., c.icon))
+            .child(label);
+        if usable {
+            button.cursor_pointer().hover(move |d| d.bg(c.hover)).on_click(cx.listener(move |this, _, window, cx| this.perform(action, window, cx)))
+        } else {
+            button
+        }
+    }
+
+    fn run_button(&self, p: &theme::Palette, cx: &mut Context<Self>) -> impl IntoElement {
+        let (look, _) = self.run_bar_looks();
+        Self::title_button("run", "icons/jm/play.svg", crate::run_bar::run_label(self.run_in_progress()), look, Action::RunPlan, p, cx)
+    }
+
+    fn stop_button(&self, p: &theme::Palette, cx: &mut Context<Self>) -> impl IntoElement {
+        let (_, look) = self.run_bar_looks();
+        Self::title_button("stop", "icons/jm/stop.svg", "Stop", look, Action::StopRun, p, cx)
     }
 
     fn activity_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {

@@ -1,7 +1,7 @@
 //! Small building blocks shared by the views.
 
 use crate::theme::{self, with_alpha};
-use gpui::{AnyElement, App, Hsla, IntoElement, ParentElement, SharedString, Styled, div, px, svg};
+use gpui::{AnyElement, App, ClickEvent, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement, SharedString, StatefulInteractiveElement, Styled, Window, div, px, svg};
 
 pub fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
     svg().path(path).size(px(size)).flex_none().text_color(color)
@@ -59,6 +59,29 @@ pub fn highlight_runs(text: &str, positions: &[u32]) -> Vec<(String, bool)> {
         }
     }
     runs
+}
+
+/// The default button of a question (Save, Add to Plan, Clear Runs...): a solid accent colour with the text colour made for it,
+/// a little lighter or darker under the pointer and while pressed. Other buttons stay quiet so this one is the obvious choice.
+pub fn primary_button(id: &'static str, label: &'static str, p: &theme::Palette, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> impl IntoElement {
+    let (fill, hover, pressed, text) = (p.accent, p.accent_hover(), p.accent_pressed(), p.on_accent);
+    div()
+        .id(id)
+        .flex()
+        .items_center()
+        .justify_center()
+        .h(px(28.))
+        .px(px(16.))
+        .rounded(px(4.))
+        .bg(fill)
+        .text_color(text)
+        .text_size(px(13.))
+        .font_weight(FontWeight::MEDIUM)
+        .cursor_pointer()
+        .hover(move |d| d.bg(hover))
+        .active(move |d| d.bg(pressed))
+        .on_click(on_click)
+        .child(label)
 }
 
 #[cfg(test)]

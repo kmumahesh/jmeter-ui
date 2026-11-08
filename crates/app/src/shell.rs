@@ -5,7 +5,7 @@ use crate::fields::TextField;
 use crate::palette_view::{Palette, PaletteEvent, Snapshot};
 use crate::theme;
 use gpui::{
-    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, PathPromptOptions, ScrollHandle, Subscription, UniformListScrollHandle,
+    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, ScrollHandle, Subscription, UniformListScrollHandle,
     Window, prelude::*,
 };
 use plan_core::{EditablePlan, Move, NodeId, Plan, TreeState};
@@ -87,9 +87,9 @@ pub enum Dialog {
     /// The place for run files cannot be used.
     RunsPlace { message: String, kind: jvm_runtime::runs::RunKind, sampler: Option<NodeId> },
     /// Empty the shared runs folder?
-    ClearRuns { root: PathBuf, count: usize },
+    ClearRuns { root: PathBuf, count: usize, kept: usize },
     /// Remove one stored run?
-    DeleteRun { dir: PathBuf, name: String },
+    DeleteRun { dir: PathBuf, name: String, pinned: bool },
     /// Quitting while a run is going.
     QuitRunning,
 }
@@ -231,6 +231,8 @@ pub struct Shell {
     pub settings_fields: Option<SettingsFields>,
     state_dump: Option<PathBuf>,
     pub(crate) _subscriptions: Vec<Subscription>,
+    /// One handle for each menu in the title bar (File, Edit, ...), to know which one is open and to open another.
+    pub(crate) menu_handles: Vec<ui::PopoverMenuHandle<ui::ContextMenu>>,
 }
 
 impl EventEmitter<DismissEvent> for Shell {}
@@ -425,6 +427,7 @@ impl Shell {
             settings_fields: None,
             state_dump: options.state_dump.clone(),
             _subscriptions: Vec::new(),
+            menu_handles: (0..crate::views::MENU_TITLES.len()).map(|_| Default::default()).collect(),
         };
         // Follow the system colour mode while the choice is "system".
         let sub = window.observe_window_appearance(|_, cx| theme::system_appearance_changed(cx));
@@ -576,15 +579,14 @@ impl Shell {
     }
 
     pub fn open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: false, prompt: Some("Open JMeter Plan".into()) });
+        let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Plan, "Open JMeter Plan");
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.into_iter().next() {
-                    this.update_in(cx, |this, window, cx| {
-                        this.open_plan_path(&path, window, cx);
-                    })
-                    .ok();
-                }
+            if let Some(path) = pick.await {
+                this.update_in(cx, |this, window, cx| {
+                    this.open_plan_path(&path, window, cx);
+                })
+                .ok();
+            }
         })
         .detach();
     }
@@ -1040,8 +1042,8 @@ impl Shell {
                 Dialog::SaveToRun { kind, .. } => json!({ "kind": "save_to_run", "run": kind.label() }),
                 Dialog::Scripts { text, .. } => json!({ "kind": "scripts", "text": text }),
                 Dialog::RunsPlace { message, .. } => json!({ "kind": "runs_place", "message": message }),
-                Dialog::ClearRuns { root, count } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count }),
-                Dialog::DeleteRun { name, .. } => json!({ "kind": "delete_run", "name": name }),
+                Dialog::ClearRuns { root, count, kept } => json!({ "kind": "clear_runs", "root": root.to_string_lossy(), "count": count, "pinned_kept": kept }),
+                Dialog::DeleteRun { name, pinned, .. } => json!({ "kind": "delete_run", "name": name, "pinned": pinned }),
                 Dialog::QuitRunning => json!({ "kind": "quit_running" }),
             }),
             "run": self.run.as_ref().map(|r| {
@@ -1087,7 +1089,10 @@ impl Shell {
                 "response": self.req_response.read(cx).text(),
             }),
             "recent_plans_menu": shell_core::menus::recent_entries(&self.settings.recent_files, shell_core::settings::MAX_RECENT, |p| std::path::Path::new(p).exists()).iter().map(|e| json!({ "label": e.label, "path": e.path, "missing": e.missing })).collect::<Vec<_>>(),
-            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
+            "run_bar": { "run": format!("{:?}", self.run_bar_looks().0), "stop": format!("{:?}", self.run_bar_looks().1), "run_label": crate::run_bar::run_label(self.run_in_progress()) },
+            "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
+            "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
+            "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,

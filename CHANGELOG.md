@@ -4,11 +4,21 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+- Pin a run: the History tab has a Pin button on every run. A pinned run shows "Pinned" and is never removed by the limit on how many runs are kept or by clearing the shared runs folder (pinned runs do not count towards the limit). Unpin makes it an ordinary run again. Runs from earlier versions are not pinned.
+
 ### Changed
 - File > Recent Plans is now a submenu of the File menu instead of a list inside it. It shows the plans you opened last, newest first; two plans with the same file name show their folders; the full path appears beside the entry you point at; a plan whose file is gone is greyed as missing; and "Clear Recent Plans" at the bottom empties the list without touching any plan. With no recent plans the item is greyed.
+- Run and Stop in the title bar are easier to see: Run has a green play triangle and Stop a red square, each with its name; one that cannot be used is flat and grey and its tooltip says why; while a test is going Run says "Running". Works in the dark and the light theme.
+- The default button in a question (Save, Add to Plan, Clear Runs and so on) is now a solid accent-coloured button with text made to be read on it, a little lighter or darker under the pointer and while pressed, so it is the obvious choice. The other buttons stay quiet.
+- Menus: once a menu is open, moving the pointer over another title in the menu bar opens that menu (File, Edit, Run, View, Tools, Help), as in other Windows programs. With no menu open, a click is still needed to open one.
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
+- The command palette and the search box in the title bar now use the same text size as the menu bar (14 pixels instead of 12.5 to 13), with taller rows, so the palette no longer looks out of line with File, Edit and the other menus.
+- Menus are easier to read. The items under File, Edit and the other menus, and the right-click menu in the left pane, are now drawn at the same size as the menu titles (they were about 20% smaller), with roomier rows, and the dimmed text of unavailable items has more contrast.
+- Import from HAR File no longer needs a plan to be open or a Thread Group to be selected. With no plan open it makes a new plan named after the HAR file and opens it; a plan that has no Thread Group gets one. A file that has nothing to import leaves no plan behind.
+- Open and Save As on Windows now show "JMeter file (*.jmx)" by default and list only `.jmx` files, with "All files" as the second choice. Save As adds `.jmx` to a name without an extension. Import from HAR File, Open Results File, Load properties and the data file chooser filter the same way. Other systems keep their own dialogs.
 - The right-click menu on a request in the left pane showed two separator lines after Disable; it shows one now. The menu rows are built in one place and a test checks every kind of element for a separator at the start, the end or two in a row.
 - The command palette's add list (`+`, Edit > Add) now shows only the elements that can be added where you are. Elements that cannot go there are no longer listed after the ones that can, with or without typing a name. When nothing can be added, it says to select a Thread Group or a controller first.
 - Starting `jmeter-ui.exe` no longer opens a terminal window that stays open. The release program is now a Windows window program; started from a terminal it still prints to that terminal.

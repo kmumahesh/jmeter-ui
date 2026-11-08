@@ -347,10 +347,10 @@ impl Action {
         use Availability::*;
         match self {
             Action::ReloadPlan | Action::ExpandAll | Action::CollapseAll | Action::GotoElement | Action::FocusTree if !c.has_plan => Disabled("Open a plan first"),
-            Action::CopyElement | Action::CutElement | Action::PasteElement | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl | Action::ImportHar if !c.has_plan => Disabled("Open a plan first"),
+            Action::CopyElement | Action::CutElement | Action::PasteElement | Action::SaveSelectionAs | Action::MergePlan | Action::ImportCurl if !c.has_plan => Disabled("Open a plan first"),
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.has_selection => Disabled("Select an element first"),
             Action::CopyElement | Action::CutElement | Action::SaveSelectionAs if !c.selection_editable => Disabled("The Test Plan itself cannot be copied; select something inside it"),
-            Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl | Action::ImportHar if !c.can_edit => Disabled("Editing is not available"),
+            Action::CutElement | Action::PasteElement | Action::MergePlan | Action::ImportCurl if !c.can_edit => Disabled("Editing is not available"),
             Action::AddThinkTimes if !c.has_plan => Disabled("Open a plan first"),
             Action::AddThinkTimes if !c.can_edit => Disabled("Editing is not available"),
             Action::AddThinkTimes if !c.can_add_think_times => Disabled("Select a thread group, a controller or a request first"),
@@ -514,9 +514,9 @@ mod tests {
     }
 
     #[test]
-    fn a_har_file_needs_an_open_plan_that_can_be_edited() {
-        assert_eq!(Action::ImportHar.availability(&AppContext::default()), Availability::Disabled("Open a plan first"));
-        assert_eq!(Action::ImportHar.availability(&AppContext { has_plan: true, ..Default::default() }), Availability::Disabled("Editing is not available"));
+    fn a_har_file_can_be_imported_with_or_without_an_open_plan() {
+        assert!(Action::ImportHar.availability(&AppContext::default()).is_enabled(), "with no plan open, a new plan is made");
+        assert!(Action::ImportHar.availability(&AppContext { has_plan: true, ..Default::default() }).is_enabled());
         assert!(Action::ImportHar.availability(&AppContext { has_plan: true, can_edit: true, ..Default::default() }).is_enabled());
     }
 

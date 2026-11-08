@@ -65,6 +65,10 @@ Only folders that hold this app's own `run.json` are ever listed or removed. A f
 
 The History tab of the lower panel lists the runs of the open plan, newest first, with start time, kind, how it ended, length, samples, error rate, average and 95th percentile. Click a run to see its numbers and charts again (read from its `results.jtl`). "Folder" opens the run's folder in the file manager. "Remove" asks first and removes that one run.
 
+### Keeping a run (pinning)
+
+"Pin" in a run's row keeps that run: a pinned run shows "Pinned" and is never removed by the limit on how many runs are kept or by "Clear Runs Folder". Pinned runs do not count towards the limit, so with 10 kept and 2 pinned there can be 12 runs. "Unpin" makes it an ordinary run again, and the limit applies to it from then on. The pin is stored in the run's own `run.json`, so it survives restarts and moving the folder. "Remove" still removes a pinned run when you ask for it by hand, and the question says that it is pinned. The question before clearing the shared folder says how many pinned runs stay.
+
 ### Clearing the shared folder
 
 "Clear Runs Folder..." (Run menu, Settings, command palette) empties the `runs` folder chosen in Settings, after a confirmation that says how many runs it will remove. It is only available when a custom folder is chosen: the `runs` folders next to `.jmx` files are never cleared this way. It removes only run folders made by this app, never follows links out of the folder, and leaves anything else in it alone.
@@ -81,6 +85,6 @@ The History tab of the lower panel lists the runs of the open plan, newest first
 ## Not built (yet)
 
 - Running several copies of a plan at once: not wanted.
-- Pinning runs so they are never removed, and comparing two runs (planned with the results viewer).
+- Comparing two runs (planned with the results viewer).
 - Opening JMeter's HTML dashboard report (planned with the results viewer).
 - **A project concept.** Today run history belongs to each `.jmx` file (or one shared folder) and settings are global. A "project" could group several plans with their run history, data files, shared settings (JMeter and Java paths, run location, environments) and notes in one place. This is an idea for later, to be looked at after the results viewer; nothing has been designed yet.

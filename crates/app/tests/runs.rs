@@ -473,6 +473,115 @@ fn removing_one_run_asks_first_and_removes_only_that_run(cx: &mut TestAppContext
     assert_eq!(app.state()["history"].as_array().unwrap().len(), 1);
 }
 
+// ---- pinned runs ----
+
+#[gpui::test]
+fn pinning_a_run_from_the_history_tab_marks_it_stores_it_and_can_be_undone(cx: &mut TestAppContext) {
+    let s = setup("pin-history", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let old = stored_run(&root, &s.plan, 1, 5, Outcome::Finished);
+    let new = stored_run(&root, &s.plan, 2, 5, Outcome::Finished);
+    let mut app = open(cx, &s, false);
+    assert_eq!(app.state()["history"][1]["pinned"], false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    assert!(app.has("history-pin-0") && app.has("history-pin-1"), "every row has a pin button");
+    app.click("history-pin-1"); // the older one is second
+    assert_eq!(app.state()["history"][1]["pinned"], true);
+    assert_eq!(app.state()["history"][0]["pinned"], false, "only that run");
+    assert!(runs::read_meta(&old).unwrap().pinned, "stored in the run folder");
+    assert!(!runs::read_meta(&new).unwrap().pinned);
+    assert!(app.state()["notice"].as_str().unwrap().contains("pinned"));
+    app.click("history-pin-1");
+    assert_eq!(app.state()["history"][1]["pinned"], false);
+    assert!(!runs::read_meta(&old).unwrap().pinned);
+}
+
+#[gpui::test]
+fn a_pinned_run_survives_lowering_the_number_kept(cx: &mut TestAppContext) {
+    let s = setup("pin-keep", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let dirs: Vec<PathBuf> = (1..=5).map(|sec| stored_run(&root, &s.plan, sec, 3, Outcome::Finished)).collect();
+    runs::set_pinned(&dirs[0], true).unwrap(); // the oldest
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-,");
+    app.scroll_down(900.0);
+    app.type_into("settings-runs-keep", "2");
+    assert!(dirs[0].is_dir(), "the pinned oldest run is still there");
+    assert!(dirs[3].is_dir() && dirs[4].is_dir(), "the two newest others are kept");
+    assert!(!dirs[1].exists() && !dirs[2].exists(), "the unpinned older ones are removed");
+    assert_eq!(runs::list_runs(&root, Some(&s.plan)).len(), 3, "two kept plus the pinned one");
+}
+
+#[gpui::test]
+fn clearing_the_shared_folder_says_pinned_runs_are_kept_and_keeps_them(cx: &mut TestAppContext) {
+    let shared = temp_dir("pin-shared");
+    let s = setup("pin-clear", &shop_plan(1, 1, 1), None, |s| {
+        s.runs_custom = true;
+        s.runs_folder = Some(shared.to_string_lossy().into_owned());
+    });
+    let root = shared.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    let b = stored_run(&root, &s.plan, 2, 3, Outcome::Finished);
+    runs::set_pinned(&b, true).unwrap();
+    let mut app = open(cx, &s, false);
+    perform(&mut app, shell_core::actions::Action::ClearRunsFolder);
+    let st = app.state();
+    assert_eq!(st["dialog"]["kind"], "clear_runs");
+    assert_eq!(st["dialog"]["count"], 1, "only the unpinned run is counted");
+    assert_eq!(st["dialog"]["pinned_kept"], 1);
+    app.click("dialog-clear-runs");
+    assert!(!a.exists());
+    assert!(b.is_dir(), "the pinned run stays");
+}
+
+#[gpui::test]
+fn clearing_a_folder_that_holds_only_pinned_runs_says_so_and_asks_nothing(cx: &mut TestAppContext) {
+    let shared = temp_dir("pin-only");
+    let s = setup("pin-only-clear", &shop_plan(1, 1, 1), None, |s| {
+        s.runs_custom = true;
+        s.runs_folder = Some(shared.to_string_lossy().into_owned());
+    });
+    let root = shared.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    runs::set_pinned(&a, true).unwrap();
+    let mut app = open(cx, &s, false);
+    perform(&mut app, shell_core::actions::Action::ClearRunsFolder);
+    assert!(app.state()["dialog"].is_null(), "nothing to remove, so nothing is asked");
+    assert!(app.state()["notice"].as_str().unwrap().contains("only pinned runs"));
+    assert!(a.is_dir());
+}
+
+#[gpui::test]
+fn removing_a_pinned_run_by_hand_still_asks_and_says_it_is_pinned(cx: &mut TestAppContext) {
+    let s = setup("pin-remove", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    runs::set_pinned(&a, true).unwrap();
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-delete-0");
+    let st = app.state();
+    assert_eq!(st["dialog"]["kind"], "delete_run");
+    assert_eq!(st["dialog"]["pinned"], true);
+    app.click("dialog-delete-run");
+    assert!(!a.exists(), "the person asked for it by hand");
+}
+
+#[gpui::test]
+fn a_run_cannot_be_pinned_when_its_folder_is_gone(cx: &mut TestAppContext) {
+    let s = setup("pin-gone", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    std::fs::remove_dir_all(&a).unwrap();
+    app.click("history-pin-0");
+    assert!(app.state()["notice"].as_str().unwrap().contains("not a run folder"), "{}", app.state()["notice"]);
+}
+
 #[gpui::test]
 fn removing_never_touches_a_folder_that_is_not_a_run(cx: &mut TestAppContext) {
     let s = setup("delete-foreign", &shop_plan(1, 1, 1), None, |_| {});
@@ -482,7 +591,7 @@ fn removing_never_touches_a_folder_that_is_not_a_run(cx: &mut TestAppContext) {
     let mut app = open(cx, &s, false);
     let shell = app.shell.clone();
     let f = foreign.clone();
-    app.cx.update(|_, cx| shell.update(cx, |sh, _| sh.dialog = Some(jmeter_ui::shell::Dialog::DeleteRun { dir: f, name: "x".into() })));
+    app.cx.update(|_, cx| shell.update(cx, |sh, _| sh.dialog = Some(jmeter_ui::shell::Dialog::DeleteRun { dir: f, name: "x".into(), pinned: false })));
     app.settle();
     app.click("dialog-delete-run");
     assert!(foreign.join("precious.txt").exists(), "a folder without this app's run.json is not removed");
@@ -491,7 +600,7 @@ fn removing_never_touches_a_folder_that_is_not_a_run(cx: &mut TestAppContext) {
     std::fs::create_dir_all(&elsewhere).unwrap();
     runs::write_meta(&elsewhere, &runs::RunMeta::new(&s.plan, RunKind::Run, chrono::Local::now())).unwrap();
     let e = elsewhere.clone();
-    app.cx.update(|_, cx| shell.update(cx, |sh, _| sh.dialog = Some(jmeter_ui::shell::Dialog::DeleteRun { dir: e, name: "x".into() })));
+    app.cx.update(|_, cx| shell.update(cx, |sh, _| sh.dialog = Some(jmeter_ui::shell::Dialog::DeleteRun { dir: e, name: "x".into(), pinned: false })));
     app.settle();
     app.click("dialog-delete-run");
     assert!(elsewhere.exists(), "only a folder directly inside a runs folder can be removed");
@@ -623,6 +732,34 @@ fn the_run_header_says_where_the_files_are_and_the_status_bar_follows_the_run(cx
     assert!(st["run"]["dir"].as_str().unwrap().contains("runs"), "{}", st["run"]["dir"]);
     perform(&mut app, shell_core::actions::Action::StopRunNow);
     wait_run(&mut app, Duration::from_secs(60));
+}
+
+#[gpui::test]
+fn the_run_and_stop_buttons_are_off_with_nothing_to_run_or_stop_and_stop_does_nothing_when_pressed(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    let bar = app.state()["run_bar"].clone();
+    assert_eq!((bar["run"].as_str(), bar["stop"].as_str(), bar["run_label"].as_str()), (Some("RunOff"), Some("StopOff"), Some("Run")), "no plan: {bar}");
+    assert!(app.has("run") && app.has("stop"), "both buttons are drawn, as unavailable");
+    app.click("stop");
+    app.click("run");
+    assert!(app.state()["run"].is_null(), "pressing an unavailable button starts nothing");
+    assert_eq!(app.state()["run_bar"]["run"], "RunOff");
+}
+
+#[gpui::test]
+fn the_run_button_says_running_during_a_run_and_stop_is_ready_then_both_go_back(cx: &mut TestAppContext) {
+    let Some((s, _server)) = real("run-bar", |p| jm::plan(p, 1, -1, 100, &[jm::request("Home", "/")], ""), |_, _| {}) else { return };
+    let mut app = open(cx, &s, true);
+    let before = app.state()["run_bar"].clone();
+    assert_eq!((before["run"].as_str(), before["stop"].as_str(), before["run_label"].as_str()), (Some("RunReady"), Some("StopOff"), Some("Run")), "{before}");
+    app.keys("f5");
+    wait_until(&mut app, Duration::from_secs(90), "samples", |st| st["run"]["samples"].as_u64().unwrap_or(0) >= 3);
+    let during = app.state()["run_bar"].clone();
+    assert_eq!((during["run"].as_str(), during["stop"].as_str(), during["run_label"].as_str()), (Some("Running"), Some("StopReady"), Some("Running")), "{during}");
+    perform(&mut app, shell_core::actions::Action::StopRunNow);
+    wait_run(&mut app, Duration::from_secs(60));
+    let after = app.state()["run_bar"].clone();
+    assert_eq!((after["run"].as_str(), after["stop"].as_str(), after["run_label"].as_str()), (Some("RunReady"), Some("StopOff"), Some("Run")), "{after}");
 }
 
 #[gpui::test]

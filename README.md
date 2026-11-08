@@ -19,6 +19,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Feature | Done |
 |---|:---:|
 | Open `.jmx` test plans (file dialog, command line, File > Recent Plans submenu with Clear Recent Plans, last session), several plans at once, one tab each | ✅ |
+| File dialogs ask for the right kind of file on Windows: Open and Save As show "JMeter file (*.jmx)" and list only those files (All files is the second choice), Save As adds `.jmx` to a name without an extension, and the HAR, results and properties dialogs filter the same way | ✅ |
 | Test plan tree with element icons and colours, expand and collapse, keyboard navigation | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
 | Command palette: commands, go to element, add element, recent plans | ✅ |
@@ -40,7 +41,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Run a plan in non-GUI mode with F5: it asks to save first and runs the saved file; stop it gracefully, at once, or by force | ✅ |
 | Validate a plan (one user, once, no timers) and send one selected request once | ✅ |
 | Live results while running: samples, throughput, average and 95th percentile, errors, users, charts, failed requests and a table per request | ✅ |
-| Run history: every run in its own folder under `runs`, next to the `.jmx` or in a chosen folder, the last 10 kept per plan, earlier runs viewable again, a command to clear the shared folder | ✅ |
+| Run history: every run in its own folder under `runs`, next to the `.jmx` or in a chosen folder, the last 10 kept per plan, earlier runs viewable again, a command to clear the shared folder, and a Pin button that keeps a run so neither the limit nor clearing removes it | ✅ |
 | Warning before the first run of a plan that contains scripts (asked once per plan file) | ✅ |
 | Safe running: nothing typed anywhere can be added to the JMeter command line, the stop port answers this machine only, JMeter never outlives the app (even after a crash), runaway output and hostile result files are bounded | ✅ |
 | Safe with hostile files: plans are read without ever fetching or reading other files, absurd nesting and sizes are refused, text typed into any box stays text, saving never writes to a file it should not | ✅ |
@@ -57,7 +58,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Open a saved results file (`.jtl` or CSV, Ctrl+Shift+O) from anywhere and look at its numbers, charts, errors and requests like a run. A file with 300,000 rows opens in seconds while the window stays usable | ✅ |
 | HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
 | Compare two runs (History tab: *Compare* on the baseline, then on the run to check): each request side by side with its average, 95th percentile, errors and rate, how much each changed, and a verdict (worse, better, same, new, gone) with the worst first; copy as CSV. A change counts only when it is large in share and in milliseconds | ✅ |
-| Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
+| Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. It works with no plan open (a new plan named after the file is made and opened) and with a plan that has no Thread Group (one is added). Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
 | First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, a JMeter unpacked in Downloads (or named by `JMETER_HOME`) is found by itself, and a Getting started page comes in the download | ✅ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
@@ -90,7 +91,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 84 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 87 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |
