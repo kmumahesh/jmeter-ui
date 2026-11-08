@@ -41,50 +41,114 @@ fn empty_app<'a>(cx: &'a mut TestAppContext) -> App<'a> {
     start(cx, None, None)
 }
 
-// ---- the question ----
+// ---- New Plan makes an empty plan at once ----
 
-#[gpui::test]
-fn ctrl_n_asks_which_kind_of_plan_and_cancel_changes_nothing(cx: &mut TestAppContext) {
-    let mut app = empty_app(cx);
-    assert!(dialog_kind(&mut app).is_none());
-    app.keys("ctrl-n");
-    assert_eq!(dialog_kind(&mut app).as_deref(), Some("new_plan"));
-    for sel in ["dialog-new-api", "dialog-new-web", "dialog-new-login", "dialog-new-data", "dialog-new-load", "dialog-new-spike", "dialog-new-empty", "dialog-cancel"] {
-        assert!(app.has(sel), "{sel}");
-    }
-    app.click("dialog-cancel");
-    assert!(dialog_kind(&mut app).is_none());
-    assert!(app.tabs().is_empty());
+/// An app whose last-opened plan is in `dir`, so a new plan is made there and nowhere else.
+fn app_with_recent<'a>(cx: &'a mut TestAppContext, dir: &Path) -> App<'a> {
+    let settings_path = dir.join("settings.json");
+    let mut s = Settings::default();
+    s.push_recent(&dir.join("earlier.jmx").display().to_string());
+    settings::save(&settings_path, &s).unwrap();
+    start(cx, None, Some(settings_path))
 }
 
 #[gpui::test]
-fn new_plan_is_in_the_palette_the_welcome_screen_and_works_with_a_plan_open(cx: &mut TestAppContext) {
-    let mut app = empty_app(cx);
+fn ctrl_n_makes_an_empty_plan_at_once_with_no_question(cx: &mut TestAppContext) {
+    let d = temp_dir("new-at-once");
+    let mut app = app_with_recent(cx, &d);
+    assert!(app.tabs().is_empty());
+    app.keys("ctrl-n");
+    assert!(dialog_kind(&mut app).is_none(), "no question is asked");
+    assert_eq!(app.tabs(), vec!["New plan.jmx".to_string()]);
+    assert_eq!(app.active_tab().as_deref(), Some("New plan.jmx"));
+    assert_eq!(app.state()["elements"], 1, "only the Test Plan");
+    assert!(!app.state()["dirty"].as_bool().unwrap(), "nothing to save yet");
+    assert_eq!(std::fs::read_to_string(d.join("New plan.jmx")).unwrap(), starters::new_plan_text(Starter::Empty, "New plan").unwrap());
+}
+
+#[gpui::test]
+fn a_second_new_plan_gets_the_next_name_and_never_replaces_a_file(cx: &mut TestAppContext) {
+    let d = temp_dir("new-twice");
+    let mut app = app_with_recent(cx, &d);
+    app.keys("ctrl-n");
+    std::fs::write(d.join("New plan 3.jmx"), "keep me").unwrap();
+    app.keys("ctrl-n");
+    app.keys("ctrl-n");
+    assert_eq!(app.tabs(), vec!["New plan.jmx".to_string(), "New plan 2.jmx".to_string(), "New plan 4.jmx".to_string()]);
+    assert_eq!(std::fs::read_to_string(d.join("New plan 3.jmx")).unwrap(), "keep me");
+}
+
+#[gpui::test]
+fn a_new_plan_is_made_beside_the_plan_being_edited(cx: &mut TestAppContext) {
+    let d = temp_dir("new-beside");
+    let other = temp_dir("new-beside-recent");
+    let p = d.join("one.jmx");
+    std::fs::write(&p, starters::new_plan_text(Starter::Api, "one").unwrap()).unwrap();
+    let settings_path = other.join("settings.json");
+    let mut s = Settings::default();
+    s.push_recent(&other.join("elsewhere.jmx").display().to_string());
+    settings::save(&settings_path, &s).unwrap();
+    let mut app = start(cx, Some(p), Some(settings_path));
+    app.keys("ctrl-n");
+    assert!(d.join("New plan.jmx").is_file(), "next to the plan being edited");
+    assert!(!other.join("New plan.jmx").exists());
+}
+
+#[gpui::test]
+fn new_plan_works_from_the_palette_and_the_welcome_screen_and_has_no_ellipsis(cx: &mut TestAppContext) {
+    let d = temp_dir("new-everywhere");
+    let mut app = app_with_recent(cx, &d);
     assert!(app.has("welcome-new"));
     app.click("welcome-new");
-    assert_eq!(dialog_kind(&mut app).as_deref(), Some("new_plan"));
-    app.keys("escape");
-    app.click("dialog-cancel");
+    assert!(dialog_kind(&mut app).is_none());
+    assert_eq!(app.tabs().len(), 1, "the welcome button makes a plan at once");
     app.keys("ctrl-shift-p");
     app.input(">new plan");
-    assert_eq!(app.palette_titles().first().map(String::as_str), Some("New Plan\u{2026}"));
-    app.keys("escape");
-    let d = temp_dir("new-with-open");
-    let p = d.join("one.jmx");
-    assert!(create(&mut app, Starter::Empty, &p));
-    app.keys("ctrl-n");
-    assert_eq!(dialog_kind(&mut app).as_deref(), Some("new_plan"), "a plan being open does not stop a new one");
+    assert_eq!(app.palette_titles().first().map(String::as_str), Some("New Plan"), "no ellipsis: it does not ask anything");
+    app.keys("enter");
+    assert_eq!(app.tabs().len(), 2, "the palette makes a plan at once");
+    assert!(dialog_kind(&mut app).is_none());
 }
 
 #[gpui::test]
-fn the_question_blocks_everything_behind_it(cx: &mut TestAppContext) {
-    let d = temp_dir("new-blocks");
-    let p = d.join("a.jmx");
-    std::fs::write(&p, starters::new_plan_text(Starter::Api, "a").unwrap()).unwrap();
-    let mut app = start(cx, Some(p), None);
+fn the_new_plan_can_be_run_edited_and_saved_straight_away(cx: &mut TestAppContext) {
+    let d = temp_dir("new-straight");
+    let mut app = app_with_recent(cx, &d);
     app.keys("ctrl-n");
-    app.keys("ctrl-shift-a");
-    assert!(!app.palette_open(), "nothing else opens while the question is showing");
+    app.keys("ctrl-p");
+    app.input("Test Plan");
+    app.keys("enter");
+    assert!(app.state()["elements"].as_u64().unwrap() >= 1);
+    app.keys(&secondary("ctrl-s"));
+    assert!(!app.state()["dirty"].as_bool().unwrap());
+}
+
+// ---- where a new plan goes ----
+
+#[test]
+fn the_folder_is_the_plans_folder_then_the_last_plans_folder_then_home_then_temp() {
+    use jmeter_ui::new_plan::pick_new_plan_folder;
+    let a = temp_dir("pick-a");
+    let b = temp_dir("pick-b");
+    let h = temp_dir("pick-h");
+    assert_eq!(pick_new_plan_folder(Some(a.clone()), Some(b.join("x.jmx")), Some(h.clone())), a);
+    assert_eq!(pick_new_plan_folder(None, Some(b.join("x.jmx")), Some(h.clone())), b);
+    assert_eq!(pick_new_plan_folder(None, None, Some(h.clone())), h);
+    let gone = a.join("missing");
+    assert_eq!(pick_new_plan_folder(Some(gone.clone()), Some(gone.join("x.jmx")), Some(gone.clone())), std::env::temp_dir(), "folders that do not exist are never used or made");
+    assert!(!gone.exists());
+}
+
+#[test]
+fn names_count_up_and_skip_every_name_in_use() {
+    use jmeter_ui::new_plan::unique_new_plan_path;
+    let d = temp_dir("unique-names");
+    assert_eq!(unique_new_plan_path(&d), d.join("New plan.jmx"));
+    std::fs::write(d.join("New plan.jmx"), "x").unwrap();
+    assert_eq!(unique_new_plan_path(&d), d.join("New plan 2.jmx"));
+    std::fs::write(d.join("New plan 2.jmx"), "x").unwrap();
+    std::fs::create_dir(d.join("New plan 3.jmx")).unwrap();
+    assert_eq!(unique_new_plan_path(&d), d.join("New plan 4.jmx"), "a folder with that name also counts as in use");
 }
 
 // ---- what ends up on disk ----

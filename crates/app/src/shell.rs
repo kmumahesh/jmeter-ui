@@ -68,8 +68,6 @@ pub enum Dialog {
     Unsaved { plans: Vec<PlanId>, then: Then },
     /// Reloading would throw away this plan's unsaved changes.
     DiscardForReload(PlanId),
-    /// Which kind of plan to start.
-    NewPlan,
     /// cURL commands are being pasted in; `error` says why the last attempt did not work.
     Curl { area: Entity<crate::textarea::TextArea>, error: Option<String> },
     /// Trying an expression on some text. `status` is what the last try found, or what went wrong when `error`.
@@ -748,7 +746,7 @@ impl Shell {
             Action::SaveSelectionAs => self.save_selection_as(window, cx),
             Action::MergePlan => self.merge_dialog(window, cx),
             Action::NewPlan => {
-                self.dialog = Some(Dialog::NewPlan);
+                self.new_empty_plan(window, cx);
             }
             Action::OpenPlan => self.open_dialog(window, cx),
             Action::SavePlan => {
@@ -1015,7 +1013,6 @@ impl Shell {
             "notice": self.notice.as_ref().map(|n| n.text.clone()),
             "dialog": self.dialog.as_ref().map(|d| match d {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
-                Dialog::NewPlan => json!({ "kind": "new_plan" }),
                 Dialog::Curl { area, error } => json!({ "kind": "curl", "error": error, "text": area.read(cx).text() }),
                 Dialog::Expression { kind, expr, sample, result, status, error, busy } => json!({
                     "kind": "expression", "expression_kind": kind.word(), "expression": expr.read(cx).text(), "sample": sample.read(cx).text(),

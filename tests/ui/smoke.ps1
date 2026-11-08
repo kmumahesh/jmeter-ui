@@ -428,10 +428,19 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
 # ---------------------------------------------------------------------------------------------
 Write-Host "12. New plan"
 $r = New-Run "newplan"
-$p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+$firstPlan = "$($r.Dir)\first.jmx"
+[System.IO.File]::WriteAllText($firstPlan, @'
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree>
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="First" enabled="true"><boolProp name="TestPlan.functional_mode">false</boolProp><elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp></TestPlan>
+<hashTree/></hashTree></jmeterTestPlan>
+'@)
+$p = Start-Ui $Exe @($firstPlan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
 Send-Keys "^n"
+Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
-Check "Ctrl+N asks which kind of plan to start" ($s.dialog -and $s.dialog.kind -eq "new_plan") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
+Check "Ctrl+N makes an empty plan at once, with no question" ($null -eq $s.dialog -and $s.active_tab -eq "New plan.jmx" -and $s.tabs.Count -eq 2) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab)"
+Check "the new plan is a file next to the open plan" (Test-Path "$($r.Dir)\New plan.jmx") ""
 Save-Shot $p "$($r.Dir)\new-plan.png"
 Stop-Ui $p
 
