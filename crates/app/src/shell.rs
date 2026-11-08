@@ -567,6 +567,17 @@ impl Shell {
         }
     }
 
+    /// Empty the Recent Plans list (File > Recent Plans > Clear Recent Plans). The plans themselves are not touched.
+    pub fn clear_recent_plans(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.settings.recent_files.is_empty() {
+            return;
+        }
+        self.settings.recent_files.clear();
+        self.save_settings();
+        self.notify("Recent plans cleared", Severity::Info, window, cx);
+        cx.notify();
+    }
+
     pub fn open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let pick = crate::file_dialog::open(window, cx, crate::file_dialog::Kind::Plan, "Open JMeter Plan");
         cx.spawn_in(window, async move |this, cx| {
@@ -1077,6 +1088,7 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+            "recent_plans_menu": shell_core::menus::recent_entries(&self.settings.recent_files, shell_core::settings::MAX_RECENT, |p| std::path::Path::new(p).exists()).iter().map(|e| json!({ "label": e.label, "path": e.path, "missing": e.missing })).collect::<Vec<_>>(),
             "run_bar": { "run": format!("{:?}", self.run_bar_looks().0), "stop": format!("{:?}", self.run_bar_looks().1), "run_label": crate::run_bar::run_label(self.run_in_progress()) },
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),

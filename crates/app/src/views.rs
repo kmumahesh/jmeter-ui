@@ -245,19 +245,30 @@ impl Shell {
                             match item {
                                 MenuItem::Separator => menu = menu.separator(),
                                 MenuItem::Recent => {
-                                    if !recents.is_empty() {
-                                        menu = menu.separator().header("Recent Plans");
-                                        for path in recents.iter().take(6) {
-                                            let name = path.rsplit(['/', '\\']).next().unwrap_or(path).to_string();
-                                            let (shell, path) = (shell.clone(), path.clone());
-                                            menu = menu.entry(name, None, move |window, cx| {
-                                                let path = path.clone();
-                                                shell.update(cx, |s, cx| {
-                                                    s.open_plan_path(std::path::Path::new(&path), window, cx);
-                                                });
-                                            });
-                                        }
-                                        menu = menu.separator();
+                                    let entries = shell_core::menus::recent_entries(&recents, shell_core::settings::MAX_RECENT, |p| std::path::Path::new(p).exists());
+                                    if entries.is_empty() {
+                                        menu = menu.item(ContextMenuItem::Entry(ContextMenuEntry::new("Recent Plans").disabled(true)));
+                                    } else {
+                                        let shell = shell.clone();
+                                        menu = menu.submenu("Recent Plans", move |mut sub, _, _| {
+                                            for e in &entries {
+                                                let (shell, path, shown) = (shell.clone(), e.path.clone(), e.path.clone());
+                                                let entry = ContextMenuEntry::new(if e.missing { format!("{}  (missing)", e.label) } else { e.label.clone() })
+                                                    .disabled(e.missing)
+                                                    .documentation_aside(ui::DocumentationSide::Right, move |_| ui::Label::new(shown.clone()).into_any_element())
+                                                    .handler(move |window, cx| {
+                                                        let path = path.clone();
+                                                        shell.update(cx, |s, cx| {
+                                                            s.open_plan_path(std::path::Path::new(&path), window, cx);
+                                                        });
+                                                    });
+                                                sub = sub.item(ContextMenuItem::Entry(entry));
+                                            }
+                                            let clear = shell.clone();
+                                            sub.separator().entry("Clear Recent Plans", None, move |window, cx| {
+                                                clear.update(cx, |s, cx| s.clear_recent_plans(window, cx));
+                                            })
+                                        });
                                     }
                                 }
                                 MenuItem::Action(a) => {
