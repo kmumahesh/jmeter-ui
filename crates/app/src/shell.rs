@@ -1075,6 +1075,7 @@ impl Shell {
                 "request": self.req_request.read(cx).text(),
                 "response": self.req_response.read(cx).text(),
             }),
+            "run_bar": { "run": format!("{:?}", self.run_bar_looks().0), "stop": format!("{:?}", self.run_bar_looks().1), "run_label": crate::run_bar::run_label(self.run_in_progress()) },
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples })).collect::<Vec<_>>(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),

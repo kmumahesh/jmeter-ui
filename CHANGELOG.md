@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Changed
+- Run and Stop in the title bar are easier to see: Run has a green play triangle and Stop a red square, each with its name; one that cannot be used is flat and grey and its tooltip says why; while a test is going Run says "Running". Works in the dark and the light theme.
 - File > New Plan (Ctrl+N) now makes an empty plan at once, with no question. It is saved as `New plan.jmx` next to the plan you are editing (or the last one you opened) and opens ready to edit; use Save As to move or rename it. The API, web site, login, data-driven, load and spike starters are no longer offered in the app.
 
 ### Fixed
