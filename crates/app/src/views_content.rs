@@ -15,9 +15,7 @@ use ui::{Button, ButtonCommon, ButtonSize, ButtonStyle, Clickable, Disableable, 
 /// The most rows the Problems list draws; the tab says how many there are in all.
 const MAX_PROBLEM_ROWS: usize = 100;
 
-/// What the welcome screen says is missing.
-pub(crate) const SETUP_JAVA_MISSING: &str = "Java was not found";
-pub(crate) const SETUP_JMETER_MISSING: &str = "JMeter was not found";
+use shell_core::setup_help;
 
 impl Shell {
     pub(crate) fn tab_content(&self, tab: &Tab, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -84,12 +82,17 @@ impl Shell {
             .into_any_element()
     }
 
+    /// The line on the welcome screen when Java and JMeter are both found, for example "Ready to run: Java 21.0.8 · JMeter 5.6.3".
+    pub(crate) fn setup_ready_text(&self) -> String {
+        format!("Ready to run: {} · JMeter {}", short_java(&self.runtime.java.clone().unwrap_or_default()), self.runtime.jmeter.clone().unwrap_or_default())
+    }
+
     /// What the welcome screen says is missing, or `None` when Java and JMeter are both there (or not looked for yet).
     pub(crate) fn setup_headline(&self) -> Option<&'static str> {
         if !self.runtime_checked || self.runtime_ready() {
             return None;
         }
-        Some(if self.runtime.java.is_none() { SETUP_JAVA_MISSING } else { SETUP_JMETER_MISSING })
+        Some(setup_help::help(self.runtime.java.is_none()).what)
     }
 
     /// What is needed to run a plan, on the welcome screen: Java and JMeter found, or what to do about what is missing.
@@ -106,15 +109,11 @@ impl Shell {
                 .text_size(px(12.))
                 .text_color(p.muted)
                 .child(icon("icons/check.svg", 14., p.ok))
-                .child(format!("Ready to run: {} \u{b7} JMeter {}", self.runtime.java.clone().unwrap_or_default(), self.runtime.jmeter.clone().unwrap_or_default()))
+                .child(self.setup_ready_text())
                 .into_any_element();
         }
-        let java_missing = self.runtime.java.is_none();
-        let (what, how) = if java_missing {
-            (SETUP_JAVA_MISSING, "JMeter needs Java 17 or newer. Install it (for example Eclipse Temurin from adoptium.net), then press Check again. If Java is installed in an unusual place, choose it in Settings.")
-        } else {
-            (SETUP_JMETER_MISSING, "Download Apache JMeter (the binary .zip from jmeter.apache.org/download_jmeter.cgi), unpack it anywhere, and choose its folder in Settings. A folder called apache-jmeter-5.x in Downloads is found by itself.")
-        };
+        let help = setup_help::help(self.runtime.java.is_none());
+        let (what, how) = (help.what, help.text.clone());
         div()
             .id("setup-needed")
             .debug_selector(|| "setup-needed".to_string())
@@ -132,6 +131,16 @@ impl Shell {
             .child(div().flex().items_center().gap(px(8.)).child(icon("icons/warning.svg", 15., p.warn)).child(div().font_weight(FontWeight::SEMIBOLD).child(what)))
             .when_some(self.runtime.problem.clone(), |d, e| d.child(div().debug_selector(|| "setup-problem".to_string()).text_size(px(11.5)).font_family(MONO_FONT).text_color(p.muted).child(e)))
             .child(div().text_size(px(12.5)).text_color(p.muted).child(how))
+            .child(div().flex().flex_wrap().gap(px(8.)).children(help.links.iter().enumerate().map(|(i, l)| {
+                let url = l.url;
+                div().debug_selector(move || format!("setup-link-{i}")).child(
+                    Button::new(("setup-link", i), l.label)
+                        .style(ButtonStyle::Subtle)
+                        .color(ui::Color::Accent)
+                        .tooltip(Tooltip::text(url))
+                        .on_click(cx.listener(move |this, _, _, _| this.open_link(url))),
+                )
+            })))
             .child(
                 div()
                     .flex()

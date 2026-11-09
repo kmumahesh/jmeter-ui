@@ -1099,6 +1099,8 @@ impl Shell {
             "runtime_ready": self.runtime_ready(),
             "runtime_checked": self.runtime_checked,
             "setup_headline": self.setup_headline(),
+            "setup_ready_text": if self.runtime_checked && self.runtime_ready() { Some(self.setup_ready_text()) } else { None },
+            "setup_links": if self.setup_headline().is_some() { shell_core::setup_help::help(self.runtime.java.is_none()).links.iter().map(|l| l.url).collect::<Vec<_>>() } else { Vec::new() },
             "jmeter_home": self.settings.jmeter_home,
             "can_undo": self.plan().is_some_and(|lp| lp.edit.can_undo()),
             "can_redo": self.plan().is_some_and(|lp| lp.edit.can_redo()),

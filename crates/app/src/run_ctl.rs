@@ -563,6 +563,35 @@ impl Shell {
     }
 }
 
+impl Shell {
+    /// Open one of the pages the welcome screen offers in the browser. Only the addresses in
+    /// `shell_core::setup_help::LINKS` are ever opened. What was asked for is recorded, and tests turn the starting of
+    /// another program off.
+    pub fn open_link(&mut self, url: &str) {
+        if !shell_core::setup_help::LINKS.contains(&url) {
+            return;
+        }
+        self.opened.push(PathBuf::from(url));
+        if !self.no_external_open {
+            open_url_with_system(url);
+        }
+    }
+}
+
+/// Open a web page in the browser the system uses.
+fn open_url_with_system(url: &str) {
+    let mut cmd = if cfg!(windows) {
+        std::process::Command::new("explorer")
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+    } else {
+        std::process::Command::new("xdg-open")
+    };
+    cmd.arg(url);
+    jvm_runtime::locate::quiet(&mut cmd);
+    let _ = cmd.spawn();
+}
+
 /// Show a folder in the system file manager, or open a file with the program the system uses for it.
 fn open_with_system(dir: &Path) {
     if !dir.exists() {

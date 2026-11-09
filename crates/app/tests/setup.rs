@@ -7,6 +7,7 @@ use common::*;
 use gpui::TestAppContext;
 use jmeter_ui::shell::RuntimeStatus;
 use shell_core::settings::{self, Settings};
+use shell_core::setup_help;
 
 fn set_runtime(app: &mut App, runtime: RuntimeStatus, checked: bool) {
     let shell = app.shell.clone();
@@ -60,6 +61,7 @@ fn when_everything_is_found_the_welcome_says_ready(cx: &mut TestAppContext) {
     assert!(app.has("setup-ready") && !app.has("setup-needed"));
     assert!(app.state()["setup_headline"].is_null());
     assert!(app.has("welcome-new") && app.has("welcome-open"), "the usual buttons are still there");
+    assert_eq!(app.state()["setup_ready_text"], "Ready to run: Java 21.0.8 · JMeter 5.6.3", "short and readable, not the line Java prints");
 }
 
 #[gpui::test]
@@ -143,4 +145,48 @@ fn applying_settings_with_an_empty_jmeter_folder_does_not_fill_it_in(cx: &mut Te
     assert!(app.state()["jmeter_home"].is_null(), "{}", app.state()["jmeter_home"]);
     assert!(settings::load(&settings_path).settings.jmeter_home.is_none());
     assert!(!app.state()["notice"].as_str().unwrap_or("").starts_with("Found JMeter"));
+}
+
+#[gpui::test]
+fn missing_java_offers_a_link_that_opens_the_download_page_and_says_a_runtime_is_enough(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    set_runtime(&mut app, RuntimeStatus { java: None, jmeter: None, problem: None }, true);
+    assert!(app.has("setup-link-0") && !app.has("setup-link-1"), "one link for Java");
+    assert_eq!(app.state()["setup_links"], serde_json::json!([setup_help::JAVA_URL]));
+    assert!(app.state()["opened"].as_array().unwrap().is_empty());
+    app.click("setup-link-0");
+    assert_eq!(app.state()["opened"], serde_json::json!([setup_help::JAVA_URL]), "the page is opened in the browser");
+}
+
+#[gpui::test]
+fn missing_jmeter_offers_the_downloads_page_and_the_tested_version(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    set_runtime(&mut app, RuntimeStatus { java: Some("Java 21.0.8".into()), jmeter: None, problem: None }, true);
+    assert!(app.has("setup-link-0") && app.has("setup-link-1"), "two links for JMeter");
+    assert_eq!(app.state()["setup_links"], serde_json::json!([setup_help::JMETER_URL, setup_help::JMETER_TESTED_URL]));
+    app.click("setup-link-1");
+    app.click("setup-link-0");
+    assert_eq!(app.state()["opened"], serde_json::json!([setup_help::JMETER_TESTED_URL, setup_help::JMETER_URL]));
+}
+
+#[gpui::test]
+fn no_links_are_offered_when_everything_is_found_or_not_looked_for_yet(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    set_runtime(&mut app, RuntimeStatus::default(), false);
+    assert!(!app.has("setup-link-0") && app.state()["setup_links"].as_array().unwrap().is_empty());
+    set_runtime(&mut app, RuntimeStatus { java: Some(r#"openjdk version "21.0.8" 2025-07-15 LTS"#.into()), jmeter: Some("5.6.3".into()), problem: None }, true);
+    assert_eq!(app.state()["setup_ready_text"], "Ready to run: Java 21.0.8 · JMeter 5.6.3", "the line Java prints is shortened");
+    assert!(!app.has("setup-link-0") && app.state()["setup_links"].as_array().unwrap().is_empty());
+}
+
+#[gpui::test]
+fn only_the_addresses_the_welcome_screen_offers_can_be_opened(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    let shell = app.shell.clone();
+    for url in ["https://example.com/", "file:///C:/Windows/System32/calc.exe", "calc.exe", "javascript:alert(1)", "https://jmeter.apache.org/download_jmeter.cgi?x=1", ""] {
+        app.cx.update(|_, cx| shell.update(cx, |s, _| s.open_link(url)));
+    }
+    assert!(app.state()["opened"].as_array().unwrap().is_empty(), "nothing else is opened: {}", app.state()["opened"]);
+    app.cx.update(|_, cx| shell.update(cx, |s, _| s.open_link(setup_help::JAVA_URL)));
+    assert_eq!(app.state()["opened"].as_array().unwrap().len(), 1);
 }

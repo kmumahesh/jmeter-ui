@@ -584,6 +584,21 @@ Check "Add > setUp Thread Group in the right-click menu of the Test Plan adds it
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "19. Welcome screen links"
+$r = New-Run "welcomelinks"
+# A JMeter folder that is not there: the welcome screen says JMeter was not found and offers the download pages.
+Set-Content -Path $r.Settings -Value '{"jmeter_home":"C:/no-such-folder/jmeter"}'
+$p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark")
+[void](Wait-Until { (Get-State $r.State).setup_headline -ne $null } 20)
+$s = Get-State $r.State
+Check "a JMeter that is not there is explained, with two download links" ($s.setup_headline -eq "JMeter was not found" -and $s.setup_links.Count -eq 2) "headline = $($s.setup_headline), links = $($s.setup_links.Count)"
+Save-Shot $p "$($r.Dir)\welcome-links.png"
+Click-At $p 654 476        # Apache JMeter downloads
+$s = Get-State $r.State
+Check "clicking the link opens the JMeter download page" ($s.opened.Count -eq 1 -and $s.opened[0] -eq "https://jmeter.apache.org/download_jmeter.cgi") "opened = $($s.opened -join ', ')"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"
