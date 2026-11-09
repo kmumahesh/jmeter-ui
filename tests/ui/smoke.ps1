@@ -383,9 +383,16 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
     do { Start-Sleep -Milliseconds 500; $s = Get-State $r.State } while (-not $s.runtime_ready -and (Get-Date) -lt $deadline)
     Check "Java and JMeter are found in the background" ($s.runtime_ready -eq $true) "java = $($s.java), jmeter = $($s.jmeter)"
 
-    function Wait-RunEnd([string]$state, [int]$seconds = 90) {
+    # Wait for the run that was just started to end. $notDir is the folder of the run before it: until the state shows a run
+    # with another folder, what is on show is the earlier run, which has already ended.
+    function Wait-RunEnd([string]$state, [string]$notDir = "", [int]$seconds = 90) {
         $until = (Get-Date).AddSeconds($seconds)
-        do { Start-Sleep -Milliseconds 500; $x = Read-State $state } while ($x.run -and @("Starting", "Running", "Stopping") -contains $x.run.phase -and (Get-Date) -lt $until)
+        do {
+            Start-Sleep -Milliseconds 500
+            $x = Read-State $state
+            $old = ($notDir -ne "") -and ($x.run -and $x.run.dir -eq $notDir)
+            $going = $x.run -and @("Starting", "Running", "Stopping") -contains $x.run.phase
+        } while (($old -or $going) -and (Get-Date) -lt $until)
         return $x
     }
 
@@ -428,14 +435,15 @@ $(Sampler "Home" "/")$(Sampler "Broken" "/fail")  </hashTree>
     Check "Escape closes the dialog" ($null -eq $s.dialog) ""
 
     Send-Keys "^{F5}"
-    $s = Wait-RunEnd $r.State
+    $s = Wait-RunEnd $r.State $dir
+    $validateDir = $s.run.dir
     Check "Ctrl+F5 validates: one user once, so each request once" ($s.run.kind -eq "Validate" -and $s.run.samples -eq 2) "kind = $($s.run.kind), samples = $($s.run.samples)"
 
     Send-Keys "^p"
     Send-Query "home" $r.State
     Send-Keys "{ENTER}"
     Send-Keys "{F6}"
-    $s = Wait-RunEnd $r.State
+    $s = Wait-RunEnd $r.State $validateDir
     Check "F6 sends the selected request once" ($s.run.kind -eq "Send once" -and $s.run.samples -eq 1) "kind = $($s.run.kind), samples = $($s.run.samples)"
     Check "all three runs are in the history" ($s.history.Count -eq 3) "count = $($s.history.Count)"
     Send-Keys "^+h"
