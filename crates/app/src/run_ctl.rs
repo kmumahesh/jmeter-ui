@@ -546,9 +546,35 @@ impl Shell {
         }
     }
 
-    /// The runs shown in the History list, newest first.
+    /// The runs of the History list, newest first.
     pub fn history_entries(&self) -> &[RunEntry] {
         &self.history
+    }
+
+    /// Whether the History tab of the open plan shows only pinned runs.
+    pub fn history_pinned_only(&self) -> bool {
+        self.plan().is_some_and(|lp| self.history_pinned_only.contains(&lp.id))
+    }
+
+    /// Whether the History list shows this run: all of them, or with "Pinned only" the pinned ones and the run being viewed.
+    pub fn history_shows(&self, e: &RunEntry) -> bool {
+        !self.history_pinned_only() || e.meta.pinned || self.run.as_ref().is_some_and(|r| r.dir == e.dir)
+    }
+
+    /// How many runs "Pinned only" hides (none when it is off).
+    pub fn history_hidden(&self) -> usize {
+        self.history.iter().filter(|e| !self.history_shows(e)).count()
+    }
+
+    /// Turn "Pinned only" on or off for the open plan.
+    pub fn toggle_history_pinned_only(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.plan().map(|lp| lp.id) else { return };
+        if let Some(i) = self.history_pinned_only.iter().position(|x| *x == id) {
+            self.history_pinned_only.remove(i);
+        } else {
+            self.history_pinned_only.push(id);
+        }
+        cx.notify();
     }
 }
 
