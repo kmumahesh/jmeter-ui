@@ -2,7 +2,7 @@
 //! checked without a window. The window turns each row into a menu entry.
 
 use crate::actions::Action;
-use plan_core::catalog::Category;
+use plan_core::catalog::{self, AddableType, Category};
 use plan_core::rules;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -32,6 +32,27 @@ pub fn tree_menu_rows(category: Option<Category>) -> Vec<Row> {
     rows.extend([Row::Command(Action::MoveElementUp), Row::Command(Action::MoveElementDown), Row::Separator]);
     rows.extend([Row::Command(Action::ExpandAll), Row::Command(Action::CollapseAll)]);
     rows
+}
+
+/// One group of the "Add" list: a kind of element and the types of that kind that can go under the element.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AddGroup {
+    pub category: Category,
+    pub types: Vec<AddableType>,
+}
+
+/// What the "Add" list of an element of this category holds: the same types the Inspector lists, grouped by kind in
+/// the order of the kinds, each group sorted by name. A kind with nothing to add is left out; an unknown element
+/// has no list. The list is one flat list with the kind as a heading, not a menu inside a menu: a pointer that
+/// travels to a row of a menu inside a menu crosses the other kinds on the way and opens one of them instead.
+pub fn add_groups(category: Option<Category>) -> Vec<AddGroup> {
+    let Some(parent) = category else { return Vec::new() };
+    let all = catalog::addable();
+    rules::allowed_children(parent)
+        .into_iter()
+        .map(|c| AddGroup { category: c, types: all.iter().filter(|t| t.category == c).cloned().collect() })
+        .filter(|g| !g.types.is_empty())
+        .collect()
 }
 
 /// One entry of the Recent Plans submenu.
@@ -147,6 +168,35 @@ mod tests {
             assert_eq!(rows.contains(&Row::SendOnce), c == Some(Category::Sampler), "{c:?}");
             let takes_children = c.is_some_and(|c| !rules::allowed_children(c).is_empty());
             assert_eq!(rows.contains(&Row::Add), takes_children, "{c:?}");
+        }
+    }
+
+    #[test]
+    fn the_add_list_holds_exactly_what_can_be_added() {
+        for parent in Category::ALL {
+            let groups = add_groups(Some(parent));
+            let listed: Vec<_> = groups.iter().flat_map(|g| g.types.iter()).collect();
+            let expected: Vec<_> = catalog::addable().into_iter().filter(|t| rules::can_add(parent, t.category)).collect();
+            assert_eq!(listed.len(), expected.len(), "{parent:?}");
+            for t in &expected {
+                assert!(listed.contains(&t), "{parent:?} is missing {t:?}");
+            }
+            for g in &groups {
+                assert!(!g.types.is_empty() && g.types.iter().all(|t| t.category == g.category), "{parent:?} {:?}", g.category);
+                assert!(g.types.windows(2).all(|w| w[0].label <= w[1].label), "{parent:?} {:?} is not sorted", g.category);
+            }
+            assert_eq!(!groups.is_empty(), !rules::allowed_children(parent).is_empty(), "{parent:?}");
+        }
+        assert!(add_groups(None).is_empty());
+    }
+
+    #[test]
+    fn a_test_plan_can_be_given_a_setup_and_a_teardown_thread_group() {
+        let groups = add_groups(Some(Category::TestPlan));
+        let thread = groups.iter().find(|g| g.category == Category::ThreadGroup).expect("thread groups");
+        let labels: Vec<_> = thread.types.iter().map(|t| t.label).collect();
+        for want in ["Thread Group", "setUp Thread Group", "tearDown Thread Group"] {
+            assert!(labels.contains(&want), "{labels:?}");
         }
     }
 

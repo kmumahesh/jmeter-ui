@@ -131,7 +131,7 @@ Found on the way: Open Model Thread Group was unknown to the old table and showe
 - Unknown `${variables}` are listed in the Problems panel as notes, not warnings, because a variable can come from a property, a file or a script. Defined names come from user variables, extractor and CSV settings, and `vars.put(...)` calls in scripts; the endings extractors add (`_1`, `_g1`, `_matchNr`, `_ALL`) count as defined. Over JMeter's and the plugins' 76 sample plans the check gives 151 notes, mostly variables that come from properties.
 
 ## Tree: right-click menu and drag and drop (2026-10-23)
-Right-click gives Add (by group), Duplicate, Delete, Rename, Disable or Enable, Move Up and Down, Expand and Collapse All. Dragging a row onto the middle of another makes it the last child; onto the top or bottom edge puts it beside that element. The add-where rules decide; a refused drop shows why. The Test Plan cannot be dragged, deleted or duplicated.
+Right-click gives Add (one list, with the kind of element as a heading above its rows, not a menu inside a menu: moving the pointer to a row of a menu inside a menu crossed the other kinds and opened one of them, so a click could add nothing or the wrong element), Duplicate, Delete, Rename, Disable or Enable, Move Up and Down, Expand and Collapse All. Dragging a row onto the middle of another makes it the last child; onto the top or bottom edge puts it beside that element. The add-where rules decide; a refused drop shows why. The Test Plan cannot be dragged, deleted or duplicated.
 
 ## Working rules for the assistant (recorded 2026-10-24, to resume a session)
 These were given by the user during the project and were removed from the other documents, which now describe the project only.
