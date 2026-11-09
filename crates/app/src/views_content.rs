@@ -666,10 +666,11 @@ impl Shell {
     }
 
     /// The question shown over the window: unsaved changes, reload, or recovered work.
-    pub(crate) fn question_dialog(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let p = theme::palette(cx);
+    /// The title, the text and the buttons (id, label, whether it is the default one; the default is always first) of the
+    /// question that is open.
+    pub fn question_parts(&self) -> (String, String, Vec<(&'static str, &'static str, bool)>) {
         let name_of = |id: shell_core::layout::PlanId| self.plans.iter().find(|lp| lp.id == id).map(|lp| lp.name()).unwrap_or_default();
-        let (title, body, buttons): (String, String, Vec<(&'static str, &'static str, bool)>) = match &self.dialog {
+        match &self.dialog {
             Some(Dialog::Unsaved { plans, then }) => {
                 let names = plans.iter().map(|&id| name_of(id)).collect::<Vec<_>>().join(", ");
                 let what = match then {
@@ -761,7 +762,97 @@ impl Shell {
                 vec![("dialog-stop-quit", "Stop and Quit", true), ("dialog-cancel", "Cancel", false)],
             ),
             None => (String::new(), String::new(), Vec::new()),
-        };
+        }
+    }
+
+    /// Whether the open question has a text box of its own, which keeps the keyboard when the question opens.
+    fn question_has_fields(&self) -> bool {
+        matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. } | Dialog::ThinkTimes { .. } | Dialog::Expression { .. }))
+    }
+
+    /// Called whenever the window is drawn: a question without a text box gives the keyboard to its default button when it
+    /// opens, and which button has the keyboard is remembered for the ring and for tests.
+    pub(crate) fn settle_question_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.is_none() {
+            self.dialog_focus_given = false;
+            self.dialog_button_focused = None;
+            return;
+        }
+        if !self.dialog_focus_given {
+            self.dialog_focus_given = true;
+            if !self.question_has_fields() {
+                let first = self.dialog_buttons[0].clone();
+                window.defer(cx, move |window, cx| window.focus(&first, cx));
+            }
+        }
+        self.dialog_button_focused = self.dialog_buttons.iter().position(|h| h.is_focused(window));
+    }
+
+    /// Run what the button with this id does.
+    pub(crate) fn answer_dialog(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        match id {
+            "dialog-save" => self.dialog_save(window, cx),
+            "dialog-discard" => self.dialog_discard(window, cx),
+            "dialog-reload" => self.dialog_reload(window, cx),
+            "dialog-curl-add" => self.dialog_curl_add(window, cx),
+            "dialog-har-add" => self.dialog_har_add(window, cx),
+            "dialog-think-add" => self.dialog_think_add(window, cx),
+            "dialog-props-save" => self.dialog_props_save(window, cx),
+            "dialog-props-load" => self.dialog_props_load(window, cx),
+            "dialog-expr-try" => self.expression_try(window, cx),
+            "dialog-recover" => self.resolve_recovery(true, window, cx),
+            "dialog-discard-recovery" => self.resolve_recovery(false, window, cx),
+            "dialog-save-run" => self.dialog_save_and_run(window, cx),
+            "dialog-run-scripts" => self.dialog_run_scripts(window, cx),
+            "dialog-use-plan-folder" => self.dialog_use_plan_folder(window, cx),
+            "dialog-choose-folder" => self.dialog_choose_runs_folder(window, cx),
+            "dialog-clear-runs" => self.dialog_clear_runs(window, cx),
+            "dialog-delete-run" => self.dialog_delete_run(window, cx),
+            "dialog-stop-quit" => self.dialog_stop_and_quit(window, cx),
+            _ => self.dialog_cancel(cx),
+        }
+        // A question that held the keyboard focus (the cURL dialog has a text area) gives it back to the window,
+        // so the shortcuts work again without a click.
+        if self.dialog.is_none() {
+            window.focus(&self.focus, cx);
+        }
+    }
+
+    /// Keys in a question: Tab and Shift+Tab move between its buttons (and stay in the question), Enter presses the button
+    /// that has the keyboard, Escape cancels (except the question about a recovery copy, which must be answered).
+    fn question_key(&mut self, ev: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let buttons = self.question_parts().2;
+        let focused = self.dialog_buttons.iter().take(buttons.len()).position(|h| h.is_focused(window));
+        match ev.keystroke.key.as_str() {
+            "escape" if !matches!(self.dialog, Some(Dialog::Recover { .. })) => {
+                self.dialog_cancel(cx);
+                window.focus(&self.focus, cx);
+            }
+            "tab" if !buttons.is_empty() && (focused.is_some() || !self.question_has_fields()) => {
+                let n = buttons.len();
+                let next = match (focused, ev.keystroke.modifiers.shift) {
+                    (Some(i), false) => (i + 1) % n,
+                    (Some(i), true) => (i + n - 1) % n,
+                    (None, false) => 0,
+                    (None, true) => n - 1,
+                };
+                window.focus(&self.dialog_buttons[next], cx);
+                cx.stop_propagation();
+                cx.notify();
+            }
+            "enter" => {
+                if let Some(id) = focused.and_then(|i| buttons.get(i)).map(|b| b.0) {
+                    cx.stop_propagation();
+                    self.answer_dialog(id, window, cx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub(crate) fn question_dialog(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let p = theme::palette(cx);
+        let (title, body, buttons) = self.question_parts();
         let curl = match &self.dialog {
             Some(Dialog::Curl { area, error }) => Some((area.clone(), error.clone())),
             Some(Dialog::RunProps { area, error }) => Some((area.clone(), error.clone())),
@@ -779,43 +870,31 @@ impl Shell {
             Some(Dialog::Expression { kind, expr, sample, result, status, error, busy }) => Some((*kind, expr.clone(), sample.clone(), result.clone(), status.clone(), *error, *busy)),
             _ => None,
         };
-        let buttons = buttons.into_iter().map(|(id, label, primary)| {
-            let click = cx.listener(move |this, _, window, cx| {
-            match id {
-                "dialog-save" => this.dialog_save(window, cx),
-                "dialog-discard" => this.dialog_discard(window, cx),
-                "dialog-reload" => this.dialog_reload(window, cx),
-                "dialog-curl-add" => this.dialog_curl_add(window, cx),
-                "dialog-har-add" => this.dialog_har_add(window, cx),
-                "dialog-think-add" => this.dialog_think_add(window, cx),
-                "dialog-props-save" => this.dialog_props_save(window, cx),
-                "dialog-props-load" => this.dialog_props_load(window, cx),
-                "dialog-expr-try" => this.expression_try(window, cx),
-                "dialog-recover" => this.resolve_recovery(true, window, cx),
-                "dialog-discard-recovery" => this.resolve_recovery(false, window, cx),
-                "dialog-save-run" => this.dialog_save_and_run(window, cx),
-                "dialog-run-scripts" => this.dialog_run_scripts(window, cx),
-                "dialog-use-plan-folder" => this.dialog_use_plan_folder(window, cx),
-                "dialog-choose-folder" => this.dialog_choose_runs_folder(window, cx),
-                "dialog-clear-runs" => this.dialog_clear_runs(window, cx),
-                "dialog-delete-run" => this.dialog_delete_run(window, cx),
-                "dialog-stop-quit" => this.dialog_stop_and_quit(window, cx),
-                _ => this.dialog_cancel(cx),
-            }
-            // A question that held the keyboard focus (the cURL dialog has a text area) gives it back to the window,
-            // so the shortcuts work again without a click.
-            if this.dialog.is_none() {
-                window.focus(&this.focus, cx);
-            }
-            });
-            let button = if primary {
-                crate::ui_util::primary_button(id, label, &p, click).into_any_element()
-            } else {
-                Button::new(id, label).style(ButtonStyle::Subtle).on_click(click).into_any_element()
-            };
-            div().debug_selector(move || id.to_string()).child(button)
-        })
-        .collect::<Vec<_>>();
+        let ring = p.fg;
+        let buttons = buttons
+            .into_iter()
+            .enumerate()
+            .map(|(i, (id, label, primary))| {
+                let click = cx.listener(move |this, _, window, cx| this.answer_dialog(id, window, cx));
+                let button = if primary {
+                    crate::ui_util::primary_button(id, label, &p, click).into_any_element()
+                } else {
+                    Button::new(id, label).style(ButtonStyle::Subtle).on_click(click).into_any_element()
+                };
+                // The ring is a border of the colour of the text, which stands out from the dialog in both themes (a test
+                // checks 3 to 1); it is there only while the button has the keyboard.
+                div()
+                    .id(("dialog-button", i))
+                    .debug_selector(move || id.to_string())
+                    .track_focus(&self.dialog_buttons[i])
+                    .p(px(2.))
+                    .border_2()
+                    .border_color(gpui::transparent_black())
+                    .rounded(px(7.))
+                    .focus(move |s| s.border_color(ring))
+                    .child(button)
+            })
+            .collect::<Vec<_>>();
         div()
             .id("dialog-overlay")
             .debug_selector(|| "dialog".to_string())
@@ -826,13 +905,7 @@ impl Shell {
             .justify_center()
             .bg(with_alpha(gpui::black(), 0.4))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            // Escape closes a question, except the one about a recovery copy, which must be answered.
-            .on_key_down(cx.listener(|this, ev: &gpui::KeyDownEvent, window, cx| {
-                if ev.keystroke.key == "escape" && !matches!(this.dialog, Some(Dialog::Recover { .. })) {
-                    this.dialog_cancel(cx);
-                    window.focus(&this.focus, cx);
-                }
-            }))
+            .on_key_down(cx.listener(|this, ev: &gpui::KeyDownEvent, window, cx| this.question_key(ev, window, cx)))
             .child(
                 div()
                     .w(px(if matches!(self.dialog, Some(Dialog::Curl { .. } | Dialog::RunProps { .. } | Dialog::Har { .. })) { 680. } else if matches!(self.dialog, Some(Dialog::Expression { .. })) { 760. } else { 440. }))

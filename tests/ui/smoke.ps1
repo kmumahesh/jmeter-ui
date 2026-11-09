@@ -303,9 +303,19 @@ Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
 if ($s.dialog -eq $null) { Click-At $p 1264 19; Start-Sleep -Milliseconds 800; $s = Get-State $r.State }   # the first click can only focus the window
 Check "closing the window with unsaved changes asks first" ($s.dialog.kind -eq "unsaved" -and $s.dialog.then -eq "Quit") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
-Click-At $p 819 437        # Cancel
+Check "the default button has the keyboard when the question opens" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-save" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+Check "Tab moves to the next button" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-discard" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+Check "Tab again reaches Cancel" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-cancel" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Save-Shot $p "$($r.Dir)\question-focus-ring.png"
+Send-Keys "+{TAB}"
+Check "Shift+Tab goes back" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-discard" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+[void](Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-cancel" } 4)
+Send-Keys "{ENTER}"        # Enter on the focused Cancel
 $s = Get-State $r.State
-Check "Cancel keeps the app open with the work" ($s.dialog -eq $null -and $s.dirty -eq $true) ""
+Check "Enter on the focused Cancel keeps the app open with the work" ($s.dialog -eq $null -and $s.dirty -eq $true) ""
 Send-Keys "^k"
 Send-Query ">quit" $r.State
 Send-Keys "{ENTER}"
@@ -595,6 +605,7 @@ for ($try = 1; $try -le 5 -and (Get-State $r.State).elements -eq $before; $try++
     # Point at Add the way a hand does: it opens its list when the pointer rests on it (a click is not needed).
     foreach ($i in 1..6) { [void][UiNative]::SetCursorPos($w.L + 200 + [int](30 * $i / 6), $w.T + 140 - [int](37 * $i / 6)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 80 }
     Start-Sleep -Milliseconds 1200
+    [UiNative]::Click($w.L + 230, $w.T + 103); Start-Sleep -Milliseconds 700   # click Add as well: on the build machine the pointer resting on it is not always seen
     # Travel to the row the way a hand does, in a straight line across the list, not along its edge.
     foreach ($i in 1..10) { [void][UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 60 }
     Start-Sleep -Milliseconds 400

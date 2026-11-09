@@ -25,6 +25,7 @@ impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.ensure_form(window, cx);
         self.give_back_viewer_focus(window, cx);
+        self.settle_question_focus(window, cx);
         self.write_state_dump(cx);
         let p = theme::palette(cx);
         let body = div()
