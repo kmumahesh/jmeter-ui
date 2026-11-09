@@ -55,7 +55,7 @@ The welcome screen checks for Java and JMeter and tells you what it found:
 
 ## Build a plan from what you already have
 
-- **From a browser:** in your browser's developer tools (Network tab) use *Save all as HAR*, then **File > Import from HAR File**. With no plan open, a new plan named after the file is made for the requests. Each page becomes a Transaction Controller. Images, styles and scripts are left out unless you ask.
+- **From a browser:** in your browser's developer tools (Network tab) use *Save all as HAR*, then **File > Import from HAR File**. With no plan open, a new plan named after the file is made for the requests. Each page becomes a Transaction Controller. Images, styles and scripts are left out unless you ask. Headers that every request has are set once, in an HTTP Header Manager at the top of the Thread Group, and a Cookie Manager is added when the recording had cookies, so a login carries on to the next requests. The dialog tells you when a request holds a recorded token (for example `X-XSRF-TOKEN`) or a form: those values are kept as they were recorded, so replace them with variables if the server makes a new one for each visit.
 - **From a single request:** copy it with *Copy as cURL* and press **Ctrl+Shift+I**.
 - **Add pauses:** select a thread group or controller and use **Edit > Add Think Times to Children**.
 - **Test a value you pull out of a response:** **Ctrl+Shift+T** tries a JSON Path, regular expression, XPath or CSS selector on a response and shows what JMeter would take.
