@@ -21,6 +21,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Open `.jmx` test plans (file dialog, command line, File > Recent Plans submenu with Clear Recent Plans, last session), several plans at once, one tab each | ✅ |
 | File dialogs ask for the right kind of file on Windows: Open and Save As show "JMeter file (*.jmx)" and list only those files (All files is the second choice), Save As adds `.jmx` to a name without an extension, and the HAR, results and properties dialogs filter the same way | ✅ |
 | Test plan tree with element icons and colours, expand and collapse, keyboard navigation | ✅ |
+| One app icon, drawn for this project and free to use under the project licence: it is the icon of `jmeter-ui.exe` in File Explorer, of the window and the taskbar, and it shows in the title bar, on the start screen and in About; it lives in one file, so changing that file changes it everywhere | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
 | Command palette: commands, go to element, add element, recent plans | ✅ |
 | Edit every element in a form (hand-made for about 40 element types, generated from the saved settings for the rest) | ✅ |
@@ -51,7 +52,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Import from cURL (Ctrl+Shift+I): paste one or more `curl` commands, for example from a browser's "Copy as cURL", and each becomes an HTTP request with its headers, body or form fields; what was left out is written in the request's comment; the command is only read, never run | ✅ |
 | Copy, cut and paste elements (Ctrl+C, Ctrl+X, Ctrl+V and the menus) with everything under them, inside a plan or between plans; a paste goes where JMeter's rules allow and is one undo step; save a selection as a plan file of its own; merge a plan file into the open plan | ✅ |
 | Text area for request bodies and scripts: line numbers, colours for JSON, XML and `${variables}`, indenting, scrolling and undo; an HTTP request shows the body editor while it sends a body and the parameters table otherwise | ✅ |
-| New plan (File > New Plan, Ctrl+N): makes an empty plan at once, with no question, as `New plan.jmx` next to the plan you are editing (or the last one you opened); it opens ready to edit and run, and Save As moves it where you want | ✅ |
+| New plan (File > New Plan, Ctrl+N): asks where to save it and what to call it (`New plan.jmx` is filled in, in the folder of the plan you are editing or the last one you opened), then saves an empty plan there and opens it ready to edit and run; Cancel makes nothing | ✅ |
 | Guide (`docs/guide`) that shows how Apache JMeter is used and compares this app with it, task by task, with an example plan and web shop | ✅ |
 | Request viewer (Ctrl+Shift+R): what was sent and what came back for each request — request line, headers and body, status, response headers and body, assertion results and the requests made as part of it. Failed requests are kept by default, or choose all requests or none in Settings; a run keeps at most 500. Send once opens it on the answer. Works on stored runs too | ✅ |
 | Aggregate Report: for each request the samples, average, median, 90th, 95th and 99th percentiles, minimum, maximum, standard deviation, error rate, requests per second and KB per second (worked out like JMeter's own report), with a Total row; click a request to chart just that one over time; copy the table as CSV for a spreadsheet | ✅ |
@@ -112,7 +113,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 90 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 93 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

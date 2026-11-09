@@ -463,11 +463,26 @@ $firstPlan = "$($r.Dir)\first.jmx"
 <hashTree/></hashTree></jmeterTestPlan>
 '@)
 $p = Start-Ui $Exe @($firstPlan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+# Ctrl+N asks where to save the new plan. Cancel first: nothing is made.
 Send-Keys "^n"
+Start-Sleep -Milliseconds 2500
+Send-Keys "{ESC}"
 Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
-Check "Ctrl+N makes an empty plan at once, with no question" ($null -eq $s.dialog -and $s.active_tab -eq "New plan.jmx" -and $s.tabs.Count -eq 2) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab)"
-Check "the new plan is a file next to the open plan" (Test-Path "$($r.Dir)\New plan.jmx") ""
+Check "cancelling the New Plan question makes no plan" ($s.tabs.Count -eq 1 -and -not (Test-Path "$($r.Dir)\New plan.jmx")) "tabs = $($s.tabs.Count)"
+# Then answer it: type a name and press Enter, as a person does.
+$named = "$($r.Dir)\Shop checks.jmx"
+for ($try = 1; $try -le 3 -and -not (Test-Path $named); $try++) {
+    Send-Keys "^n"
+    Start-Sleep -Milliseconds 2500
+    Send-Keys $named
+    Send-Keys "{ENTER}"
+    [void](Wait-Until { (Get-State $r.State).tabs.Count -eq 2 } 8)
+    if (-not (Test-Path $named)) { Send-Keys "{ESC}"; Start-Sleep -Milliseconds 800 }
+}
+$s = Get-State $r.State
+Check "Ctrl+N asks for a name, then opens an empty plan with that name, already saved" ($null -eq $s.dialog -and $s.active_tab -eq "Shop checks.jmx" -and $s.tabs.Count -eq 2 -and $s.elements -eq 1 -and $s.dirty -eq $false) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab), elements = $($s.elements)"
+Check "the new plan is a file where it was saved" (Test-Path $named) ""
 Save-Shot $p "$($r.Dir)\new-plan.png"
 Stop-Ui $p
 
@@ -581,6 +596,21 @@ for ($try = 1; $try -le 3 -and (Get-State $r.State).elements -eq $before; $try++
 }
 $s = Get-State $r.State
 Check "Add > setUp Thread Group in the right-click menu of the Test Plan adds it" ($s.elements -eq $before + 1 -and $s.selected -eq "setUp Thread Group") "elements = $($s.elements), selected = $($s.selected)"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
+Write-Host "18. App icon"
+$r = New-Run "appicon"
+# The icon File Explorer shows for the program: blue in the middle (the app icon), not the plain default program icon.
+$exeIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($Exe).ToBitmap()
+$mid = $exeIcon.GetPixel([int]($exeIcon.Width / 2), [int]($exeIcon.Height / 4))
+Check "the program file has the app icon" ($mid.B -gt 150 -and $mid.R -lt 120) "pixel = $mid"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+# The window toolkit gives the window class the program's icon; the taskbar and Alt+Tab use it. GCLP_HICON = -14, GCLP_HICONSM = -34.
+$big = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -14)
+$small = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -34)
+Check "the window and the taskbar have an icon" (($big -ne [IntPtr]::Zero) -or ($small -ne [IntPtr]::Zero)) "big = $big, small = $small"
+Save-Shot $p "$($r.Dir)\title-bar-icon.png"
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------

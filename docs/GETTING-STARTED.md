@@ -35,9 +35,9 @@ The welcome screen checks for Java and JMeter and tells you what it found:
 
 ## Make and run your first test
 
-1. Press **Ctrl+N** and choose **API test**. Save it where you like.
-2. In the tree on the left, select **HTTP Request Defaults** and type the server you want to test (for example `api.example.com`) in **Server name or IP**. Change **Protocol** to `http` if it is not HTTPS.
-3. Select **Get items** and set **Path** to a real path on that server.
+1. Press **Ctrl+N**, type a name for your plan (for example `my first test`) and press **Save**. An empty plan opens.
+2. Right-click the plan at the top of the tree on the left and choose **Add > Thread Group**. Then right-click the thread group and choose **Add > HTTP Request Defaults**. Select it and type the server you want to test (for example `api.example.com`) in **Server name or IP**. Change **Protocol** to `http` if it is not HTTPS.
+3. Right-click the thread group again and choose **Add > HTTP Request**. Set **Path** to a real path on that server.
 4. Press **F5**. The lower panel shows the run: users, requests per second, average and 95th percentile response time, errors, and live charts.
 5. When it finishes, the run is kept in the **History** tab, in a `runs` folder next to your plan.
 
@@ -57,7 +57,6 @@ The welcome screen checks for Java and JMeter and tells you what it found:
 
 - **From a browser:** in your browser's developer tools (Network tab) use *Save all as HAR*, then **File > Import from HAR File**. With no plan open, a new plan named after the file is made for the requests. Each page becomes a Transaction Controller. Images, styles and scripts are left out unless you ask.
 - **From a single request:** copy it with *Copy as cURL* and press **Ctrl+Shift+I**.
-- **From a template:** **Ctrl+N** also offers a login-and-token test, a data-driven test, a load test with a time limit and a spike test.
 - **Add pauses:** select a thread group or controller and use **Edit > Add Think Times to Children**.
 - **Test a value you pull out of a response:** **Ctrl+Shift+T** tries a JSON Path, regular expression, XPath or CSS selector on a response and shows what JMeter would take.
 

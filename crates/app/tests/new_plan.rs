@@ -7,6 +7,7 @@ mod jm;
 
 use common::*;
 use gpui::TestAppContext;
+use jmeter_ui::file_dialog::{Asked, Kind, ScriptedAnswers};
 use plan_core::EditablePlan;
 use plan_core::starters::{self, Starter};
 use serde_json::Value;
@@ -41,9 +42,9 @@ fn empty_app<'a>(cx: &'a mut TestAppContext) -> App<'a> {
     start(cx, None, None)
 }
 
-// ---- New Plan makes an empty plan at once ----
+// ---- New Plan asks for a name, then makes an empty plan there ----
 
-/// An app whose last-opened plan is in `dir`, so a new plan is made there and nowhere else.
+/// An app whose last-opened plan is in `dir`, so the question for a new plan starts there.
 fn app_with_recent<'a>(cx: &'a mut TestAppContext, dir: &Path) -> App<'a> {
     let settings_path = dir.join("settings.json");
     let mut s = Settings::default();
@@ -52,34 +53,91 @@ fn app_with_recent<'a>(cx: &'a mut TestAppContext, dir: &Path) -> App<'a> {
     start(cx, None, Some(settings_path))
 }
 
+/// What the person will answer to the file questions, in order (`None` is Cancel). No real window is opened.
+fn answers(app: &mut App, list: Vec<Option<PathBuf>>) {
+    app.cx.update(|_, cx| cx.set_global(ScriptedAnswers { answers: list.into(), asked: Vec::new() }));
+}
+
+fn asked(app: &mut App) -> Vec<Asked> {
+    app.cx.update(|_, cx| cx.global::<ScriptedAnswers>().asked.clone())
+}
+
+fn plans_in(dir: &Path) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.ends_with(".jmx")).collect();
+    v.sort();
+    v
+}
+
 #[gpui::test]
-fn ctrl_n_makes_an_empty_plan_at_once_with_no_question(cx: &mut TestAppContext) {
-    let d = temp_dir("new-at-once");
+fn ctrl_n_asks_for_a_name_then_saves_an_empty_plan_and_opens_it(cx: &mut TestAppContext) {
+    let d = temp_dir("new-asks");
     let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("Shop checks.jmx"))]);
     assert!(app.tabs().is_empty());
     app.keys("ctrl-n");
-    assert!(dialog_kind(&mut app).is_none(), "no question is asked");
-    assert_eq!(app.tabs(), vec!["New plan.jmx".to_string()]);
-    assert_eq!(app.active_tab().as_deref(), Some("New plan.jmx"));
+    let q = asked(&mut app);
+    assert_eq!(q, vec![Asked { kind: Kind::Plan, dir: Some(d.clone()), suggested: "New plan.jmx".to_string() }], "one question, for a JMeter file, in the last folder, with a name filled in");
+    assert_eq!(app.tabs(), vec!["Shop checks.jmx".to_string()]);
+    assert_eq!(app.active_tab().as_deref(), Some("Shop checks.jmx"));
+    assert_eq!(app.editing().as_deref(), Some("Shop checks"), "the Test Plan is named after the file");
     assert_eq!(app.state()["elements"], 1, "only the Test Plan");
-    assert!(!app.state()["dirty"].as_bool().unwrap(), "nothing to save yet");
-    assert_eq!(std::fs::read_to_string(d.join("New plan.jmx")).unwrap(), starters::new_plan_text(Starter::Empty, "New plan").unwrap());
+    assert!(!app.state()["dirty"].as_bool().unwrap(), "it is saved already");
+    assert_eq!(std::fs::read_to_string(d.join("Shop checks.jmx")).unwrap(), starters::new_plan_text(Starter::Empty, "Shop checks").unwrap());
 }
 
 #[gpui::test]
-fn a_second_new_plan_gets_the_next_name_and_never_replaces_a_file(cx: &mut TestAppContext) {
+fn cancelling_the_question_makes_no_plan_and_no_file(cx: &mut TestAppContext) {
+    let d = temp_dir("new-cancel");
+    let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![None]);
+    app.keys("ctrl-n");
+    assert_eq!(asked(&mut app).len(), 1);
+    assert!(app.tabs().is_empty(), "no tab");
+    assert!(plans_in(&d).is_empty(), "no file: {:?}", plans_in(&d));
+    assert!(dialog_kind(&mut app).is_none());
+    // A plan that was open stays as it was.
+    let p = d.join("keep.jmx");
+    assert!(create(&mut app, Starter::Api, &p));
+    answers(&mut app, vec![None]);
+    app.keys("ctrl-n");
+    assert_eq!(app.tabs(), vec!["keep.jmx".to_string()]);
+}
+
+#[gpui::test]
+fn the_suggested_name_counts_up_and_never_offers_a_file_that_is_there(cx: &mut TestAppContext) {
+    let d = temp_dir("new-suggest");
+    std::fs::write(d.join("New plan.jmx"), "keep me").unwrap();
+    std::fs::write(d.join("New plan 2.jmx"), "keep me too").unwrap();
+    let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![None]);
+    app.keys("ctrl-n");
+    assert_eq!(asked(&mut app)[0].suggested, "New plan 3.jmx");
+}
+
+#[gpui::test]
+fn a_name_typed_without_an_extension_becomes_a_jmx_file(cx: &mut TestAppContext) {
+    let d = temp_dir("new-asks-ext");
+    let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("plain"))]);
+    app.keys("ctrl-n");
+    assert!(d.join("plain.jmx").is_file());
+    assert!(!d.join("plain").exists());
+    assert_eq!(app.tabs(), vec!["plain.jmx".to_string()]);
+}
+
+#[gpui::test]
+fn two_new_plans_in_a_row_open_two_tabs(cx: &mut TestAppContext) {
     let d = temp_dir("new-twice");
     let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("one.jmx")), Some(d.join("two.jmx"))]);
     app.keys("ctrl-n");
-    std::fs::write(d.join("New plan 3.jmx"), "keep me").unwrap();
     app.keys("ctrl-n");
-    app.keys("ctrl-n");
-    assert_eq!(app.tabs(), vec!["New plan.jmx".to_string(), "New plan 2.jmx".to_string(), "New plan 4.jmx".to_string()]);
-    assert_eq!(std::fs::read_to_string(d.join("New plan 3.jmx")).unwrap(), "keep me");
+    assert_eq!(app.tabs(), vec!["one.jmx".to_string(), "two.jmx".to_string()]);
+    assert_eq!(plans_in(&d), vec!["one.jmx".to_string(), "two.jmx".to_string()]);
 }
 
 #[gpui::test]
-fn a_new_plan_is_made_beside_the_plan_being_edited(cx: &mut TestAppContext) {
+fn the_question_starts_beside_the_plan_being_edited(cx: &mut TestAppContext) {
     let d = temp_dir("new-beside");
     let other = temp_dir("new-beside-recent");
     let p = d.join("one.jmx");
@@ -89,38 +147,70 @@ fn a_new_plan_is_made_beside_the_plan_being_edited(cx: &mut TestAppContext) {
     s.push_recent(&other.join("elsewhere.jmx").display().to_string());
     settings::save(&settings_path, &s).unwrap();
     let mut app = start(cx, Some(p), Some(settings_path));
+    answers(&mut app, vec![None]);
     app.keys("ctrl-n");
-    assert!(d.join("New plan.jmx").is_file(), "next to the plan being edited");
-    assert!(!other.join("New plan.jmx").exists());
+    // The plan's own path is spelled the long way on Windows and through links on macOS, so compare the real places.
+    let dir = asked(&mut app)[0].dir.clone().unwrap();
+    assert_eq!(std::fs::canonicalize(dir).unwrap(), std::fs::canonicalize(d).unwrap(), "in the folder of the plan being edited");
 }
 
 #[gpui::test]
-fn new_plan_works_from_the_palette_and_the_welcome_screen_and_has_no_ellipsis(cx: &mut TestAppContext) {
+fn new_plan_works_from_the_welcome_screen_and_the_palette_and_says_it_asks(cx: &mut TestAppContext) {
     let d = temp_dir("new-everywhere");
     let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("a.jmx")), Some(d.join("b.jmx"))]);
     assert!(app.has("welcome-new"));
     app.click("welcome-new");
-    assert!(dialog_kind(&mut app).is_none());
-    assert_eq!(app.tabs().len(), 1, "the welcome button makes a plan at once");
+    assert_eq!(app.tabs(), vec!["a.jmx".to_string()], "the welcome button asks, then makes the plan");
     app.keys("ctrl-shift-p");
     app.input(">new plan");
-    assert_eq!(app.palette_titles().first().map(String::as_str), Some("New Plan"), "no ellipsis: it does not ask anything");
+    assert_eq!(app.palette_titles().first().map(String::as_str), Some("New Plan…"), "the dots say it asks something");
     app.keys("enter");
-    assert_eq!(app.tabs().len(), 2, "the palette makes a plan at once");
-    assert!(dialog_kind(&mut app).is_none());
+    assert_eq!(app.tabs(), vec!["a.jmx".to_string(), "b.jmx".to_string()], "the palette asks, then makes the plan");
+    assert_eq!(asked(&mut app).len(), 2);
 }
 
 #[gpui::test]
-fn the_new_plan_can_be_run_edited_and_saved_straight_away(cx: &mut TestAppContext) {
+fn a_name_that_cannot_be_saved_or_is_open_already_is_refused_with_a_message(cx: &mut TestAppContext) {
+    let d = temp_dir("new-asks-refuse");
+    let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("no such folder").join("x.jmx")), Some(d.join("busy.jmx")), Some(d.join("busy.jmx"))]);
+    app.keys("ctrl-n");
+    assert!(notice(&mut app).contains("Could not save"), "{}", notice(&mut app));
+    assert!(app.tabs().is_empty() && !d.join("no such folder").exists());
+    app.keys("ctrl-n");
+    assert_eq!(app.tabs(), vec!["busy.jmx".to_string()]);
+    let before = std::fs::read_to_string(d.join("busy.jmx")).unwrap();
+    app.keys("ctrl-n");
+    assert!(notice(&mut app).contains("open in a tab"), "{}", notice(&mut app));
+    assert_eq!(std::fs::read_to_string(d.join("busy.jmx")).unwrap(), before, "an open plan is not replaced");
+    assert_eq!(app.tabs().len(), 1);
+}
+
+#[gpui::test]
+fn choosing_a_file_that_exists_after_the_window_asked_to_replace_it_replaces_it(cx: &mut TestAppContext) {
+    let d = temp_dir("new-asks-replace");
+    std::fs::write(d.join("old.jmx"), "not a plan at all").unwrap();
+    let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("old.jmx"))]);
+    app.keys("ctrl-n");
+    assert_eq!(std::fs::read_to_string(d.join("old.jmx")).unwrap(), starters::new_plan_text(Starter::Empty, "old").unwrap());
+}
+
+#[gpui::test]
+fn the_new_plan_can_be_edited_and_saved_straight_away(cx: &mut TestAppContext) {
     let d = temp_dir("new-straight");
     let mut app = app_with_recent(cx, &d);
+    answers(&mut app, vec![Some(d.join("fresh.jmx"))]);
     app.keys("ctrl-n");
-    app.keys("ctrl-p");
-    app.input("Test Plan");
+    app.keys("ctrl-k");
+    app.input("+thread group");
     app.keys("enter");
-    assert!(app.state()["elements"].as_u64().unwrap() >= 1);
+    assert!(app.state()["elements"].as_u64().unwrap() >= 2);
+    assert!(app.state()["dirty"].as_bool().unwrap());
     app.keys(&secondary("ctrl-s"));
     assert!(!app.state()["dirty"].as_bool().unwrap());
+    assert!(std::fs::read_to_string(d.join("fresh.jmx")).unwrap().contains("ThreadGroup"));
 }
 
 // ---- where a new plan goes ----
