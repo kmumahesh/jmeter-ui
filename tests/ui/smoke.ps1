@@ -463,11 +463,26 @@ $firstPlan = "$($r.Dir)\first.jmx"
 <hashTree/></hashTree></jmeterTestPlan>
 '@)
 $p = Start-Ui $Exe @($firstPlan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+# Ctrl+N asks where to save the new plan. Cancel first: nothing is made.
 Send-Keys "^n"
+Start-Sleep -Milliseconds 2500
+Send-Keys "{ESC}"
 Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
-Check "Ctrl+N makes an empty plan at once, with no question" ($null -eq $s.dialog -and $s.active_tab -eq "New plan.jmx" -and $s.tabs.Count -eq 2) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab)"
-Check "the new plan is a file next to the open plan" (Test-Path "$($r.Dir)\New plan.jmx") ""
+Check "cancelling the New Plan question makes no plan" ($s.tabs.Count -eq 1 -and -not (Test-Path "$($r.Dir)\New plan.jmx")) "tabs = $($s.tabs.Count)"
+# Then answer it: type a name and press Enter, as a person does.
+$named = "$($r.Dir)\Shop checks.jmx"
+for ($try = 1; $try -le 3 -and -not (Test-Path $named); $try++) {
+    Send-Keys "^n"
+    Start-Sleep -Milliseconds 2500
+    Send-Keys $named
+    Send-Keys "{ENTER}"
+    [void](Wait-Until { (Get-State $r.State).tabs.Count -eq 2 } 8)
+    if (-not (Test-Path $named)) { Send-Keys "{ESC}"; Start-Sleep -Milliseconds 800 }
+}
+$s = Get-State $r.State
+Check "Ctrl+N asks for a name, then opens an empty plan with that name, already saved" ($null -eq $s.dialog -and $s.active_tab -eq "Shop checks.jmx" -and $s.tabs.Count -eq 2 -and $s.elements -eq 1 -and $s.dirty -eq $false) "dialog = $($s.dialog | ConvertTo-Json -Compress), tab = $($s.active_tab), elements = $($s.elements)"
+Check "the new plan is a file where it was saved" (Test-Path $named) ""
 Save-Shot $p "$($r.Dir)\new-plan.png"
 Stop-Ui $p
 
@@ -556,6 +571,31 @@ Save-Shot $p "$($r.Dir)\run-properties.png"
 Send-Keys "{ESC}"
 $s = Get-State $r.State
 Check "Escape closes it without saving" ($null -eq $s.dialog) ""
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
+Write-Host "17. Add from the right-click menu"
+$r = New-Run "addmenu"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+$before = (Get-State $r.State).elements
+# On a slow machine the menu can take a moment to open, so a try that adds nothing closes the menu and tries again.
+for ($try = 1; $try -le 3 -and (Get-State $r.State).elements -eq $before; $try++) {
+    Click-At $p 150 (Row-Y 3)                 # something else is selected first
+    RightClick-At $p 150 (Row-Y 0)           # the Test Plan
+    Start-Sleep -Milliseconds 900
+    $w = Get-WindowRect $p
+    # Point at Add the way a hand does: it opens its list when the pointer rests on it (a click is not needed).
+    foreach ($i in 1..6) { [void][UiNative]::SetCursorPos($w.L + 200 + [int](30 * $i / 6), $w.T + 140 - [int](37 * $i / 6)); Start-Sleep -Milliseconds 80 }
+    Start-Sleep -Milliseconds 1200
+    # Travel to the row the way a hand does, in a straight line across the list, not along its edge.
+    foreach ($i in 1..10) { [void][UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); Start-Sleep -Milliseconds 60 }
+    Start-Sleep -Milliseconds 400
+    Save-Shot $p "$($r.Dir)\add-menu-$try.png"
+    [UiNative]::Click($w.L + 425, $w.T + 177); Start-Sleep -Milliseconds 900   # setUp Thread Group
+    if ((Get-State $r.State).elements -eq $before) { Send-Keys "{ESC}"; Start-Sleep -Milliseconds 600 }
+}
+$s = Get-State $r.State
+Check "Add > setUp Thread Group in the right-click menu of the Test Plan adds it" ($s.elements -eq $before + 1 -and $s.selected -eq "setUp Thread Group") "elements = $($s.elements), selected = $($s.selected)"
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------

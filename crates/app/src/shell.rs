@@ -758,9 +758,7 @@ impl Shell {
             Action::PasteElement => self.paste_clipboard(window, cx),
             Action::SaveSelectionAs => self.save_selection_as(window, cx),
             Action::MergePlan => self.merge_dialog(window, cx),
-            Action::NewPlan => {
-                self.new_empty_plan(window, cx);
-            }
+            Action::NewPlan => self.new_plan(window, cx),
             Action::OpenPlan => self.open_dialog(window, cx),
             Action::SavePlan => {
                 self.save_active(window, cx);
