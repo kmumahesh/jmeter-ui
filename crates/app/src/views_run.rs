@@ -362,7 +362,9 @@ impl Shell {
         };
         let current = self.run.as_ref().map(|r| r.dir.clone());
         let keep = self.settings.runs_keep;
-        let rows = self.history_entries().iter().enumerate().map(|(i, e)| {
+        let only_pinned = self.history_pinned_only();
+        let hidden = self.history_hidden();
+        let rows = self.history_entries().iter().enumerate().filter(|(_, e)| self.history_shows(e)).map(|(i, e)| {
             let m = &e.meta;
             let dir = e.dir.clone();
             let (dir_view, dir_open, dir_del, dir_cmp, dir_pin) = (dir.clone(), dir.clone(), dir.clone(), dir.clone(), dir.clone());
@@ -450,6 +452,12 @@ impl Shell {
                     .border_b_1()
                     .border_color(p.line)
                     .child(div().id("history-root").debug_selector(|| "history-root".to_string()).flex_1().overflow_hidden().whitespace_nowrap().font_family(MONO_FONT).text_size(px(11.)).text_color(p.muted).child(format!("{}  \u{b7}  the last {keep} runs of this plan are kept, and every pinned run", root.display())))
+                    .when(only_pinned, |d| d.child(div().debug_selector(|| "history-hidden".to_string()).text_size(px(11.)).text_color(p.muted).child(match hidden { 0 => "No runs hidden".to_string(), 1 => "1 run hidden".to_string(), n => format!("{n} runs hidden") })))
+                    .child(
+                        div()
+                            .debug_selector(|| "history-pinned-only".to_string())
+                            .child(Button::new("history-pinned-only", "Pinned only").style(if only_pinned { ButtonStyle::Tinted(ui::TintColor::Accent) } else { ButtonStyle::Subtle }).size(ButtonSize::Compact).tooltip(Tooltip::text(if only_pinned { "Show all runs again" } else { "Show only the runs you pinned, such as a baseline" })).on_click(cx.listener(|this, _, _, cx| this.toggle_history_pinned_only(cx)))),
+                    )
                     .child(div().debug_selector(|| "history-open-folder".to_string()).child(Button::new("history-open-folder", "Open folder").style(ButtonStyle::Subtle).size(ButtonSize::Compact).on_click(cx.listener(|this, _, w, cx| this.open_runs_folder(w, cx))))),
             )
             .child(
@@ -459,6 +467,7 @@ impl Shell {
                     .min_h_0()
                     .overflow_y_scroll()
                     .when(self.history_entries().is_empty(), |d| d.child(div().p(px(16.)).text_color(p.muted).child("No runs of this plan yet. Press F5 to run it; every run is kept here with its results and log.")))
+                    .when(!self.history_entries().is_empty() && hidden == self.history_entries().len(), |d| d.child(div().debug_selector(|| "history-no-pinned".to_string()).p(px(16.)).text_color(p.muted).child("No pinned runs yet. Press Pin on a run to keep it and find it here.")))
                     .children(rows),
             )
             .into_any_element()

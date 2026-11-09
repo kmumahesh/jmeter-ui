@@ -17,6 +17,9 @@ pub const MAX_INPUT: usize = 4_000_000;
 /// The most requests one import brings.
 pub const MAX_REQUESTS: usize = 200;
 
+/// The longest path shown in a request's name; a longer one is cut and its full address goes in the comment.
+pub const NAME_PATH_CHARS: usize = 120;
+
 /// One request read from a cURL command.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct CurlRequest {
@@ -35,6 +38,8 @@ pub struct CurlRequest {
     pub notes: Vec<String>,
     /// A name to group requests under in a Transaction Controller (a page of a HAR file); none for cURL commands.
     pub group: Option<String>,
+    /// The recording had cookies for this request, so the plan gets an HTTP Cookie Manager.
+    pub cookies: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -52,8 +57,13 @@ pub enum Body {
 impl CurlRequest {
     /// A name for the request in the tree: `POST /login`.
     pub fn name(&self) -> String {
-        let path: String = self.path.split('?').next().unwrap_or("/").chars().take(60).collect();
+        let path: String = self.path.split('?').next().unwrap_or("/").chars().take(NAME_PATH_CHARS).collect();
         format!("{} {}", self.method, path)
+    }
+
+    /// Whether the path in the name was cut; the full address then goes in the comment.
+    fn name_is_cut(&self) -> bool {
+        self.path.split('?').next().unwrap_or("/").chars().count() > NAME_PATH_CHARS
     }
 }
 
@@ -573,12 +583,13 @@ fn request_of(args: &[String]) -> Result<CurlRequest> {
 /// The requests as the text of a plan file that holds just them (see `EditablePlan::copy_text`), ready to be pasted:
 /// each request is an HTTP Request, with an HTTP Header Manager under it for its headers.
 pub fn plan_text(requests: &[CurlRequest]) -> Result<String> {
+    let shared = Shared { headers: common_headers(requests), cookies: requests.iter().any(|r| r.cookies) };
     // Every edit of a plan costs about as much as the plan is large, so a big recording is made in pieces of a few dozen
     // requests (never in the middle of a page when it can be avoided) and the pieces are joined as text.
     const PIECE: usize = 40;
     const PIECE_MAX: usize = 120;
     if requests.len() <= PIECE {
-        return plan_text_piece(requests);
+        return plan_text_piece(requests, &shared, true);
     }
     let mut pieces: Vec<String> = Vec::new();
     let mut start = 0;
@@ -587,7 +598,7 @@ pub fn plan_text(requests: &[CurlRequest]) -> Result<String> {
         while end < requests.len() && end - start < PIECE_MAX && requests[end].group.is_some() && requests[end].group == requests[end - 1].group {
             end += 1;
         }
-        pieces.push(plan_text_piece(&requests[start..end])?);
+        pieces.push(plan_text_piece(&requests[start..end], &shared, start == 0)?);
         start = end;
     }
     join_pieces(&pieces)
@@ -614,11 +625,46 @@ fn join_pieces(pieces: &[String]) -> Result<String> {
     Ok(out)
 }
 
-fn plan_text_piece(requests: &[CurlRequest]) -> Result<String> {
+/// What every request of an import has in common: the headers that are the same in all of them (sent by one shared HTTP
+/// Header Manager instead of one per request) and whether a Cookie Manager is wanted.
+struct Shared {
+    headers: Vec<(String, String)>,
+    cookies: bool,
+}
+
+/// The headers (same name without case, same value) found in every request; none for fewer than two requests.
+fn common_headers(requests: &[CurlRequest]) -> Vec<(String, String)> {
+    if requests.len() < 2 {
+        return Vec::new();
+    }
+    let same = |a: &(String, String), b: &(String, String)| a.0.eq_ignore_ascii_case(&b.0) && a.1 == b.1;
+    let mut out: Vec<(String, String)> = Vec::new();
+    for h in &requests[0].headers {
+        if !out.iter().any(|o| o.0.eq_ignore_ascii_case(&h.0)) && requests.iter().all(|r| r.headers.iter().any(|x| same(x, h))) {
+            out.push(h.clone());
+        }
+    }
+    out
+}
+
+fn plan_text_piece(requests: &[CurlRequest], shared: &Shared, first: bool) -> Result<String> {
     let mut e = EditablePlan::open(&starters::new_plan_text(Starter::Empty, "import")?)?;
     let root = e.plan().roots()[0];
     let group = e.add(root, "ThreadGroup", "ThreadGroupGui")?;
     let mut made = Vec::new();
+    if first {
+        if shared.cookies {
+            made.push(e.add(group, "CookieManager", "CookiePanel")?);
+        }
+        if !shared.headers.is_empty() {
+            let h = e.add(group, "HeaderManager", "HeaderPanel")?;
+            e.rename(h, "Headers for all requests")?;
+            for (i, (n, v)) in shared.headers.iter().enumerate() {
+                e.add_row(h, "HeaderManager.headers", i, new_row(RowShape::Header, &[n, v]))?;
+            }
+            made.push(h);
+        }
+    }
     // Requests of the same page go in one Transaction Controller, made when the page changes.
     let mut page: Option<(String, jmx_model_id::NodeId)> = None;
     for r in requests {
@@ -646,8 +692,12 @@ fn plan_text_piece(requests: &[CurlRequest]) -> Result<String> {
         }
         e.set_prop(s, "HTTPSampler.path", "stringProp", &r.path)?;
         e.set_prop(s, "HTTPSampler.method", "stringProp", &r.method)?;
-        if !r.notes.is_empty() {
-            e.set_prop(s, forms::COMMENTS_PROP, "stringProp", &r.notes.join(" "))?;
+        let mut notes = r.notes.clone();
+        if r.name_is_cut() {
+            notes.push(format!("Full address: {}", r.path));
+        }
+        if !notes.is_empty() {
+            e.set_prop(s, forms::COMMENTS_PROP, "stringProp", &notes.join(" "))?;
         }
         match &r.body {
             Body::None => {}
@@ -667,9 +717,10 @@ fn plan_text_piece(requests: &[CurlRequest]) -> Result<String> {
                 }
             }
         }
-        if !r.headers.is_empty() {
+        let own: Vec<&(String, String)> = r.headers.iter().filter(|h| !shared.headers.iter().any(|c| c.0.eq_ignore_ascii_case(&h.0) && c.1 == h.1)).collect();
+        if !own.is_empty() {
             let h = e.add(s, "HeaderManager", "HeaderPanel")?;
-            for (i, (n, v)) in r.headers.iter().enumerate() {
+            for (i, (n, v)) in own.into_iter().enumerate() {
                 e.add_row(h, "HeaderManager.headers", i, new_row(RowShape::Header, &[n, v]))?;
             }
         }
@@ -970,5 +1021,51 @@ mod tests {
         assert_eq!(ids.len(), 50);
         e.undo().unwrap();
         assert_eq!(e.plan().len(), 2, "one undo takes all fifty away");
+    }
+
+    fn req(path: &str, headers: &[(&str, &str)], cookies: bool) -> CurlRequest {
+        CurlRequest { method: "GET".into(), protocol: "https".into(), host: "x.org".into(), path: path.into(), headers: headers.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect(), cookies, ..Default::default() }
+    }
+
+    fn count(text: &str, element: &str) -> usize {
+        text.matches(&format!("<{element} ")).count()
+    }
+
+    #[test]
+    fn long_paths_keep_more_of_the_name_and_the_full_address_goes_in_the_comment() {
+        let long = format!("/{}", "a".repeat(200));
+        let r = req(&long, &[], false);
+        assert_eq!(r.name().chars().count(), "GET ".len() + NAME_PATH_CHARS);
+        let text = plan_text(&[r]).unwrap();
+        assert!(text.contains(&format!("Full address: {long}")));
+        let short = plan_text(&[req("/a", &[], false)]).unwrap();
+        assert!(!short.contains("Full address"));
+    }
+
+    #[test]
+    fn headers_that_every_request_has_go_in_one_shared_manager() {
+        let a = req("/a", &[("Accept", "*/*"), ("X-Own", "1")], false);
+        let b = req("/b", &[("accept", "*/*"), ("X-Own", "2")], false);
+        let text = plan_text(&[a, b]).unwrap();
+        assert_eq!(count(&text, "HeaderManager"), 3, "one shared and one for each request that differs");
+        assert_eq!(text.matches("Headers for all requests").count(), 1);
+        // One request alone keeps its own manager and has nothing shared.
+        let one = plan_text(&[req("/a", &[("Accept", "*/*")], false)]).unwrap();
+        assert!(!one.contains("Headers for all requests") && count(&one, "HeaderManager") == 1);
+        // Requests that are the same in everything get only the shared manager.
+        let same = plan_text(&[req("/a", &[("Accept", "*/*")], false), req("/b", &[("Accept", "*/*")], false)]).unwrap();
+        assert_eq!(count(&same, "HeaderManager"), 1);
+    }
+
+    #[test]
+    fn a_cookie_manager_is_added_once_and_only_when_wanted() {
+        let with = plan_text(&[req("/a", &[], true), req("/b", &[], false)]).unwrap();
+        assert_eq!(count(&with, "CookieManager"), 1);
+        let without = plan_text(&[req("/a", &[], false)]).unwrap();
+        assert_eq!(count(&without, "CookieManager"), 0);
+        // A long recording is made in pieces; the managers are still made once.
+        let many: Vec<CurlRequest> = (0..130).map(|i| req(&format!("/{i}"), &[("Accept", "*/*")], true)).collect();
+        let big = plan_text(&many).unwrap();
+        assert_eq!((count(&big, "CookieManager"), count(&big, "HeaderManager")), (1, 1));
     }
 }
