@@ -1031,7 +1031,7 @@ impl Shell {
                 }),
                 Dialog::Har { path, skip_static, group_by_page, hosts, summary, error, .. } => json!({
                     "kind": "har", "file": path.to_string_lossy(), "skip_static": skip_static, "group_by_page": group_by_page, "hosts": hosts.read(cx).text(), "error": error,
-                    "total": summary.as_ref().map(|s| s.total), "kept": summary.as_ref().map(|s| s.kept), "left_out": summary.as_ref().map(|s| s.left_out()),
+                    "total": summary.as_ref().map(|s| s.total), "kept": summary.as_ref().map(|s| s.kept), "left_out": summary.as_ref().map(|s| s.left_out()), "heads_up": summary.as_ref().map(|s| s.heads_up()),
                 }),
                 Dialog::ThinkTimes { min, max, error, .. } => json!({ "kind": "think_times", "min": min.read(cx).text(), "max": max.read(cx).text(), "error": error }),
                 Dialog::RunProps { area, error } => json!({ "kind": "run_props", "text": area.read(cx).text(), "error": error }),
