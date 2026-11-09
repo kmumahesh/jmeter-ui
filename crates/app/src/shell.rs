@@ -200,6 +200,12 @@ pub struct Shell {
     pub runtime_checked: bool,
     pub focus: FocusHandle,
     pub tree_focus: FocusHandle,
+    /// The buttons of a question (three at most), so Tab can reach them and a ring can show which one has the keyboard.
+    pub dialog_buttons: Vec<FocusHandle>,
+    /// Which button of the question had the keyboard when the window was last drawn.
+    pub dialog_button_focused: Option<usize>,
+    /// Whether the keyboard was already given to the default button of the question that is open.
+    pub dialog_focus_given: bool,
     pub tree_scroll: UniformListScrollHandle,
     pub editor_scroll: ScrollHandle,
     pub resizing: Option<Resize>,
@@ -419,6 +425,9 @@ impl Shell {
             req_sel: 0,
             req_part: RequestPart::Response,
             req_focus: cx.focus_handle(),
+            dialog_buttons: (0..3).map(|_| cx.focus_handle().tab_stop(true)).collect(),
+            dialog_button_focused: None,
+            dialog_focus_given: false,
             req_request: cx.new(|cx| crate::textarea::TextArea::new(cx, "req-request", "", "").rows(14).read_only(true)),
             req_response: cx.new(|cx| crate::textarea::TextArea::new(cx, "req-response", "", "").rows(14).read_only(true)),
             run: None,
@@ -1022,6 +1031,7 @@ impl Shell {
             "inspector": self.workspace.inspector.visible,
             "bottom": self.workspace.bottom.visible,
             "notice": self.notice.as_ref().map(|n| n.text.clone()),
+            "dialog_focus": self.dialog_button_focused.and_then(|i| self.question_parts().2.get(i).map(|b| b.0)),
             "dialog": self.dialog.as_ref().map(|d| match d {
                 Dialog::Unsaved { plans, then } => json!({ "kind": "unsaved", "plans": plans.len(), "then": format!("{then:?}") }),
                 Dialog::Curl { area, error } => json!({ "kind": "curl", "error": error, "text": area.read(cx).text() }),

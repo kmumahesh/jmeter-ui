@@ -21,6 +21,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Open `.jmx` test plans (file dialog, command line, File > Recent Plans submenu with Clear Recent Plans, last session), several plans at once, one tab each | ✅ |
 | File dialogs ask for the right kind of file on Windows: Open and Save As show "JMeter file (*.jmx)" and list only those files (All files is the second choice), Save As adds `.jmx` to a name without an extension, and the HAR, results and properties dialogs filter the same way | ✅ |
 | Test plan tree with element icons and colours, expand and collapse, keyboard navigation | ✅ |
+| Questions (Save changes?, Add to Plan, Clear Runs and so on) work from the keyboard: the default button has the keyboard when the question opens, Tab and Shift+Tab move between the buttons and stay in the question, the button that has the keyboard shows a ring that stands out in the dark and the light theme, Enter presses it and Escape cancels | ✅ |
 | One app icon, drawn for this project and free to use under the project licence: it is the icon of `jmeter-ui.exe` in File Explorer, of the window and the taskbar, and it shows in the title bar, on the start screen and in About; it lives in one file, so changing that file changes it everywhere | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
 | Command palette: commands, go to element, add element, recent plans | ✅ |
@@ -113,7 +114,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 93 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 97 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

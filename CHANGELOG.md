@@ -5,6 +5,7 @@ All notable changes are listed here, newest first. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- The buttons of a question (Save changes?, Add to Plan, Clear Runs, Remove Run and the others) can now be reached with the keyboard. The default button has the keyboard when the question opens, Tab and Shift+Tab move between the buttons (and stay in the question), the button that has the keyboard shows a ring that stands out in the dark and the light theme, Enter presses it, and Escape still cancels. Questions with a text box (cURL, HAR, think times, run properties, the expression tester) keep the keyboard in the text box when they open.
 - The app has an icon of its own: a blue rounded square with a rising line. It is the icon of `jmeter-ui.exe` in File Explorer, of the window and the taskbar, and it appears in the title bar, on the start screen and in About instead of the lightning bolt. It is one file, `assets/app-icon/icon.svg`, drawn for this project and free to use under the project licence; the build makes the Windows icon from it, so changing that one file changes it everywhere. Tests check that it draws at every size, that the program carries it, and that no second copy exists.
 - Pin a run: the History tab has a Pin button on every run. A pinned run shows "Pinned" and is never removed by the limit on how many runs are kept or by clearing the shared runs folder (pinned runs do not count towards the limit). Unpin makes it an ordinary run again. Runs from earlier versions are not pinned.
 

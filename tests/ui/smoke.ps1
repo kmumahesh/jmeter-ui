@@ -303,9 +303,19 @@ Start-Sleep -Milliseconds 800
 $s = Get-State $r.State
 if ($s.dialog -eq $null) { Click-At $p 1264 19; Start-Sleep -Milliseconds 800; $s = Get-State $r.State }   # the first click can only focus the window
 Check "closing the window with unsaved changes asks first" ($s.dialog.kind -eq "unsaved" -and $s.dialog.then -eq "Quit") "dialog = $($s.dialog | ConvertTo-Json -Compress)"
-Click-At $p 819 437        # Cancel
+Check "the default button has the keyboard when the question opens" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-save" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+Check "Tab moves to the next button" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-discard" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+Check "Tab again reaches Cancel" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-cancel" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Save-Shot $p "$($r.Dir)\question-focus-ring.png"
+Send-Keys "+{TAB}"
+Check "Shift+Tab goes back" ((Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-discard" } 4)) "dialog_focus = $((Get-State $r.State).dialog_focus)"
+Send-Keys "{TAB}"
+[void](Wait-Until { (Get-State $r.State).dialog_focus -eq "dialog-cancel" } 4)
+Send-Keys "{ENTER}"        # Enter on the focused Cancel
 $s = Get-State $r.State
-Check "Cancel keeps the app open with the work" ($s.dialog -eq $null -and $s.dirty -eq $true) ""
+Check "Enter on the focused Cancel keeps the app open with the work" ($s.dialog -eq $null -and $s.dirty -eq $true) ""
 Send-Keys "^k"
 Send-Query ">quit" $r.State
 Send-Keys "{ENTER}"

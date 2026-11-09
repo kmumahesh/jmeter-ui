@@ -382,6 +382,15 @@ mod tests {
     }
 
     #[test]
+    fn the_focus_ring_of_a_question_button_stands_out_in_both_themes() {
+        // The ring is drawn in the text colour with a small gap around a button, so it touches only the dialog surface.
+        for p in [Palette::dark(), Palette::light()] {
+            let mode = if p.dark { "dark" } else { "light" };
+            assert!(contrast(p.fg, p.raise) >= 3.0, "{mode}: the ring against the dialog is {:.2}", contrast(p.fg, p.raise));
+        }
+    }
+
+    #[test]
     fn a_default_button_keeps_readable_text_when_hovered_and_pressed_in_both_themes() {
         for p in [Palette::dark(), Palette::light()] {
             let mode = if p.dark { "dark" } else { "light" };
