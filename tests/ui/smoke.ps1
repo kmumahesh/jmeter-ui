@@ -605,6 +605,7 @@ for ($try = 1; $try -le 5 -and (Get-State $r.State).elements -eq $before; $try++
     # Point at Add the way a hand does: it opens its list when the pointer rests on it (a click is not needed).
     foreach ($i in 1..6) { [void][UiNative]::SetCursorPos($w.L + 200 + [int](30 * $i / 6), $w.T + 140 - [int](37 * $i / 6)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 80 }
     Start-Sleep -Milliseconds 1200
+    [UiNative]::Click($w.L + 230, $w.T + 103); Start-Sleep -Milliseconds 700   # click Add as well: on the build machine the pointer resting on it is not always seen
     # Travel to the row the way a hand does, in a straight line across the list, not along its edge.
     foreach ($i in 1..10) { [void][UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 60 }
     Start-Sleep -Milliseconds 400
