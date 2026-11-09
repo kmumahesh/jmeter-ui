@@ -49,11 +49,32 @@ pub struct Summary {
     pub skipped_other_hosts: usize,
     /// Not http or https (data:, blob:, websockets).
     pub skipped_not_http: usize,
+    /// Requests that carry a recorded token or a multipart form as fixed text, which a replay may need as variables.
+    pub fixed_values: usize,
+    /// The recording had cookies, so a Cookie Manager is added to the plan.
+    pub cookies: bool,
     /// Hosts and how many requests went to each, most first.
     pub hosts: Vec<(String, usize)>,
 }
 
 impl Summary {
+    /// One or two sentences about what the import adds or what the person should check, or an empty text.
+    pub fn heads_up(&self) -> String {
+        let mut parts = Vec::new();
+        if self.cookies {
+            parts.push("An HTTP Cookie Manager is added because the recording had cookies.".to_string());
+        }
+        if self.fixed_values > 0 {
+            let n = self.fixed_values;
+            parts.push(if n == 1 {
+                "1 request carries a recorded token or form as fixed text; a replay may fail until you replace it with variables.".to_string()
+            } else {
+                format!("{n} requests carry a recorded token or form as fixed text; a replay may fail until you replace them with variables.")
+            });
+        }
+        parts.join(" ")
+    }
+
     /// One sentence about what was left out, or an empty text when nothing was.
     pub fn left_out(&self) -> String {
         let mut parts = Vec::new();
@@ -98,12 +119,18 @@ struct Entry {
     response: Resp,
 }
 
+/// Header names that carry a value a server made for one visit (a token), which is stale in a replay.
+fn is_token_header(name: &str) -> bool {
+    matches!(name.to_ascii_lowercase().as_str(), "x-xsrf-token" | "x-csrf-token" | "csrf-token" | "x-csrftoken" | "x-request-verification-token" | "authorization")
+}
+
 #[derive(Deserialize, Default)]
 #[serde(default)]
 struct Req {
     method: String,
     url: String,
     headers: Vec<Pair>,
+    cookies: Vec<Pair>,
     #[serde(rename = "postData")]
     post_data: Option<Post>,
 }
@@ -231,12 +258,30 @@ pub fn parse(text: &str, options: &Options) -> Result<(Vec<CurlRequest>, Summary
         let mut notes = Vec::new();
         let method = if e.request.method.is_empty() { "GET".to_string() } else { e.request.method.to_ascii_uppercase() };
         let body = body_of(&e.request.post_data, &mut notes);
+        let mut headers = headers_of(&e.request.headers);
+        let mut fixed = false;
+        if matches!(body, Body::Multipart(_)) {
+            // JMeter writes the multipart header and boundary itself; the recorded ones would not match its body.
+            headers.retain(|(n, _)| !n.eq_ignore_ascii_case("content-type"));
+            notes.push("The form is sent as recorded; its values may need to be variables.".to_string());
+            fixed = true;
+        }
+        let tokens: Vec<&str> = headers.iter().map(|(n, _)| n.as_str()).filter(|n| is_token_header(n)).collect();
+        if !tokens.is_empty() {
+            notes.push(format!("{} has the recorded value; replace it with a variable if the server makes a new one for each visit.", tokens.join(", ")));
+            fixed = true;
+        }
+        if fixed {
+            summary.fixed_values += 1;
+        }
+        let cookies = e.request.headers.iter().any(|h| h.name.eq_ignore_ascii_case("cookie") && !h.value.is_empty()) || !e.request.cookies.is_empty();
+        summary.cookies |= cookies;
         let group = if options.group_by_page {
             e.pageref.as_ref().map(|id| har.log.pages.iter().find(|p| p.id == *id).map(|p| if p.title.trim().is_empty() { p.id.clone() } else { p.title.chars().filter(|c| !c.is_control()).take(80).collect() }).unwrap_or_else(|| id.clone()))
         } else {
             None
         };
-        out.push(CurlRequest { method, protocol, host, port, path, headers: headers_of(&e.request.headers), body, notes, group });
+        out.push(CurlRequest { method, protocol, host, port, path, headers, body, notes, group, cookies });
     }
     counts.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     summary.hosts = counts;
@@ -292,6 +337,32 @@ mod tests {
         // With static files wanted they are all there.
         let (r, _) = parse(&text, &Options { skip_static: false, ..Default::default() }).unwrap();
         assert_eq!(r.len(), 6);
+    }
+
+    #[test]
+    fn tokens_forms_and_cookies_are_flagged_and_a_multipart_header_is_dropped() {
+        let json = r#","postData":{"mimeType":"application/json","text":"{}"}"#;
+        let a = entry("POST", "https://x.org/a", "text/plain", json).replace(r#"{"name":"Accept","value":"*/*"}"#, r#"{"name":"X-XSRF-TOKEN","value":"abc"}"#);
+        let multi = r#","postData":{"mimeType":"multipart/form-data; boundary=x","params":[{"name":"a","value":"1"}]}"#;
+        let m = entry("POST", "https://x.org/m", "text/plain", multi).replace(r#"{"name":"Accept","value":"*/*"}"#, r#"{"name":"Content-Type","value":"multipart/form-data; boundary=x"}"#);
+        let (r, s) = parse(&har(&[a, m].join(",")), &Options::default()).unwrap();
+        assert!(r[0].notes.iter().any(|n| n.contains("X-XSRF-TOKEN")));
+        assert!(r[1].headers.is_empty() && r[1].notes.iter().any(|n| n.contains("sent as recorded")));
+        assert_eq!(s.fixed_values, 2);
+        assert!(s.cookies, "the test entries carry a Cookie header");
+        assert!(s.heads_up().contains("Cookie Manager") && s.heads_up().contains("2 requests carry"));
+        assert_eq!(Summary::default().heads_up(), "");
+        let one = Summary { fixed_values: 1, ..Default::default() };
+        assert!(one.heads_up().contains("1 request carries") && one.heads_up().contains("replace it"));
+    }
+
+    #[test]
+    fn a_recording_without_cookies_adds_no_cookie_manager() {
+        let e = r#"{"request":{"method":"GET","url":"https://x.org/a","headers":[{"name":"Accept","value":"*/*"}]},"response":{}}"#;
+        let (r, s) = parse(&har(e), &Options::default()).unwrap();
+        assert!(!s.cookies && !r[0].cookies);
+        let c = r#"{"request":{"method":"GET","url":"https://x.org/a","cookies":[{"name":"sid","value":"1"}]},"response":{}}"#;
+        assert!(parse(&har(c), &Options::default()).unwrap().1.cookies);
     }
 
     #[test]

@@ -68,6 +68,7 @@ fn the_dialog_shows_what_the_file_holds_and_what_is_left_out(cx: &mut TestAppCon
     assert_eq!(d["kind"], "har", "{d}");
     assert_eq!((d["total"].clone(), d["kept"].clone()), (5.into(), 3.into()));
     assert!(d["left_out"].as_str().unwrap().contains("2 images, styles, scripts and fonts"), "{d}");
+    assert!(d["heads_up"].as_str().unwrap().contains("Cookie Manager"), "the recording had a cookie: {d}");
     for sel in ["har-summary", "har-skip-static", "har-group", "har-hosts", "dialog-har-add", "dialog-cancel"] {
         assert!(app.has(sel), "{sel}");
     }
@@ -100,11 +101,12 @@ fn adding_puts_the_requests_in_the_plan_grouped_by_page_in_one_undoable_step(cx:
     assert!(app.state()["dialog"].is_null());
     assert!(app.state()["notice"].as_str().unwrap().contains("Added 3 requests from the HAR file"));
     // Two pages (controllers) and three requests.
-    assert_eq!(elements(&mut app), before + 8, "two pages, three requests and a header manager under each");
+    assert_eq!(elements(&mut app), before + 7, "two pages, three requests, one Header Manager for the headers they share and a Cookie Manager");
     let text = app.plan_text();
     for want in ["testname=\"Home\"", "testname=\"Sign in\"", "testname=\"POST /api/login\"", "testname=\"GET /api/items\"", "shop.example.com"] {
         assert!(text.contains(want), "{want}");
     }
+    assert!(text.contains("Headers for all requests") && text.contains("CookieManager"), "shared headers and the recording's cookies get one manager each");
     assert!(!text.contains("sid=secret") && !text.contains("logo.png") && !text.contains("app.js"), "cookies and static files are not brought in");
     // One undo takes it all away.
     let shell = app.shell.clone();
