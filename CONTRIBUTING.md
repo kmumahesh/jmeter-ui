@@ -28,6 +28,10 @@ Thanks for helping. This is a Rust desktop app (GPUI) that edits and runs Apache
 - No milestone names or decision numbers in code, docs or commit messages. Describe the work in plain words.
 - Commit messages: a short subject line in the imperative, then a paragraph on why.
 
+## The app icon
+
+The app has one icon: `assets/app-icon/icon.svg`. The title bar, the start screen and the About box draw it, and the build turns it into the icon of `jmeter-ui.exe` (which the window and the taskbar also use). To change the icon, replace that one file and build again. Do not add a `.ico` or a copy of the picture anywhere else; a test fails if you do. Use only artwork you drew yourself or that is free to use and redistribute with a GPL-3.0-or-later program, and say where it came from in `assets/app-icon/README.md`.
+
 ## Commits
 
 Commits should be signed (SSH or GPG). Pull requests are merged only when CI passes.
