@@ -955,3 +955,103 @@ fn palette_rows_and_the_search_box_follow_the_menu_scale(cx: &mut TestAppContext
     assert!((f32::from(second.origin.y) - f32::from(first.origin.y) - PALETTE_ROW).abs() < 1.5, "rows are one row height apart");
     app.keys("escape");
 }
+
+// ---- Left and Right between the menus ----
+
+/// Give the keyboard to the open menu, as the program does a moment after a menu opens (two frames later, which a test
+/// window does not draw by itself).
+fn focus_open_menu(app: &mut App) {
+    app.settle();
+    let open = open_menu(app);
+    let shell = app.shell.clone();
+    app.cx.update(|window, cx| {
+        let open = ["File", "Edit", "Run", "View", "Tools", "Help"].iter().position(|t| Some(*t) == open.as_deref()).expect("a menu is open");
+        let menu = shell.read(cx).menu_entities.borrow()[open].clone().and_then(|(w, _)| w.upgrade()).expect("the open menu is known");
+        let handle = gpui::Focusable::focus_handle(menu.read(cx), cx);
+        window.focus(&handle, cx);
+    });
+    app.cx.run_until_parked();
+}
+
+/// The row chosen in the open menu.
+fn selected_row(app: &mut App) -> Option<usize> {
+    let open = open_menu(app).and_then(|o| ["File", "Edit", "Run", "View", "Tools", "Help"].iter().position(|t| *t == o))?;
+    let shell = app.shell.clone();
+    app.cx.update(|_, cx| shell.read(cx).menu_entities.borrow()[open].clone().and_then(|(w, _)| w.upgrade()).and_then(|m| m.read(cx).selected_index()))
+}
+
+fn press(app: &mut App, key: &str) {
+    focus_open_menu(app);
+    app.keys(key);
+}
+
+#[gpui::test]
+fn right_and_left_move_between_the_menus_and_wrap_around(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-File");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"));
+    for want in ["Edit", "Run", "View", "Tools", "Help", "File"] {
+        press(&mut app, "right");
+        assert_eq!(open_menu(&mut app).as_deref(), Some(want), "Right opens the next menu");
+        assert_eq!(app.state()["open_menu_count"], 1, "never two menus at once");
+    }
+    for want in ["Help", "Tools", "View", "Run", "Edit", "File"] {
+        press(&mut app, "left");
+        assert_eq!(open_menu(&mut app).as_deref(), Some(want), "Left opens the previous menu (File wraps to Help)");
+    }
+    press(&mut app, "left");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Help"), "and wraps from the first to the last");
+    press(&mut app, "escape");
+    assert_eq!(open_menu(&mut app), None, "Escape still closes the menu");
+}
+
+#[gpui::test]
+fn the_arrow_keys_work_in_a_menu_opened_by_moving_over_its_title_and_with_a_row_chosen(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-File");
+    hover(&mut app, "menu-title-Run");
+    press(&mut app, "right");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("View"));
+    press(&mut app, "down");
+    press(&mut app, "left");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Run"), "also with a row chosen");
+}
+
+#[gpui::test]
+fn right_on_recent_plans_opens_its_submenu_and_left_in_it_closes_only_the_submenu(cx: &mut TestAppContext) {
+    let d = temp_dir("recent-arrows");
+    let a = plan_file(&d, "recent.jmx");
+    let settings_path = d.join("settings.json");
+    let mut s = Settings::default();
+    s.push_recent(&a.display().to_string());
+    settings::save(&settings_path, &s).unwrap();
+    let mut app = start(cx, None, Some(settings_path));
+    app.click("menu-title-File");
+    // New Plan, Open Plan, Open Results, then Recent Plans is the fourth row.
+    for _ in 0..6 {
+        if selected_row(&mut app) == Some(3) {
+            break;
+        }
+        press(&mut app, "down");
+    }
+    assert_eq!(selected_row(&mut app), Some(3), "the Recent Plans row is chosen");
+    press(&mut app, "right");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"), "Right on Recent Plans opens the submenu, not the next menu");
+    app.keys("left");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"), "Left in the submenu closes only the submenu");
+    press(&mut app, "right"); // the menu gets the keyboard back a moment later in the program; here it is given
+    assert_eq!(open_menu(&mut app).as_deref(), Some("File"));
+    app.keys("enter");
+    assert_eq!(app.tabs().len(), 1, "the submenu was open: Enter chose its first plan");
+    assert_eq!(open_menu(&mut app), None);
+}
+
+#[gpui::test]
+fn right_on_a_row_that_is_not_a_submenu_moves_to_the_next_menu(cx: &mut TestAppContext) {
+    let mut app = start(cx, None, None);
+    app.click("menu-title-File");
+    press(&mut app, "down");
+    press(&mut app, "down");
+    press(&mut app, "right");
+    assert_eq!(open_menu(&mut app).as_deref(), Some("Edit"));
+}

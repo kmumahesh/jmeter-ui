@@ -651,6 +651,33 @@ Check "clicking the link opens the JMeter download page" ($s.opened.Count -eq 1 
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "20. Left and Right between menus"
+$r = New-Run "menukeys"
+$p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark")
+[void](Wait-Until { (Get-State $r.State).setup_headline -ne $null } 20)
+for ($try = 1; $try -le 4 -and (Get-State $r.State).open_menu -ne "File"; $try++) {
+    Click-At $p 112 19        # File
+    [void](Wait-Until { (Get-State $r.State).open_menu -eq "File" } 3)
+}
+Start-Sleep -Milliseconds 600       # the menu takes the keyboard a moment after it opens
+Send-Keys "{RIGHT}"
+$ok = Wait-Until { (Get-State $r.State).open_menu -eq "Edit" } 4
+Check "Right in the File menu opens the Edit menu" $ok "open_menu = $((Get-State $r.State).open_menu)"
+Start-Sleep -Milliseconds 600
+Send-Keys "{LEFT}"
+$ok = Wait-Until { (Get-State $r.State).open_menu -eq "File" } 4
+Check "Left in the Edit menu opens the File menu again" $ok "open_menu = $((Get-State $r.State).open_menu)"
+Start-Sleep -Milliseconds 600
+Send-Keys "{LEFT}"
+$ok = Wait-Until { (Get-State $r.State).open_menu -eq "Help" } 4
+Check "Left in the first menu wraps to the last" $ok "open_menu = $((Get-State $r.State).open_menu)"
+Start-Sleep -Milliseconds 600
+Send-Keys "{ESC}"
+$ok = Wait-Until { $null -eq (Get-State $r.State).open_menu } 4
+Check "Escape closes the menu" $ok "open_menu = $((Get-State $r.State).open_menu)"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"

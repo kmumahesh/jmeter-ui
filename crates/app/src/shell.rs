@@ -173,6 +173,9 @@ pub const HEAP_SPEC: NumberSpec = NumberSpec::whole(settings::HEAP_RANGE_MB.0 as
 pub const KEEP_SPEC: NumberSpec = NumberSpec::whole(settings::RUNS_KEEP_RANGE.0 as i64, settings::RUNS_KEEP_RANGE.1 as i64);
 pub const INTERVAL_SPEC: NumberSpec = NumberSpec::whole(settings::SUMMARY_INTERVAL_RANGE.0 as i64, settings::SUMMARY_INTERVAL_RANGE.1 as i64);
 
+/// The open menu of each title and the row of its submenu, if it has one.
+pub type MenuEntities = std::rc::Rc<std::cell::RefCell<Vec<Option<(gpui::WeakEntity<ui::ContextMenu>, Option<usize>)>>>>;
+
 pub struct Shell {
     pub settings: Settings,
     pub settings_path: Option<PathBuf>,
@@ -216,6 +219,8 @@ pub struct Shell {
     pub run_label: Option<String>,
     /// The run chosen as the baseline in the History tab, for comparing.
     pub compare_base: Option<PathBuf>,
+    /// The plans whose History tab shows only pinned runs, while they are open.
+    pub history_pinned_only: Vec<PlanId>,
     pub compare: Option<crate::compare_view::CompareData>,
     pub compare_loading: bool,
     /// The request chosen in the request viewer (an index into the run's details).
@@ -239,6 +244,9 @@ pub struct Shell {
     pub(crate) _subscriptions: Vec<Subscription>,
     /// One handle for each menu in the title bar (File, Edit, ...), to know which one is open and to open another.
     pub(crate) menu_handles: Vec<ui::PopoverMenuHandle<ui::ContextMenu>>,
+    /// The open menu of each title, and the row of its Recent Plans submenu if it has one, so Left and Right know
+    /// whether they open a submenu or move to another menu.
+    pub menu_entities: MenuEntities,
 }
 
 impl EventEmitter<DismissEvent> for Shell {}
@@ -417,6 +425,7 @@ impl Shell {
             run_detail: RunDetail::Errors,
             run_label: None,
             compare_base: None,
+            history_pinned_only: Vec::new(),
             compare: None,
             compare_loading: false,
             opened: Vec::new(),
@@ -437,6 +446,7 @@ impl Shell {
             state_dump: options.state_dump.clone(),
             _subscriptions: Vec::new(),
             menu_handles: (0..crate::views::MENU_TITLES.len()).map(|_| Default::default()).collect(),
+            menu_entities: std::rc::Rc::new(std::cell::RefCell::new(vec![None; crate::views::MENU_TITLES.len()])),
         };
         // Follow the system colour mode while the choice is "system".
         let sub = window.observe_window_appearance(|_, cx| theme::system_appearance_changed(cx));
@@ -1041,7 +1051,7 @@ impl Shell {
                 }),
                 Dialog::Har { path, skip_static, group_by_page, hosts, summary, error, .. } => json!({
                     "kind": "har", "file": path.to_string_lossy(), "skip_static": skip_static, "group_by_page": group_by_page, "hosts": hosts.read(cx).text(), "error": error,
-                    "total": summary.as_ref().map(|s| s.total), "kept": summary.as_ref().map(|s| s.kept), "left_out": summary.as_ref().map(|s| s.left_out()),
+                    "total": summary.as_ref().map(|s| s.total), "kept": summary.as_ref().map(|s| s.kept), "left_out": summary.as_ref().map(|s| s.left_out()), "heads_up": summary.as_ref().map(|s| s.heads_up()),
                 }),
                 Dialog::ThinkTimes { min, max, error, .. } => json!({ "kind": "think_times", "min": min.read(cx).text(), "max": max.read(cx).text(), "error": error }),
                 Dialog::RunProps { area, error } => json!({ "kind": "run_props", "text": area.read(cx).text(), "error": error }),
@@ -1101,6 +1111,8 @@ impl Shell {
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
+            "history_pinned_only": self.history_pinned_only(),
+            "history_hidden": self.history_hidden(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,

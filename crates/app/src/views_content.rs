@@ -951,6 +951,7 @@ impl Shell {
                                         .text_size(px(12.5))
                                         .child(format!("{} request{} in the file, {} to bring in.", s.total, if s.total == 1 { "" } else { "s" }, s.kept))
                                         .when(!s.left_out().is_empty(), |d| d.child(div().text_color(p.muted).child(s.left_out())))
+                                        .when(s.kept > 0 && !s.heads_up().is_empty(), |d| d.child(div().text_color(p.muted).child(s.heads_up())))
                                         .when(!s.hosts.is_empty(), |d| d.child(div().text_color(p.muted).child(format!("Servers: {}", s.hosts.iter().take(6).map(|(h, n)| format!("{h} ({n})")).collect::<Vec<_>>().join(", "))))),
                                 )
                             })
