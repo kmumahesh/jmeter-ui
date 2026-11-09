@@ -607,6 +607,21 @@ Check "Add > setUp Thread Group in the right-click menu of the Test Plan adds it
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------
+Write-Host "18. App icon"
+$r = New-Run "appicon"
+# The icon File Explorer shows for the program: blue in the middle (the app icon), not the plain default program icon.
+$exeIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($Exe).ToBitmap()
+$mid = $exeIcon.GetPixel([int]($exeIcon.Width / 2), [int]($exeIcon.Height / 4))
+Check "the program file has the app icon" ($mid.B -gt 150 -and $mid.R -lt 120) "pixel = $mid"
+$p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
+# The window toolkit gives the window class the program's icon; the taskbar and Alt+Tab use it. GCLP_HICON = -14, GCLP_HICONSM = -34.
+$big = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -14)
+$small = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -34)
+Check "the window and the taskbar have an icon" (($big -ne [IntPtr]::Zero) -or ($small -ne [IntPtr]::Zero)) "big = $big, small = $small"
+Save-Shot $p "$($r.Dir)\title-bar-icon.png"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
 $passed = ($script:Results | Where-Object { $_.Passed }).Count
 Write-Host ""
 Write-Host "$passed of $($script:Results.Count) checks passed. Screenshots: $Out"
