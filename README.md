@@ -113,7 +113,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 93 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 97 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

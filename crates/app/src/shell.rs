@@ -173,6 +173,9 @@ pub const HEAP_SPEC: NumberSpec = NumberSpec::whole(settings::HEAP_RANGE_MB.0 as
 pub const KEEP_SPEC: NumberSpec = NumberSpec::whole(settings::RUNS_KEEP_RANGE.0 as i64, settings::RUNS_KEEP_RANGE.1 as i64);
 pub const INTERVAL_SPEC: NumberSpec = NumberSpec::whole(settings::SUMMARY_INTERVAL_RANGE.0 as i64, settings::SUMMARY_INTERVAL_RANGE.1 as i64);
 
+/// The open menu of each title and the row of its submenu, if it has one.
+pub type MenuEntities = std::rc::Rc<std::cell::RefCell<Vec<Option<(gpui::WeakEntity<ui::ContextMenu>, Option<usize>)>>>>;
+
 pub struct Shell {
     pub settings: Settings,
     pub settings_path: Option<PathBuf>,
@@ -233,6 +236,9 @@ pub struct Shell {
     pub(crate) _subscriptions: Vec<Subscription>,
     /// One handle for each menu in the title bar (File, Edit, ...), to know which one is open and to open another.
     pub(crate) menu_handles: Vec<ui::PopoverMenuHandle<ui::ContextMenu>>,
+    /// The open menu of each title, and the row of its Recent Plans submenu if it has one, so Left and Right know
+    /// whether they open a submenu or move to another menu.
+    pub menu_entities: MenuEntities,
 }
 
 impl EventEmitter<DismissEvent> for Shell {}
@@ -428,6 +434,7 @@ impl Shell {
             state_dump: options.state_dump.clone(),
             _subscriptions: Vec::new(),
             menu_handles: (0..crate::views::MENU_TITLES.len()).map(|_| Default::default()).collect(),
+            menu_entities: std::rc::Rc::new(std::cell::RefCell::new(vec![None; crate::views::MENU_TITLES.len()])),
         };
         // Follow the system colour mode while the choice is "system".
         let sub = window.observe_window_appearance(|_, cx| theme::system_appearance_changed(cx));
