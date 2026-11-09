@@ -322,7 +322,7 @@ impl Shell {
             .bg(p.panel)
             .border_b_1()
             .border_color(p.line)
-            .child(div().flex().items_center().gap(px(7.)).pl(px(12.)).pr(px(10.)).child(icon("icons/jm/zap.svg", 16., p.accent)).child(div().font_weight(FontWeight::SEMIBOLD).child("JMeter")))
+            .child(div().flex().items_center().gap(px(7.)).pl(px(12.)).pr(px(10.)).child(gpui::img(crate::assets::APP_ICON).size(px(18.)).flex_none()).child(div().font_weight(FontWeight::SEMIBOLD).child("JMeter")))
             .child(div().flex().items_center().children(menu_buttons))
             .child(div().flex_1().h_full().window_control_area(WindowControlArea::Drag))
             .child(

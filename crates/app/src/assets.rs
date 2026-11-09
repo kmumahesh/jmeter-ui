@@ -8,6 +8,7 @@ use std::borrow::Cow;
 #[derive(RustEmbed)]
 #[folder = "../../assets"]
 #[include = "icons/**/*.svg"]
+#[include = "app-icon/*.svg"]
 #[include = "fonts/**/*.ttf"]
 pub struct Assets;
 
@@ -32,6 +33,10 @@ pub fn load_fonts(cx: &App) -> Result<()> {
     cx.text_system().add_fonts(fonts)?;
     Ok(())
 }
+
+/// The one app icon, drawn in the title bar. The build makes the icon of `jmeter-ui.exe` from the same file
+/// (`build.rs`), so the icon is changed in this one place.
+pub const APP_ICON: &str = "app-icon/icon.svg";
 
 pub const UI_FONT: &str = "IBM Plex Sans";
 pub const MONO_FONT: &str = "Lilex";

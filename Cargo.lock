@@ -2564,6 +2564,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "embed-resource",
  "gpui",
  "gpui_platform",
  "jmx-model",
@@ -2571,6 +2572,7 @@ dependencies = [
  "menu",
  "plan-core",
  "raw-window-handle",
+ "resvg",
  "rust-embed",
  "serde_json",
  "shell-core",

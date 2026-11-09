@@ -40,7 +40,7 @@ impl Shell {
             .items_center()
             .pt(px(70.))
             .gap(px(14.))
-            .child(icon("icons/jm/zap.svg", 44., p.accent))
+            .child(gpui::img(crate::assets::APP_ICON).size(px(56.)).flex_none())
             .child(div().text_size(px(24.)).font_weight(FontWeight::SEMIBOLD).child("JMeter UI"))
             .child(div().text_color(p.muted).child("Open a test plan to see its elements, or press Ctrl+K for every command."))
             .child(
@@ -645,7 +645,7 @@ impl Shell {
                     .rounded(px(10.))
                     .shadow_lg()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(div().flex().items_center().gap(px(10.)).child(icon("icons/jm/zap.svg", 28., p.accent)).child(div().text_size(px(20.)).font_weight(FontWeight::SEMIBOLD).child("JMeter UI")))
+                    .child(div().flex().items_center().gap(px(10.)).child(gpui::img(crate::assets::APP_ICON).size(px(36.)).flex_none()).child(div().text_size(px(20.)).font_weight(FontWeight::SEMIBOLD).child("JMeter UI")))
                     .child(div().text_color(p.muted).child(format!("Version {}", env!("CARGO_PKG_VERSION"))))
                     .child(div().child("A desktop front end for Apache JMeter. It edits test plans and runs JMeter in non-GUI mode."))
                     .child(div().text_size(px(12.)).text_color(p.muted).child("Licensed under the GNU General Public License, version 3 or later. Built with GPUI and components from Zed."))
