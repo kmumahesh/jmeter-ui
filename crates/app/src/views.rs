@@ -59,6 +59,10 @@ impl Render for Shell {
             .on_mouse_move(cx.listener(Self::on_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up));
+        // Left and Right in an open menu: capture them before the menu does, so they can move to the next or the previous menu.
+        let root = root
+            .capture_action(cx.listener(|this, _: &menu::SelectChild, window, cx| this.menu_arrow(true, window, cx)))
+            .capture_action(cx.listener(|this, _: &menu::SelectParent, window, cx| this.menu_arrow(false, window, cx)));
         let root = self.attach_actions(root, cx);
         root.child(self.titlebar(window, cx))
             .child(body)
@@ -141,6 +145,30 @@ impl Shell {
         }
         // The menu is built from the shell's state, so it is opened once this update has finished.
         window.defer(cx, move |window, cx| me.show(window, cx));
+        cx.notify();
+    }
+}
+
+impl Shell {
+    /// Right or Left was pressed in an open menu. In the menu itself they move to the next or the previous menu, wrapping
+    /// around; Right on the Recent Plans row opens that submenu, and in a submenu Left closes only the submenu (the menu's
+    /// own keys do both, so nothing is done here for those).
+    pub fn menu_arrow(&mut self, right: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.menu_handles.iter().position(|h| h.is_deployed()) else { return };
+        let Some((weak, submenu_row)) = self.menu_entities.borrow().get(open).cloned().flatten() else { return };
+        let Some(menu) = weak.upgrade() else { return };
+        let menu = menu.read(cx);
+        let in_the_menu = gpui::Focusable::focus_handle(menu, cx).is_focused(window);
+        if !in_the_menu || (right && submenu_row.is_some() && menu.selected_index() == submenu_row) {
+            return;
+        }
+        let n = self.menu_handles.len();
+        let target = if right { (open + 1) % n } else { (open + n - 1) % n };
+        cx.stop_propagation();
+        self.menu_handles[open].hide(cx);
+        let next = self.menu_handles[target].clone();
+        // The menu is built from the shell's state, so it is opened once this update has finished.
+        window.defer(cx, move |window, cx| next.show(window, cx));
         cx.notify();
     }
 }
@@ -230,6 +258,7 @@ impl Shell {
         let menu_buttons = menus.into_iter().enumerate().map(|(index, (label, items))| {
             debug_assert_eq!(label, MENU_TITLES[index]);
             let handle = self.menu_handles[index].clone();
+            let entities = self.menu_entities.clone();
             let shell = shell.clone();
             let items = Rc::new(items);
             let popover = PopoverMenu::new(label)
@@ -238,7 +267,9 @@ impl Shell {
                 .menu(move |window, cx| {
                     let shell = shell.clone();
                     let items = items.clone();
-                    Some(ContextMenu::build(window, cx, move |mut menu, _, cx| {
+                    let entities = entities.clone();
+                    let has_submenu_row = items.iter().position(|i| matches!(i, MenuItem::Recent)).filter(|_| !shell.read(cx).settings.recent_files.is_empty() && !shell_core::menus::recent_entries(&shell.read(cx).settings.recent_files, shell_core::settings::MAX_RECENT, |p| std::path::Path::new(p).exists()).is_empty());
+                    let built = ContextMenu::build(window, cx, move |mut menu, _, cx| {
                         let ctx = shell.read(cx).context();
                         let recents = shell.read(cx).settings.recent_files.clone();
                         for item in items.iter() {
@@ -285,7 +316,11 @@ impl Shell {
                             }
                         }
                         menu
-                    }))
+                    });
+                    if let Some(slot) = entities.borrow_mut().get_mut(index) {
+                        *slot = Some((built.downgrade(), has_submenu_row));
+                    }
+                    Some(built)
                 })
                 .trigger(Button::new(gpui::SharedString::from(format!("menu-trigger-{label}")), label).style(ButtonStyle::Subtle).size(ButtonSize::Compact));
             div()
