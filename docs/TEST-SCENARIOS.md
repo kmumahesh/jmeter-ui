@@ -1208,18 +1208,21 @@ These run the real window without a screen, driving it with simulated keys, clic
 951. The comparison is copied as csv with the worst first. — `the_comparison_is_copied_as_csv_with_the_worst_first`
 952. A run whose results are gone says so and the window keeps working. — `a_run_whose_results_are_gone_says_so_and_the_window_keeps_working`
 953. Two big runs are compared quickly. — `two_big_runs_are_compared_quickly`
+954. Pinned only shows the pinned runs and says how many are hidden. — `pinned_only_shows_the_pinned_runs_and_says_how_many_are_hidden`
+955. Pinned only with no pinned runs explains and with all pinned hides nothing. — `pinned_only_with_no_pinned_runs_explains_and_with_all_pinned_hides_nothing`
+956. Pinned only does not hide the run being viewed. — `pinned_only_does_not_hide_the_run_being_viewed`
 
 ### Starting the app: the release program is a window program and opens no terminal window
 
 *crates/app/tests/subsystem.rs*
 
-954. Reads window and console programs. — `reads_window_and_console_programs`
-955. Damaged headers give nothing and never panic. — `damaged_headers_give_nothing_and_never_panic`
-956. The release program is a window program. — `the_release_program_is_a_window_program`
-957. Script accepts a window program. — `script_accepts_a_window_program`
-958. Script rejects a console program. — `script_rejects_a_console_program`
-959. Script rejects a file that is not a program. — `script_rejects_a_file_that_is_not_a_program`
-960. The debug build is a console program. — `the_debug_build_is_a_console_program`
+957. Reads window and console programs. — `reads_window_and_console_programs`
+958. Damaged headers give nothing and never panic. — `damaged_headers_give_nothing_and_never_panic`
+959. The release program is a window program. — `the_release_program_is_a_window_program`
+960. Script accepts a window program. — `script_accepts_a_window_program`
+961. Script rejects a console program. — `script_rejects_a_console_program`
+962. Script rejects a file that is not a program. — `script_rejects_a_file_that_is_not_a_program`
+963. The debug build is a console program. — `the_debug_build_is_a_console_program`
 
 ## 3. Real-window checks
 
@@ -1228,152 +1231,152 @@ These start the built app, drive it with real mouse and keyboard input, and read
 
 ### 1. Open a plan, select by mouse, navigate by keyboard
 
-961. Plan loads. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-962. Tree shows 15 rows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-963. Clicking a row selects it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-964. And the editor shows it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-965. Without opening a tab. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-966. Down moves the selection and the editor follows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
-967. End selects the last row. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+964. Plan loads. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+965. Tree shows 15 rows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+966. Clicking a row selects it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+967. And the editor shows it. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+968. Without opening a tab. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+969. Down moves the selection and the editor follows. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
+970. End selects the last row. — `smoke.ps1`, section "1. Open a plan, select by mouse, navigate by keyboard"
 
 ### 2. Command palette
 
-968. Ctrl+K opens the palette. — `smoke.ps1`, section "2. Command palette"
-969. Typing filters commands. — `smoke.ps1`, section "2. Command palette"
-970. Escape closes it. — `smoke.ps1`, section "2. Command palette"
-971. Go to element selects it. — `smoke.ps1`, section "2. Command palette"
-972. And the editor shows it, still in one tab. — `smoke.ps1`, section "2. Command palette"
+971. Ctrl+K opens the palette. — `smoke.ps1`, section "2. Command palette"
+972. Typing filters commands. — `smoke.ps1`, section "2. Command palette"
+973. Escape closes it. — `smoke.ps1`, section "2. Command palette"
+974. Go to element selects it. — `smoke.ps1`, section "2. Command palette"
+975. And the editor shows it, still in one tab. — `smoke.ps1`, section "2. Command palette"
 
 ### 3. Inspector
 
-973. The inspector starts hidden. — `smoke.ps1`, section "3. Inspector"
-974. Ctrl+Alt+B shows it. — `smoke.ps1`, section "3. Inspector"
-975. An empty title bar click changes nothing. — `smoke.ps1`, section "3. Inspector"
+976. The inspector starts hidden. — `smoke.ps1`, section "3. Inspector"
+977. Ctrl+Alt+B shows it. — `smoke.ps1`, section "3. Inspector"
+978. An empty title bar click changes nothing. — `smoke.ps1`, section "3. Inspector"
 
 ### 4. Menus
 
-976. Moving over a menu title opens nothing while no menu is open. — `smoke.ps1`, section "4. Menus"
-977. With File open, moving over Edit opens Edit. — `smoke.ps1`, section "4. Menus"
-978. Escape closes the menu that was opened by moving over it. — `smoke.ps1`, section "4. Menus"
-979. Ctrl+J shows the results panel. — `smoke.ps1`, section "4. Menus"
-980. Ctrl+B hides the test plan panel. — `smoke.ps1`, section "4. Menus"
+979. Moving over a menu title opens nothing while no menu is open. — `smoke.ps1`, section "4. Menus"
+980. With File open, moving over Edit opens Edit. — `smoke.ps1`, section "4. Menus"
+981. Escape closes the menu that was opened by moving over it. — `smoke.ps1`, section "4. Menus"
+982. Ctrl+J shows the results panel. — `smoke.ps1`, section "4. Menus"
+983. Ctrl+B hides the test plan panel. — `smoke.ps1`, section "4. Menus"
 
 ### 5. Themes
 
-981. Light theme applies. — `smoke.ps1`, section "5. Themes"
-982. Dark theme applies. — `smoke.ps1`, section "5. Themes"
+984. Light theme applies. — `smoke.ps1`, section "5. Themes"
+985. Dark theme applies. — `smoke.ps1`, section "5. Themes"
 
 ### 6. Resizing a panel and remembering it
 
-983. Dragging the handle widens the panel. — `smoke.ps1`, section "6. Resizing a panel and remembering it"
+986. Dragging the handle widens the panel. — `smoke.ps1`, section "6. Resizing a panel and remembering it"
 
 ### 7. Window controls and remembered size
 
-984. Maximize fills the screen. — `smoke.ps1`, section "7. Window controls and remembered size"
-985. Close button ends the app. — `smoke.ps1`, section "7. Window controls and remembered size"
-986. Window state is saved. — `smoke.ps1`, section "7. Window controls and remembered size"
+987. Maximize fills the screen. — `smoke.ps1`, section "7. Window controls and remembered size"
+988. Close button ends the app. — `smoke.ps1`, section "7. Window controls and remembered size"
+989. Window state is saved. — `smoke.ps1`, section "7. Window controls and remembered size"
 
 ### 8. Settings tab and drop-down
 
-987. Ctrl+, opens settings. — `smoke.ps1`, section "8. Settings tab and drop-down"
-988. Choosing from the drop-down with the keyboard saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
-989. Choosing with the mouse saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
-990. An invalid heap size is rejected. — `smoke.ps1`, section "8. Settings tab and drop-down"
-991. A valid heap size is saved. — `smoke.ps1`, section "8. Settings tab and drop-down"
+990. Ctrl+, opens settings. — `smoke.ps1`, section "8. Settings tab and drop-down"
+991. Choosing from the drop-down with the keyboard saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
+992. Choosing with the mouse saves it. — `smoke.ps1`, section "8. Settings tab and drop-down"
+993. An invalid heap size is rejected. — `smoke.ps1`, section "8. Settings tab and drop-down"
+994. A valid heap size is saved. — `smoke.ps1`, section "8. Settings tab and drop-down"
 
 ### 9. Open dialog
 
-992. Ctrl+O opens a file dialog and loads the chosen plan. — `smoke.ps1`, section "9. Open dialog"
-993. A second plan gets its own tab. — `smoke.ps1`, section "9. Open dialog"
-994. And the tree shows the second plan. — `smoke.ps1`, section "9. Open dialog"
-995. Ctrl+Tab switches back to the first plan. — `smoke.ps1`, section "9. Open dialog"
+995. Ctrl+O opens a file dialog and loads the chosen plan. — `smoke.ps1`, section "9. Open dialog"
+996. A second plan gets its own tab. — `smoke.ps1`, section "9. Open dialog"
+997. And the tree shows the second plan. — `smoke.ps1`, section "9. Open dialog"
+998. Ctrl+Tab switches back to the first plan. — `smoke.ps1`, section "9. Open dialog"
 
 ### 10. Editing: forms, add, delete, undo, drag, save, recovery
 
-996. Go to element shows its form. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-997. Typing in a box and pressing Enter changes the plan. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-998. Clicking a checkbox is another change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-999. Ctrl+Z undoes the last change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1000. Ctrl+S saves. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1001. The file keeps its original formatting elsewhere. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1002. Adding from the palette selects the new element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1003. Delete removes the selected element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1004. And undo brings it back. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1005. Dragging a row onto another moves the element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1006. A recovery copy is written next to the plan after a pause. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1007. Opening the plan again offers the unsaved work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1008. Recovering brings the changes back, unsaved. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1009. Closing the window with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1010. Cancel keeps the app open with the work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1011. Quitting with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1012. Don't Save quits. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
-1013. And removes the recovery copy. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+999. Go to element shows its form. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1000. Typing in a box and pressing Enter changes the plan. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1001. Clicking a checkbox is another change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1002. Ctrl+Z undoes the last change. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1003. Ctrl+S saves. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1004. The file keeps its original formatting elsewhere. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1005. Adding from the palette selects the new element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1006. Delete removes the selected element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1007. And undo brings it back. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1008. Dragging a row onto another moves the element. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1009. A recovery copy is written next to the plan after a pause. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1010. Opening the plan again offers the unsaved work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1011. Recovering brings the changes back, unsaved. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1012. Closing the window with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1013. Cancel keeps the app open with the work. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1014. Quitting with unsaved changes asks first. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1015. Don't Save quits. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
+1016. And removes the recovery copy. — `smoke.ps1`, section "10. Editing: forms, add, delete, undo, drag, save, recovery"
 
 ### 11. Running: F5, live numbers, history, Validate, Send once
 
-1014. Java and JMeter are found in the background. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1015. F5 starts the run and opens the lower panel on the Run tab. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1016. The run finishes. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1017. All 12 samples were counted, 6 of them errors. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1018. The plan file was not changed by the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1019. The run has its own folder inside runs next to the plan. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1020. With results, log, the plan as run and run.json. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1021. The history lists the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1022. The six failed requests were kept with what was sent and received. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1023. Ctrl+Shift+R opens the request viewer on the first failure. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1024. It shows the request that was sent and the answer that came back. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1025. The Down key moves to the next request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1026. Ctrl+Shift+T opens the expression dialog with the response of the chosen request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1027. The real JMeter libraries answer, and say that the text is not JSON. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1028. Escape closes the dialog. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1029. Ctrl+F5 validates: one user once, so each request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1030. F6 sends the selected request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1031. All three runs are in the history. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
-1032. Ctrl+Shift+H makes the HTML report with JMeter's generator and opens its page. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1017. Java and JMeter are found in the background. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1018. F5 starts the run and opens the lower panel on the Run tab. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1019. The run finishes. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1020. All 12 samples were counted, 6 of them errors. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1021. The plan file was not changed by the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1022. The run has its own folder inside runs next to the plan. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1023. With results, log, the plan as run and run.json. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1024. The history lists the run. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1025. The six failed requests were kept with what was sent and received. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1026. Ctrl+Shift+R opens the request viewer on the first failure. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1027. It shows the request that was sent and the answer that came back. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1028. The Down key moves to the next request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1029. Ctrl+Shift+T opens the expression dialog with the response of the chosen request. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1030. The real JMeter libraries answer, and say that the text is not JSON. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1031. Escape closes the dialog. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1032. Ctrl+F5 validates: one user once, so each request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1033. F6 sends the selected request once. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1034. All three runs are in the history. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
+1035. Ctrl+Shift+H makes the HTML report with JMeter's generator and opens its page. — `smoke.ps1`, section "11. Running: F5, live numbers, history, Validate, Send once"
 
 ### 12. New plan
 
-1033. Cancelling the New Plan question makes no plan. — `smoke.ps1`, section "12. New plan"
-1034. Ctrl+N asks for a name, then opens an empty plan with that name, already saved. — `smoke.ps1`, section "12. New plan"
-1035. The new plan is a file where it was saved. — `smoke.ps1`, section "12. New plan"
+1036. Cancelling the New Plan question makes no plan. — `smoke.ps1`, section "12. New plan"
+1037. Ctrl+N asks for a name, then opens an empty plan with that name, already saved. — `smoke.ps1`, section "12. New plan"
+1038. The new plan is a file where it was saved. — `smoke.ps1`, section "12. New plan"
 
 ### 13. Text area for a script
 
-1036. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
-1037. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
-1038. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
-1039. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
+1039. The script element is selected. — `smoke.ps1`, section "13. Text area for a script"
+1040. Typing in the area marks the plan as changed. — `smoke.ps1`, section "13. Text area for a script"
+1041. The saved script keeps its lines. — `smoke.ps1`, section "13. Text area for a script"
+1042. And nothing is left to save. — `smoke.ps1`, section "13. Text area for a script"
 
 ### 14. Copy and paste of elements
 
-1040. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
-1041. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
-1042. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
-1043. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
+1043. A request is selected in the tree. — `smoke.ps1`, section "14. Copy and paste of elements"
+1044. Ctrl+C then Ctrl+V adds a copy with what is under it. — `smoke.ps1`, section "14. Copy and paste of elements"
+1045. One Ctrl+Z takes the whole paste away. — `smoke.ps1`, section "14. Copy and paste of elements"
+1046. Ctrl+X removes the element. — `smoke.ps1`, section "14. Copy and paste of elements"
 
 ### 15. Import from cURL
 
-1044. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
-1045. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
+1047. Ctrl+Shift+I opens the cURL dialog. — `smoke.ps1`, section "15. Import from cURL"
+1048. Typing goes into the dialog's text area. — `smoke.ps1`, section "15. Import from cURL"
 
 ### 16. Run properties
 
-1046. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
-1047. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
-1048. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
+1049. Ctrl+Shift+J opens the run properties dialog. — `smoke.ps1`, section "16. Run properties"
+1050. Typing goes into the properties box. — `smoke.ps1`, section "16. Run properties"
+1051. Escape closes it without saving. — `smoke.ps1`, section "16. Run properties"
 
 ### 17. Add from the right-click menu
 
-1049. Add > setUp Thread Group in the right-click menu of the Test Plan adds it. — `smoke.ps1`, section "17. Add from the right-click menu"
+1052. Add > setUp Thread Group in the right-click menu of the Test Plan adds it. — `smoke.ps1`, section "17. Add from the right-click menu"
 
 ### 18. App icon
 
-1050. The program file has the app icon. — `smoke.ps1`, section "18. App icon"
-1051. The window and the taskbar have an icon. — `smoke.ps1`, section "18. App icon"
+1053. The program file has the app icon. — `smoke.ps1`, section "18. App icon"
+1054. The window and the taskbar have an icon. — `smoke.ps1`, section "18. App icon"
 
 ### 19. Welcome screen links
 
-1052. A JMeter that is not there is explained, with two download links. — `smoke.ps1`, section "19. Welcome screen links"
-1053. Clicking the link opens the JMeter download page. — `smoke.ps1`, section "19. Welcome screen links"
+1055. A JMeter that is not there is explained, with two download links. — `smoke.ps1`, section "19. Welcome screen links"
+1056. Clicking the link opens the JMeter download page. — `smoke.ps1`, section "19. Welcome screen links"
 
-Total scenarios listed: 1053.
+Total scenarios listed: 1056.

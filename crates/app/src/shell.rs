@@ -210,6 +210,8 @@ pub struct Shell {
     pub run_label: Option<String>,
     /// The run chosen as the baseline in the History tab, for comparing.
     pub compare_base: Option<PathBuf>,
+    /// The plans whose History tab shows only pinned runs, while they are open.
+    pub history_pinned_only: Vec<PlanId>,
     pub compare: Option<crate::compare_view::CompareData>,
     pub compare_loading: bool,
     /// The request chosen in the request viewer (an index into the run's details).
@@ -411,6 +413,7 @@ impl Shell {
             run_detail: RunDetail::Errors,
             run_label: None,
             compare_base: None,
+            history_pinned_only: Vec::new(),
             compare: None,
             compare_loading: false,
             opened: Vec::new(),
@@ -1091,6 +1094,8 @@ impl Shell {
             "open_menu": self.menu_handles.iter().position(|h| h.is_deployed()).map(|i| crate::views::MENU_TITLES[i]),
             "open_menu_count": self.menu_handles.iter().filter(|h| h.is_deployed()).count(),
             "history": self.history.iter().map(|e| json!({ "dir": e.dir.to_string_lossy(), "kind": e.meta.kind.label(), "outcome": e.meta.outcome.label(), "samples": e.meta.samples, "pinned": e.meta.pinned })).collect::<Vec<_>>(),
+            "history_pinned_only": self.history_pinned_only(),
+            "history_hidden": self.history_hidden(),
             "bottom_tab": format!("{:?}", self.bottom_tab),
             "runs_place": format!("{:?}", self.runs_place()),
             "runs_keep": self.settings.runs_keep,

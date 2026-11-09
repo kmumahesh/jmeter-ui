@@ -1798,3 +1798,73 @@ fn two_big_runs_are_compared_quickly(cx: &mut TestAppContext) {
     assert!(t.elapsed() < Duration::from_secs(30), "{:?}", t.elapsed());
     assert!(!app.has("cmp-row-300"), "the table lists a limited number of rows");
 }
+
+// ---- the "Pinned only" filter ----
+
+fn rows_shown(app: &mut App) -> usize {
+    ["history-row-0", "history-row-1", "history-row-2", "history-row-3"].into_iter().filter(|s| app.has(s)).count()
+}
+
+#[gpui::test]
+fn pinned_only_shows_the_pinned_runs_and_says_how_many_are_hidden(cx: &mut TestAppContext) {
+    let s = setup("pin-filter", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let _a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    let b = stored_run(&root, &s.plan, 2, 3, Outcome::Finished);
+    let _c = stored_run(&root, &s.plan, 3, 3, Outcome::Finished);
+    runs::set_pinned(&b, true).unwrap();
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    assert!(app.has("history-pinned-only"));
+    assert_eq!((rows_shown(&mut app), app.state()["history_pinned_only"].clone(), app.state()["history_hidden"].clone()), (3, false.into(), 0.into()));
+    assert!(!app.has("history-hidden"), "nothing is said while the filter is off");
+    app.click("history-pinned-only");
+    assert_eq!((rows_shown(&mut app), app.state()["history_pinned_only"].clone(), app.state()["history_hidden"].clone()), (1, true.into(), 2.into()));
+    assert!(app.has("history-hidden"));
+    // It is remembered while the tab is left and comes back.
+    app.click("bottom-problems");
+    app.click("bottom-history");
+    assert_eq!(rows_shown(&mut app), 1);
+    // Unpinning the only shown run hides it and leaves a sentence, not an empty list.
+    app.click("history-pin-1");
+    assert_eq!((rows_shown(&mut app), app.state()["history_hidden"].clone()), (0, 3.into()));
+    assert!(app.has("history-no-pinned"));
+    app.click("history-pinned-only");
+    assert_eq!((rows_shown(&mut app), app.state()["history_pinned_only"].clone()), (3, false.into()));
+}
+
+#[gpui::test]
+fn pinned_only_with_no_pinned_runs_explains_and_with_all_pinned_hides_nothing(cx: &mut TestAppContext) {
+    let s = setup("pin-filter-edges", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    let b = stored_run(&root, &s.plan, 2, 3, Outcome::Finished);
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-pinned-only");
+    assert_eq!((rows_shown(&mut app), app.state()["history_hidden"].clone()), (0, 2.into()));
+    assert!(app.has("history-no-pinned"), "an empty list says why");
+    runs::set_pinned(&a, true).unwrap();
+    runs::set_pinned(&b, true).unwrap();
+    app.cx.update(|_, cx| app.shell.update(cx, |s, _| s.refresh_history()));
+    assert_eq!((rows_shown(&mut app), app.state()["history_hidden"].clone()), (2, 0.into()));
+    assert!(!app.has("history-no-pinned"));
+}
+
+#[gpui::test]
+fn pinned_only_does_not_hide_the_run_being_viewed(cx: &mut TestAppContext) {
+    let s = setup("pin-filter-viewed", &shop_plan(1, 1, 1), None, |_| {});
+    let root = s.dir.join("runs");
+    let _a = stored_run(&root, &s.plan, 1, 3, Outcome::Finished);
+    let b = stored_run(&root, &s.plan, 2, 3, Outcome::Finished);
+    runs::set_pinned(&b, true).unwrap();
+    let mut app = open(cx, &s, false);
+    app.keys("ctrl-j");
+    app.click("bottom-history");
+    app.click("history-row-1"); // the older, unpinned run is shown in the panel
+    app.click("bottom-history");
+    app.click("history-pinned-only");
+    assert_eq!((rows_shown(&mut app), app.state()["history_hidden"].clone()), (2, 0.into()), "the run being viewed stays in the list");
+}

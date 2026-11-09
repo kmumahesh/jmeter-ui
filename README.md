@@ -42,7 +42,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Run a plan in non-GUI mode with F5: it asks to save first and runs the saved file; stop it gracefully, at once, or by force | ✅ |
 | Validate a plan (one user, once, no timers) and send one selected request once | ✅ |
 | Live results while running: samples, throughput, average and 95th percentile, errors, users, charts, failed requests and a table per request | ✅ |
-| Run history: every run in its own folder under `runs`, next to the `.jmx` or in a chosen folder, the last 10 kept per plan, earlier runs viewable again, a command to clear the shared folder, and a Pin button that keeps a run so neither the limit nor clearing removes it | ✅ |
+| Run history: every run in its own folder under `runs`, next to the `.jmx` or in a chosen folder, the last 10 kept per plan, earlier runs viewable again, a command to clear the shared folder, a Pin button that keeps a run so neither the limit nor clearing removes it, and a "Pinned only" button that shows just the pinned runs (a baseline is easy to find among many), says how many runs it hides and never hides the run you are looking at | ✅ |
 | Warning before the first run of a plan that contains scripts (asked once per plan file) | ✅ |
 | Safe running: nothing typed anywhere can be added to the JMeter command line, the stop port answers this machine only, JMeter never outlives the app (even after a crash), runaway output and hostile result files are bounded | ✅ |
 | Safe with hostile files: plans are read without ever fetching or reading other files, absurd nesting and sizes are refused, text typed into any box stays text, saving never writes to a file it should not | ✅ |
