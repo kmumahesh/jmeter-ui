@@ -623,7 +623,11 @@ $p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", 
 $s = Get-State $r.State
 Check "a JMeter that is not there is explained, with two download links" ($s.setup_headline -eq "JMeter was not found" -and $s.setup_links.Count -eq 2) "headline = $($s.setup_headline), links = $($s.setup_links.Count)"
 Save-Shot $p "$($r.Dir)\welcome-links.png"
-Click-At $p 654 476        # Apache JMeter downloads
+# The first click on a window that was not in front can only bring it forward, so click again until the page is recorded.
+for ($try = 1; $try -le 3 -and @((Get-State $r.State).opened).Count -eq 0; $try++) {
+    Click-At $p 654 476        # Apache JMeter downloads
+    [void](Wait-Until { @((Get-State $r.State).opened).Count -ge 1 } 3)
+}
 $s = Get-State $r.State
 Check "clicking the link opens the JMeter download page" ($s.opened.Count -eq 1 -and $s.opened[0] -eq "https://jmeter.apache.org/download_jmeter.cgi") "opened = $($s.opened -join ', ')"
 Stop-Ui $p
