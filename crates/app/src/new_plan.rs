@@ -1,4 +1,4 @@
-//! Starting a new plan: File > New Plan makes an empty plan in a file and opens it, ready to edit and run.
+//! Starting a new plan: File > New Plan asks where to save it, writes an empty plan there and opens it, ready to edit and run.
 
 use crate::shell::{Severity, Shell};
 use gpui::{Context, Window};
@@ -7,15 +7,25 @@ use plan_core::starters::{self, Starter};
 use std::path::{Path, PathBuf};
 
 impl Shell {
-    /// File > New Plan: make an empty plan in a file of its own and open it, with no question. The file is named
-    /// "New plan.jmx" (then "New plan 2.jmx" and so on) in the folder of the plan being edited, else the folder of the
-    /// last plan opened, else the user's home folder. Save As moves it where the user wants.
-    pub fn new_empty_plan(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let path = unique_new_plan_path(&self.new_plan_folder());
-        self.create_plan_at(Starter::Empty, &path, window, cx)
+    /// File > New Plan: ask where to save the new plan and what to call it, then save an empty plan there and open it.
+    /// The question starts in the folder of the plan being edited, else the folder of the last plan opened, else the
+    /// user's home folder, with "New plan.jmx" (then "New plan 2.jmx" and so on) filled in. Cancelling makes nothing.
+    pub fn new_plan(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let dir = self.new_plan_folder();
+        let suggested = unique_new_plan_path(&dir).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "New plan.jmx".to_string());
+        let pick = crate::file_dialog::save(window, cx, crate::file_dialog::Kind::Plan, &dir, &suggested);
+        cx.spawn_in(window, async move |this, cx| {
+            if let Some(path) = pick.await {
+                this.update_in(cx, |this, window, cx| {
+                    this.create_plan_at(Starter::Empty, &path, window, cx);
+                })
+                .ok();
+            }
+        })
+        .detach();
     }
 
-    /// Where a plan made without a file question starts: next to the plan being edited, else next to the last plan opened,
+    /// Where the question for a new plan starts: next to the plan being edited, else next to the last plan opened,
     /// else the user's home folder.
     pub fn new_plan_folder(&self) -> PathBuf {
         let beside_plan = self.plan().and_then(|lp| lp.path.parent().map(Path::to_path_buf));
