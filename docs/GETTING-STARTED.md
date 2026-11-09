@@ -31,7 +31,7 @@ You do not need to start JMeter yourself or set up any environment variable.
 The welcome screen checks for Java and JMeter and tells you what it found:
 
 - **Ready to run: Java 21 · JMeter 5.6.3** means you are set.
-- **Java was not found** or **JMeter was not found** shows what to do. Install it, or press *Open Settings* and choose the JMeter folder (the one that contains `bin`) and, if needed, `java.exe`. Press *Check again*.
+- **Java was not found** or **JMeter was not found** shows what to do, with a link that opens the download page in your browser. A Java runtime (JRE) of version 17 or newer is enough; you do not need the full JDK. For JMeter, download the binary `.zip` and unpack it. Press *Check again*. If the app still does not find it, press *Open Settings* and choose the JMeter folder (the one that contains `bin`) and, if needed, `java.exe`.
 
 ## Make and run your first test
 

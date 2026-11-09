@@ -587,16 +587,16 @@ $r = New-Run "addmenu"
 $p = Start-Ui $Exe @($plan, "--settings", $r.Settings, "--state", $r.State, "--theme", "dark", "--no-detect")
 $before = (Get-State $r.State).elements
 # On a slow machine the menu can take a moment to open, so a try that adds nothing closes the menu and tries again.
-for ($try = 1; $try -le 3 -and (Get-State $r.State).elements -eq $before; $try++) {
+for ($try = 1; $try -le 5 -and (Get-State $r.State).elements -eq $before; $try++) {
     Click-At $p 150 (Row-Y 3)                 # something else is selected first
     RightClick-At $p 150 (Row-Y 0)           # the Test Plan
     Start-Sleep -Milliseconds 900
     $w = Get-WindowRect $p
     # Point at Add the way a hand does: it opens its list when the pointer rests on it (a click is not needed).
-    foreach ($i in 1..6) { [void][UiNative]::SetCursorPos($w.L + 200 + [int](30 * $i / 6), $w.T + 140 - [int](37 * $i / 6)); Start-Sleep -Milliseconds 80 }
+    foreach ($i in 1..6) { [void][UiNative]::SetCursorPos($w.L + 200 + [int](30 * $i / 6), $w.T + 140 - [int](37 * $i / 6)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 80 }
     Start-Sleep -Milliseconds 1200
     # Travel to the row the way a hand does, in a straight line across the list, not along its edge.
-    foreach ($i in 1..10) { [void][UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); Start-Sleep -Milliseconds 60 }
+    foreach ($i in 1..10) { [void][UiNative]::SetCursorPos($w.L + 240 + [int](185 * $i / 10), $w.T + 103 + [int](74 * $i / 10)); [UiNative]::Nudge(); Start-Sleep -Milliseconds 60 }
     Start-Sleep -Milliseconds 400
     Save-Shot $p "$($r.Dir)\add-menu-$try.png"
     [UiNative]::Click($w.L + 425, $w.T + 177); Start-Sleep -Milliseconds 900   # setUp Thread Group
@@ -619,6 +619,25 @@ $big = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -14)
 $small = [UiNative]::GetClassLongPtr($p.MainWindowHandle, -34)
 Check "the window and the taskbar have an icon" (($big -ne [IntPtr]::Zero) -or ($small -ne [IntPtr]::Zero)) "big = $big, small = $small"
 Save-Shot $p "$($r.Dir)\title-bar-icon.png"
+Stop-Ui $p
+
+# ---------------------------------------------------------------------------------------------
+Write-Host "19. Welcome screen links"
+$r = New-Run "welcomelinks"
+# A JMeter folder that is not there: the welcome screen says JMeter was not found and offers the download pages.
+Set-Content -Path $r.Settings -Value '{"jmeter_home":"C:/no-such-folder/jmeter"}'
+$p = Start-Ui $Exe @("--settings", $r.Settings, "--state", $r.State, "--theme", "dark")
+[void](Wait-Until { (Get-State $r.State).setup_headline -ne $null } 20)
+$s = Get-State $r.State
+Check "a JMeter that is not there is explained, with two download links" ($s.setup_headline -eq "JMeter was not found" -and $s.setup_links.Count -eq 2) "headline = $($s.setup_headline), links = $($s.setup_links.Count)"
+Save-Shot $p "$($r.Dir)\welcome-links.png"
+# The first click on a window that was not in front can only bring it forward, so click again until the page is recorded.
+for ($try = 1; $try -le 3 -and @((Get-State $r.State).opened).Count -eq 0; $try++) {
+    Click-At $p 654 488        # Apache JMeter downloads
+    [void](Wait-Until { @((Get-State $r.State).opened).Count -ge 1 } 3)
+}
+$s = Get-State $r.State
+Check "clicking the link opens the JMeter download page" ($s.opened.Count -eq 1 -and $s.opened[0] -eq "https://jmeter.apache.org/download_jmeter.cgi") "opened = $($s.opened -join ', ')"
 Stop-Ui $p
 
 # ---------------------------------------------------------------------------------------------

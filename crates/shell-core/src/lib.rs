@@ -9,4 +9,5 @@ pub mod menus;
 pub mod number;
 pub mod palette;
 pub mod settings;
+pub mod setup_help;
 pub mod text_buffer;

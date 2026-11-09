@@ -60,7 +60,7 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | HTML report (Ctrl+Shift+H or the *Make report* button): made with JMeter's own report generator from the results of the run you are looking at, in the run folder (or next to a results file you opened), and opened in the browser; asking again opens the same report | ✅ |
 | Compare two runs (History tab: *Compare* on the baseline, then on the run to check): each request side by side with its average, 95th percentile, errors and rate, how much each changed, and a verdict (worse, better, same, new, gone) with the worst first; copy as CSV. A change counts only when it is large in share and in milliseconds | ✅ |
 | Record by importing a HAR file (File > Import from HAR File): save a visit from your browser's developer tools (Network tab, Save all as HAR) and every request becomes an HTTP Request, with a Transaction Controller for each page. It works with no plan open (a new plan named after the file is made and opened) and with a plan that has no Thread Group (one is added). Images, styles, scripts, fonts and preflight checks are left out unless you ask for them, cookies are not copied, and you can choose servers. Works for HTTPS without a proxy or a certificate; a recording of 1,500 requests is added in about 6 seconds | ✅ |
-| First start: the welcome screen says whether Java and JMeter are found and what to do when one is not, Java and an unpacked JMeter are found by themselves in the usual places (see "Where the app looks for Java and JMeter"), and a Getting started page comes in the download | ✅ |
+| First start: the welcome screen says whether Java and JMeter are found and what to do when one is not (with links that open the Java and JMeter download pages, and a note that a Java runtime is enough), Java and an unpacked JMeter are found by themselves in the usual places (see "Where the app looks for Java and JMeter"), and a Getting started page comes in the download | ✅ |
 | Try an expression (Ctrl+Shift+T, or Tools): type a JSON Path, regular expression, XPath or CSS selector and some text, for example a response from the request viewer, and see what JMeter's own libraries find in it. An extractor you have selected fills in its own expression. Stops after 30 seconds (Java starting on a busy machine can take a while), which also shows an expression that is too slow | ✅ |
 | Variable values after a run: the request viewer lists the variables of the thread as they were after each request, so you can see what an extractor took | ✅ |
 | Run properties (Run > Run Properties, Ctrl+Shift+J): `name=value` lines kept for each plan and given to every run, check and single request, so the plan can read them with `${__P(name)}`; they can be loaded from a `.properties` file; the run header names them without showing values | ✅ |
@@ -113,7 +113,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 | Area | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
 | Build and automated tests (about 900, including runs of the real JMeter) | ✅ | ✅ | ✅ |
-| The 91 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
+| The 93 real-window checks that drive the actual window | ✅ | ⬜ | ⬜ |
 | Used by hand | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app crashes | ✅ | ⬜ | ⬜ |
 | JMeter ended when the app closes normally | ✅ | ✅ | ✅ |

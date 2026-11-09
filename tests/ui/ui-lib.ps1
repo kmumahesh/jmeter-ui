@@ -17,6 +17,8 @@ public class UiNative {
   public static void RightClick(int x, int y) { SetCursorPos(x, y); mouse_event(8,0,0,0,UIntPtr.Zero); mouse_event(16,0,0,0,UIntPtr.Zero); }
   public static void Down(int x, int y) { SetCursorPos(x, y); mouse_event(2,0,0,0,UIntPtr.Zero); }
   public static void Up() { mouse_event(4,0,0,0,UIntPtr.Zero); }
+  // A small real mouse movement: the program only sees the pointer rest on something after it has been moved, and a jump by SetCursorPos alone is sometimes not seen on a build machine.
+  public static void Nudge() { mouse_event(1,1,0,0,UIntPtr.Zero); mouse_event(1,unchecked((uint)-1),0,0,UIntPtr.Zero); }
 }
 "@
 }
