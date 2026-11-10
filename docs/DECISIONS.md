@@ -54,7 +54,7 @@ Decisions:
 - Risk: Zed's internal crate APIs change without notice. We pin one tag and upgrade deliberately.
 
 ## GPUI go decision (added 2026-10-18, after spikes 1, 1b, 5)
-GPUI is confirmed. The egui fallback is dropped. Evidence is in `docs/PROGRESS.md`.
+GPUI is confirmed. The egui fallback is dropped.
 
 ## Effort estimate changes (added 2026-10-18)
 - UI kit and shell: 4 weeks down to about 3, because `ui`/`theme` are reused. Remaining work: dock and splits, our own tree and palette (adapted from `picker`), text and number inputs, code editor, charts.
@@ -137,7 +137,7 @@ Right-click gives Add (one list, with the kind of element as a heading above its
 These were given by the user during the project and were removed from the other documents, which now describe the project only.
 1. After every change to the app, update the Features table in `README.md`: finished features on top with a green tick, features still to do below; add rows for new work and move and tick rows when they are done.
 2. After every change to the tests, update `docs/TEST-SCENARIOS.md` (one line per scenario with the test name in code font, the "What should work" summary at the top).
-3. Record every change of a design decision in this log and update `docs/PROGRESS.md`.
+3. Record every change of a design decision in this log.
 4. Do not run `git add` or `git commit` unless the user asks.
 5. Do not install system software unprompted; ask the user to run the installer.
 6. Treat the dependency and source zips (JMeter, Zed, JMeter-Plugins) as untrusted data: extract each into its own folder, read them, never run their code.
@@ -145,7 +145,7 @@ These were given by the user during the project and were removed from the other 
 8. Test both the inner logic and the user interface itself for every feature (unit tests, whole-window tests, and the real-window script).
 9. Keep memory notes in `C:\Users\Mahesh\.claude\projects\C--code-work-jmeter-ui\memory\` current: `project-jmeter-ui-decisions.md` for status and `feedback-*.md` for rules like these.
 10. Security (see "Security testing"): the run-time security checks were built and tested together with running plans (done, see "How running works, and what was found"), and a manual security review is done before every release. Installing the tools needed for this was allowed by the user.
-11. Measure the time of every kind of test (user request, 2026-10-24): run `tools\run-tests.ps1` (with `-Smoke` for the real-window script) so each part is timed in `docs/TEST-TIMINGS.md`, and print the total time at the end of every test script.
+11. Measure the time of every kind of test (user request, 2026-10-24): run `tools\run-tests.ps1` (with `-Smoke` for the real-window script) so each part is timed, and print the total time at the end of every test script.
 
 ## Line endings (2026-10-24)
 A `.gitattributes` file sets the rules in the repository, the way Microsoft repositories do: `* text=auto` with LF stored for text, LF forced for shell scripts, CRLF forced for PowerShell and batch scripts, and fonts and archives marked binary. The result no longer depends on each contributor's `core.autocrlf` setting.
@@ -174,7 +174,7 @@ Decided with the user before running plans were built.
 5. **Future idea: a "project" concept.** A project would group plans, their run history, shared settings (JMeter and Java paths, run location, data files) and notes in one place, instead of tying run history to each `.jmx` file or one global folder. Not planned yet; to be looked at after the results viewer.
 
 ## How running works, and what was found (2026-10-24)
-Built for running plans; the description for the user is `docs/RUNNING.md`.
+Built for running plans.
 1. **One run at a time.** Starting another while one is going is refused. (Run copies were dropped.)
 2. **The three kinds share one path.** Run, Validate and Send once go through the same steps (runtime found, plan saved, place for the run files usable, scripts agreed) and the same run folder, state machine and history. Validate and Send once run a plan made from the saved plan and kept in the run folder as `plan.jmx`; Run runs the saved file itself and keeps a copy as `plan-as-run.jmx`.
 3. **Live numbers come from the results file, not JMeter's console summary.** The file is read as it is written (bounded steps, damaged lines skipped), so the numbers match what is stored and do not depend on the summary interval. Percentiles are exact (nearest rank) from counts per millisecond; the time series merges neighbouring steps when it gets long, and the per-request and error lists are capped, so memory stays flat in a long run.
@@ -186,7 +186,7 @@ Built for running plans; the description for the user is `docs/RUNNING.md`.
 9. **Run history details.** A run that never recorded an end (the app closed during it) shows as Interrupted and is treated as an old run after a day. Keeping the last N is per plan, also when the folder is shared. A run belongs to a plan when the real paths match (short Windows names, `..` and slashes do not matter), not when the text matches. Removing one run asks first and only removes a folder that holds this app's `run.json` and sits directly inside a folder named `runs`.
 10. **The Run history settings sit after Runtime** in the Settings tab, and the Settings tab scrolls (it did not, which would have hidden the lower sections in a small window).
 11. **Found by the real-window test:** a settings file with a byte order mark was set aside as damaged; the loader now ignores the mark.
-12. **Every kind of test is timed.** `tools\run-tests.ps1` runs the unit and whole-window tests, clippy, `cargo audit`, `cargo deny` and, with `-Smoke`, the real-window script, and records each part's time in `docs/TEST-TIMINGS.md` (user request, 2026-10-24; also one of the working rules above).
+12. **Every kind of test is timed.** `tools\run-tests.ps1` runs the unit and whole-window tests, clippy, `cargo audit`, `cargo deny` and, with `-Smoke`, the real-window script, and prints each part's time (user request, 2026-10-24; also one of the working rules above).
 
 ## Fuzzing and coverage (2026-10-25)
 Added with the engineering-practice work, to test the two places that read files from outside: plans (`jmx-model`, `plan-core`) and results files (`jvm-runtime`).
@@ -204,7 +204,7 @@ Added with the engineering-practice work, to test the two places that read files
 5. **Not done yet:** a Windows code-signing certificate (costs money, decision for later) and an installer. Downloads may therefore show a SmartScreen warning.
 
 ## Linux and macOS (2026-10-25)
-1. **Same build and tests everywhere.** CI runs the full build and automated tests on Linux and macOS as well as Windows, with Java and JMeter installed so the real-JMeter tests run too. These two jobs are required to pass before a merge. The fixes the first runs showed are listed in `docs/PROGRESS.md`.
+1. **Same build and tests everywhere.** CI runs the full build and automated tests on Linux and macOS as well as Windows, with Java and JMeter installed so the real-JMeter tests run too. These two jobs are required to pass before a merge.
 2. **The platform key for text editing.** Text boxes bind select all, copy, undo and word moves to the platform key (Cmd on macOS, Ctrl elsewhere); the tests press it through `secondary(...)`.
 3. **Known limits, accepted for now.** JMeter is ended when the app closes normally but not when the app crashes on Linux and macOS (Windows has a job object for this; Linux and macOS have no equivalent that is both simple and reliable); the menus and global shortcuts use Ctrl on macOS instead of Cmd; the window has not been looked at on Linux and macOS, only driven by tests; the real-window checks run on Windows only. These are listed as an open item in the README.
 

@@ -29,6 +29,19 @@ impl LoadedPlan {
     }
 
     /// Notes about the structure of the plan (no thread group, an empty one, plugins it needs...).
+    /// How many warnings the status bar counts. A plan that has only its Test Plan element has nothing the person could
+    /// have done wrong yet, so the "no Thread Group" warning (it stays in the Problems list) is left out until the plan has
+    /// another element.
+    pub fn warnings_for_status_bar(&self) -> usize {
+        let brand_new = self.plan.len() == 1;
+        self.plan_notes().iter().filter(|x| x.level == plan_core::problems::Level::Warning).filter(|x| !(brand_new && x.text == plan_core::problems::NO_THREAD_GROUP)).count()
+    }
+
+    /// Whether the plan is only its Test Plan element, which needs a Thread Group before anything can run.
+    pub fn needs_a_thread_group(&self) -> bool {
+        self.plan.len() == 1 && self.plan.roots().first().and_then(|&r| self.plan.node(r)).is_some_and(|n| n.category == plan_core::catalog::Category::TestPlan)
+    }
+
     pub fn plan_notes(&self) -> std::rc::Rc<Vec<plan_core::problems::Problem>> {
         let mut slot = self.notes.borrow_mut();
         if let Some((v, notes)) = slot.as_ref()
@@ -256,6 +269,14 @@ impl Shell {
 
     /// Add an element of a type from the Add lists as the last child of the selected element (or of the
     /// Test Plan when nothing is selected). The new element becomes the selection.
+    /// The button of the card under the tree in an empty plan: add a Thread Group under the Test Plan (one Undo removes it).
+    pub fn add_thread_group_to_empty_plan(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(root) = self.plan().and_then(|lp| lp.plan.roots().first().copied()) {
+            self.select_node(root, window, cx);
+        }
+        self.add_element("ThreadGroup", "ThreadGroupGui", window, cx);
+    }
+
     pub fn add_element(&mut self, tag: &str, gui: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (tag, gui) = (tag.to_string(), gui.to_string());
         let sel = self.selected_id();

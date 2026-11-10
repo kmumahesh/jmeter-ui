@@ -18,12 +18,15 @@ pub struct Problem {
     pub node: Option<NodeId>,
 }
 
+/// The warning for a plan that has no Thread Group.
+pub const NO_THREAD_GROUP: &str = "The plan has no Thread Group, so nothing will run";
+
 /// Check a plan. Warnings come first, then notes; each group keeps plan order.
 pub fn check(plan: &Plan) -> Vec<Problem> {
     let mut out = Vec::new();
     let groups: Vec<_> = plan.iter().filter(|n| n.category == Category::ThreadGroup).collect();
     if !plan.is_empty() && groups.is_empty() {
-        out.push(Problem { level: Level::Warning, text: "The plan has no Thread Group, so nothing will run".into(), node: plan.roots().first().copied() });
+        out.push(Problem { level: Level::Warning, text: NO_THREAD_GROUP.into(), node: plan.roots().first().copied() });
     }
     for g in &groups {
         let has_requests = descendants(plan, g.id).any(|n| matches!(n.category, Category::Sampler));

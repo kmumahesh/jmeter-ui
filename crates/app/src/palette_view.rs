@@ -101,13 +101,13 @@ impl Palette {
         let last = self.results.len() as isize - 1;
         self.selected = (self.selected as isize + delta).clamp(0, last) as usize;
         self.message = None;
-        self.scroll_to_selected();
+        self.scroll_to_selected(cx);
         cx.notify();
     }
 
-    fn scroll_to_selected(&self) {
-        // Children of the list are group headers and items, so find the selected item's child index.
-        let mut child = 0;
+    fn scroll_to_selected(&self, cx: &App) {
+        // Children of the list are group headers and items (after the hint row, when nothing is typed), so find the selected item's child index.
+        let mut child = usize::from(self.query(cx).trim().is_empty());
         let mut last_group: Option<&str> = None;
         for (i, r) in self.results.iter().enumerate() {
             if last_group != Some(r.item.group.as_str()) {
@@ -214,6 +214,25 @@ impl Render for Palette {
                     .when_some(r.item.shortcut, |d, s| {
                         d.child(div().px(px(6.)).rounded(px(3.)).border_1().border_color(p.line).text_size(px(10.5)).font_family(crate::assets::MONO_FONT).text_color(p.muted).child(shell_core::actions::platform_shortcut(s, cfg!(target_os = "macos"))))
                     })
+                    .into_any_element(),
+            );
+        }
+        // With nothing typed, the first row says how to add an element from this box.
+        if self.query(cx).trim().is_empty() {
+            rows.insert(
+                0,
+                div()
+                    .id("palette-hint")
+                    .debug_selector(|| "palette-hint".to_string())
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .px(px(14.))
+                    .py(px(8.))
+                    .text_size(px(crate::theme::scale::PALETTE_DETAIL_TEXT))
+                    .text_color(p.muted)
+                    .child(icon("icons/plus.svg", 13., p.muted))
+                    .child(palette::ADD_HINT)
                     .into_any_element(),
             );
         }

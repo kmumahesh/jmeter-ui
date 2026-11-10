@@ -365,7 +365,9 @@ impl Shell {
                 div()
                     .id("palette-trigger")
                     .debug_selector(|| "palette-trigger".to_string())
-                    .w(px(380.))
+                    .w(px(440.))
+                    .min_w(px(200.))
+                    .flex_shrink(1.)
                     .flex()
                     .items_center()
                     .gap(px(8.))
@@ -381,7 +383,15 @@ impl Shell {
                     .hover(|d| d.border_color(p.accent))
                     .on_click(cx.listener(|this, _, window, cx| this.perform(Action::CommandPalette, window, cx)))
                     .child(icon("icons/magnifying_glass.svg", 14., p.muted))
-                    .child("Search commands and elements")
+                    .child(
+                        div()
+                            .id("palette-trigger-box")
+                            .debug_selector(|| "palette-trigger-box".to_string())
+                            .flex_1()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .child(div().id("palette-trigger-text").debug_selector(|| "palette-trigger-text".to_string()).whitespace_nowrap().child(shell_core::palette::SEARCH_HINT)),
+                    )
                     .child(div().ml_auto().px(px(5.)).rounded(px(3.)).border_1().border_color(p.line).text_size(px(10.5)).font_family(MONO_FONT).child("Ctrl K")),
             )
             .child(div().flex_1().h_full().window_control_area(WindowControlArea::Drag))
@@ -519,7 +529,8 @@ impl Shell {
             Some(lp) => {
                 let rows = Rc::new(lp.tree.rows(&lp.plan));
                 let count = rows.len();
-                div()
+                let first_steps = lp.needs_a_thread_group();
+                let tree = div()
                     .id("tree")
                     .key_context("Tree")
                     .track_focus(&self.tree_focus)
@@ -541,7 +552,14 @@ impl Shell {
                         }))
                         .track_scroll(&self.tree_scroll)
                         .size_full(),
-                    )
+                    );
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .child(tree)
+                    .when(first_steps, |d| d.child(self.first_steps_card(&p, cx)))
                     .into_any_element()
             }
             None => div()
@@ -560,6 +578,27 @@ impl Shell {
                 .into_any_element(),
         };
         div().flex_none().w(px(self.workspace.sidebar.size)).h_full().flex().flex_col().bg(p.panel).child(header).child(body)
+    }
+
+    /// Shown under the tree while the plan is only its Test Plan: what to do next, and a button that does it.
+    fn first_steps_card(&self, p: &theme::Palette, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("first-steps")
+            .debug_selector(|| "first-steps".to_string())
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .m(px(10.))
+            .p(px(12.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(p.line)
+            .bg(p.raise)
+            .text_size(px(12.5))
+            .child(div().font_weight(FontWeight::SEMIBOLD).text_color(p.fg).child("Add a Thread Group to start"))
+            .child(div().text_color(p.muted).child("Right-click an element and choose Add, or press Ctrl+K and type + and a name."))
+            .child(div().flex().child(div().debug_selector(|| "add-thread-group".to_string()).child(crate::ui_util::primary_button("add-thread-group", "Add Thread Group", p, cx.listener(|this, _, window, cx| this.add_thread_group_to_empty_plan(window, cx))))))
     }
 
     fn tree_row(&self, row: &plan_core::Row, index: usize, cx: &mut Context<Self>) -> AnyElement {

@@ -14,3 +14,8 @@ docs/guide/demo/runs/
 fuzz/target/
 fuzz/artifacts/
 lcov.info
+
+# Internal notes (kept locally, not tracked)
+docs/PROGRESS.md
+docs/RUNNING.md
+docs/TEST-TIMINGS.md
