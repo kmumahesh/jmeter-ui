@@ -1028,6 +1028,8 @@ impl Shell {
         json!({
             "plan": plan,
             "elements": self.plan().map(|lp| lp.plan.len()).unwrap_or(0),
+            "status_elements": self.plan().map(|lp| crate::views_content::elements_label(lp.plan.len())),
+            "status_warnings": self.plan().map(|lp| lp.warnings_for_status_bar()).unwrap_or(0),
             "open_plans": self.plans.iter().map(|p| p.name()).collect::<Vec<_>>(),
             "visible_rows": rows,
             "selected": selected,

@@ -17,6 +17,11 @@ const MAX_PROBLEM_ROWS: usize = 100;
 
 use shell_core::setup_help;
 
+/// "1 element" or "N elements".
+pub fn elements_label(n: usize) -> String {
+    if n == 1 { "1 element".to_string() } else { format!("{n} elements") }
+}
+
 impl Shell {
     pub(crate) fn tab_content(&self, tab: &Tab, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match tab.kind {
@@ -168,7 +173,7 @@ impl Shell {
                     .gap(px(8.))
                     .children(summary.by_category.iter().filter(|(c, _)| !matches!(c, Category::TestPlan)).map(|(c, n)| chip(format!("{n} {}", if *n == 1 { c.label().to_string() } else { c.plural().to_string() }), p.category(*c)))),
             )
-            .child(div().text_color(p.muted).child(format!("{} elements in total.", summary.total)))
+            .child(div().text_color(p.muted).child(format!("{} in total.", elements_label(summary.total))))
             .into_any_element()
     }
 
@@ -596,7 +601,7 @@ impl Shell {
 
     pub(crate) fn status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(cx);
-        let warnings = self.plan().map(|lp| lp.plan_notes().iter().filter(|x| x.level == Level::Warning).count()).unwrap_or(0);
+        let warnings = self.plan().map(|lp| lp.warnings_for_status_bar()).unwrap_or(0);
         let left = match (&self.notice, &self.run) {
             (Some(n), _) => format!("{} {}", if n.severity == Severity::Error { "\u{26a0}" } else { "\u{25cf}" }, n.text),
             (None, Some(r)) if r.phase.active() => format!("\u{25b6} {} {}: {} samples, {}", r.kind.label(), r.phase.label().to_lowercase(), crate::views_run::thousands(r.live.total().count), crate::views_run::clock(r.elapsed().as_secs())),
@@ -619,7 +624,7 @@ impl Shell {
             .text_color(p.on_accent)
             .text_size(px(11.5))
             .child(div().max_w(px(520.)).overflow_hidden().whitespace_nowrap().child(left))
-            .when_some(self.plan(), |d, lp| d.child(div().child(format!("{} \u{b7} {} elements", lp.name(), lp.plan.len()))))
+            .when_some(self.plan(), |d, lp| d.child(div().child(format!("{} \u{b7} {}", lp.name(), elements_label(lp.plan.len())))))
             .when(warnings > 0, |d| d.child(div().child(format!("{warnings} warning{}", if warnings == 1 { "" } else { "s" }))))
             .child(div().ml_auto().child(runtime))
     }
@@ -1037,5 +1042,17 @@ mod tests {
         assert_eq!(short_java(r#"openjdk version "21.0.8" 2025-07-15 LTS"#), "Java 21.0.8");
         assert_eq!(short_java(r#"java version "1.8.0_391""#), "Java 1.8.0_391");
         assert_eq!(short_java("weird"), "weird");
+    }
+}
+
+#[cfg(test)]
+mod element_label_tests {
+    use super::elements_label;
+
+    #[test]
+    fn one_element_is_singular_and_the_rest_plural() {
+        assert_eq!(elements_label(0), "0 elements");
+        assert_eq!(elements_label(1), "1 element");
+        assert_eq!(elements_label(2), "2 elements");
     }
 }

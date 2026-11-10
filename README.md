@@ -4,7 +4,7 @@ A desktop front end for Apache JMeter written in Rust with GPUI. It edits `.jmx`
 
 New here? Start with [Getting started](docs/GETTING-STARTED.md): from the download to your first test run in about ten minutes.
 
-Status: version 0.1.0 is out as a [test version](https://github.com/kmumahesh/jmeter-ui/releases/tag/v0.1.0) for performance engineers on Windows, for HTTP and HTTPS web and API testing: build and edit plans, run them, watch results live, look at what was sent and received, compare runs and make reports. See `docs/PROGRESS.md`, `docs/DECISIONS.md` and, for running plans and run history, `docs/RUNNING.md`.
+Status: version 0.1.0 is out as a [test version](https://github.com/kmumahesh/jmeter-ui/releases/tag/v0.1.0) for performance engineers on Windows, for HTTP and HTTPS web and API testing: build and edit plans, run them, watch results live, look at what was sent and received, compare runs and make reports. See `docs/DECISIONS.md` for the design decisions.
 
 Guide: `docs/guide/index.html` (open it in a browser) explains how Apache JMeter is used and how this app compares, step by step.
 
@@ -24,7 +24,8 @@ This app replaces the JMeter UI only; the test engine is the real JMeter, starte
 | Questions (Save changes?, Add to Plan, Clear Runs and so on) work from the keyboard: the default button has the keyboard when the question opens, Tab and Shift+Tab move between the buttons and stay in the question, the button that has the keyboard shows a ring that stands out in the dark and the light theme, Enter presses it and Escape cancels | ✅ |
 | One app icon, drawn for this project and free to use under the project licence: it is the icon of `jmeter-ui.exe` in File Explorer, of the window and the taskbar, and it shows in the title bar, on the start screen and in About; it lives in one file, so changing that file changes it everywhere | ✅ |
 | Editor that follows the tree selection (one tab per plan, no tab per element) | ✅ |
-| Command palette: commands, go to element, add element, recent plans | ✅ |
+| Command palette: commands, go to element, add element, recent plans; the search box says how to add an element (type +) and the palette shows an example while it is empty | ✅ |
+| A new plan with only its Test Plan shows an "Add a Thread Group to start" card with a button, and no warning in the status bar until the plan has another element | ✅ |
 | Edit every element in a form (hand-made for about 40 element types, generated from the saved settings for the rest) | ✅ |
 | Edit tables: HTTP parameters, headers, user defined variables, assertion patterns | ✅ |
 | Add any element JMeter offers in its Add menus (127 types), following JMeter's rules for what fits where | ✅ |
@@ -134,7 +135,7 @@ The app builds and passes all automated tests on Windows, Linux and macOS for ev
 
 ## Test
     cargo test --workspace --exclude gpui-spike --exclude zed-ui-spike
-    powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1 [-Smoke]    # everything, with each part timed in docs\TEST-TIMINGS.md
+    powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1 [-Smoke]    # everything, with each part timed
     powershell -ExecutionPolicy Bypass -File tests\ui\smoke.ps1      # real-window test; build first with cargo build -p jmeter-ui
 
 Dependency checks (install once with `cargo install --locked cargo-audit cargo-deny`):

@@ -35,8 +35,8 @@ The welcome screen checks for Java and JMeter and tells you what it found:
 
 ## Make and run your first test
 
-1. Press **Ctrl+N**, type a name for your plan (for example `my first test`) and press **Save**. An empty plan opens.
-2. Right-click the plan at the top of the tree on the left and choose **Add > Thread Group**. Then right-click the thread group and choose **Add > HTTP Request Defaults**. Select it and type the server you want to test (for example `api.example.com`) in **Server name or IP**. Change **Protocol** to `http` if it is not HTTPS.
+1. Press **Ctrl+N**, type a name for your plan (for example `my first test`) and press **Save**. An empty plan opens, and a card under the tree says **Add a Thread Group to start**.
+2. Press **Add Thread Group** on that card, or right-click the plan at the top of the tree on the left and choose **Add > Thread Group**. (You can also press **Ctrl+K**, type `+` and a name, for example `+thread group`, and press Enter.) The card goes away once the plan has a Thread Group. Then right-click the thread group and choose **Add > HTTP Request Defaults**. Select it and type the server you want to test (for example `api.example.com`) in **Server name or IP**. Change **Protocol** to `http` if it is not HTTPS.
 3. Right-click the thread group again and choose **Add > HTTP Request**. Set **Path** to a real path on that server.
 4. Press **F5**. The lower panel shows the run: users, requests per second, average and 95th percentile response time, errors, and live charts.
 5. When it finishes, the run is kept in the **History** tab, in a `runs` folder next to your plan.
@@ -80,7 +80,7 @@ The welcome screen checks for Java and JMeter and tells you what it found:
 
 ## Keyboard shortcuts
 
-Press **Ctrl+K** for every command with its shortcut. The ones you will use most:
+Press **Ctrl+K** for every command with its shortcut. The box in the title bar says *Search commands and elements, or type + to add one*: start with `+` to add an element, for example `+debug sampler`, with `>` to list only commands, or with `@` to go to an element. The ones you will use most:
 
 | Key | What it does |
 |---|---|

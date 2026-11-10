@@ -17,6 +17,12 @@ pub enum Mode {
     Add,
 }
 
+/// What the search box in the title bar and the box in the command palette say while they are empty.
+pub const SEARCH_HINT: &str = "Search commands and elements, or type + to add one";
+
+/// The first row of the palette while nothing is typed: how to add an element from the box.
+pub const ADD_HINT: &str = "Type + and a name to add an element, for example +debug sampler";
+
 impl Mode {
     pub fn prefix(self) -> &'static str {
         match self {
@@ -29,7 +35,7 @@ impl Mode {
 
     pub fn placeholder(self) -> &'static str {
         match self {
-            Mode::Everything => "Search commands and elements. Type > for commands, @ for elements, + to add.",
+            Mode::Everything => SEARCH_HINT,
             Mode::Commands => "Run a command",
             Mode::Elements => "Go to element",
             Mode::Add => "Add element under the selection",
